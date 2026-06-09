@@ -11,6 +11,9 @@ const letters = [
   "わ", "を", "ん",
 ];
 
+const REQUIRED_CORRECT = 5;
+const NEXT_LETTER_DELAY_MS = 520;
+
 const speechReadings = {
   "亜": "あ",
   "1": "い", "一": "い",
@@ -140,7 +143,7 @@ function shuffleLetters() {
 }
 
 function startListening() {
-  if (!recognition || listening || correct >= 10) return;
+  if (!recognition || listening || correct >= REQUIRED_CORRECT) return;
   listening = true;
   answered = false;
   answerButton.disabled = true;
@@ -172,15 +175,15 @@ function checkAnswer(transcript) {
     correct += 1;
     correctCount.textContent = correct;
     showFeedback("せいかい！", "good");
-    if (correct >= 10) {
-      setTimeout(showComplete, 800);
+    if (correct >= REQUIRED_CORRECT) {
+      setTimeout(showComplete, NEXT_LETTER_DELAY_MS);
       return;
     }
   } else {
     showFeedback("ざんねん！", "bad");
   }
 
-  setTimeout(pickLetter, 950);
+  setTimeout(pickLetter, NEXT_LETTER_DELAY_MS);
 }
 
 function handleTranscript(transcript) {

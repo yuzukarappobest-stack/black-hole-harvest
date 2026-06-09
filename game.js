@@ -10,7 +10,7 @@ const resultMessageEl = document.getElementById("resultMessage");
 const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 
-const ROUND_SECONDS = 60;
+const ROUND_SECONDS = 30;
 const START_HOLE_RADIUS = 26;
 const MAX_HOLE_RADIUS = 66;
 const CELESTIALS = [

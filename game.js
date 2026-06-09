@@ -433,7 +433,9 @@ canvas.addEventListener("pointercancel", () => {
 
 window.addEventListener("resize", resize);
 startButton.addEventListener("click", startGame);
-restartButton.addEventListener("click", startGame);
+restartButton.addEventListener("click", () => {
+  window.location.href = "hiragana.html";
+});
 
 resize();
 draw();

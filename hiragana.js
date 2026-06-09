@@ -13,6 +13,7 @@ const letters = [
 
 const speechReadings = {
   "亜": "あ",
+  "1": "い", "一": "い",
   "胃": "い", "井": "い", "位": "い",
   "鵜": "う", "卯": "う",
   "絵": "え", "江": "え",
@@ -33,28 +34,35 @@ const speechReadings = {
   "手": "て",
   "戸": "と",
   "名": "な", "菜": "な",
+  "7": "な", "七": "な",
   "二": "に", "荷": "に",
+  "2": "に",
   "縫": "ぬ",
   "根": "ね", "音": "ね",
   "野": "の",
   "歯": "は", "葉": "は",
+  "8": "は", "八": "は",
   "日": "ひ", "火": "ひ",
   "府": "ふ", "負": "ふ",
   "屁": "へ", "辺": "へ",
   "穂": "ほ", "帆": "ほ",
   "間": "ま", "真": "ま",
   "身": "み", "実": "み", "美": "み",
+  "3": "み", "三": "み",
   "無": "む", "夢": "む",
   "目": "め", "芽": "め",
   "藻": "も",
   "矢": "や", "屋": "や",
   "湯": "ゆ", "油": "ゆ",
   "世": "よ", "夜": "よ",
+  "4": "しよ", "四": "しよ",
   "等": "ら", "羅": "ら",
   "利": "り", "理": "り",
   "留": "る", "流": "る",
   "例": "れ", "礼": "れ",
   "炉": "ろ", "路": "ろ",
+  "6": "ろ", "六": "ろ",
+  "9": "く", "九": "く",
   "輪": "わ", "和": "わ",
   "を": "を",
   "ん": "ん",
@@ -76,19 +84,23 @@ let currentLetter = "";
 let correct = 0;
 let listening = false;
 let letterQueue = [];
+let answered = false;
 
 if (SpeechRecognition) {
   recognition = new SpeechRecognition();
   recognition.lang = "ja-JP";
-  recognition.interimResults = false;
+  recognition.interimResults = true;
   recognition.maxAlternatives = 4;
 
   recognition.addEventListener("result", (event) => {
-    const transcript = Array.from(event.results[0])
-      .map((result) => result.transcript)
-      .join(" ");
-    heardText.textContent = transcript || "ききとれませんでした";
-    checkAnswer(transcript);
+    const transcripts = [];
+    for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      for (let j = 0; j < event.results[i].length; j += 1) {
+        transcripts.push(event.results[i][j].transcript);
+      }
+    }
+    const transcript = transcripts.join(" ");
+    handleTranscript(transcript);
   });
 
   recognition.addEventListener("error", () => {
@@ -130,6 +142,7 @@ function shuffleLetters() {
 function startListening() {
   if (!recognition || listening || correct >= 10) return;
   listening = true;
+  answered = false;
   answerButton.disabled = true;
   answerButton.textContent = "きいてるよ";
   showFeedback("どうぞ", "");
@@ -147,8 +160,13 @@ function stopListening() {
 }
 
 function checkAnswer(transcript) {
-  const firstReading = getFirstReading(transcript);
-  const isCorrect = firstReading === currentLetter;
+  if (answered) return;
+  answered = true;
+  if (recognition && listening) {
+    recognition.stop();
+  }
+  const firstReading = getFirstReadingCandidates(transcript);
+  const isCorrect = firstReading.includes(currentLetter);
 
   if (isCorrect) {
     correct += 1;
@@ -163,6 +181,13 @@ function checkAnswer(transcript) {
   }
 
   setTimeout(pickLetter, 950);
+}
+
+function handleTranscript(transcript) {
+  const heard = transcript.trim();
+  if (!heard || answered) return;
+  heardText.textContent = heard;
+  checkAnswer(heard);
 }
 
 function normalizeKana(text) {
@@ -181,8 +206,13 @@ function collectReadings(text) {
   return readings;
 }
 
-function getFirstReading(text) {
-  return collectReadings(text).charAt(0);
+function getFirstReadingCandidates(text) {
+  const normalizedText = text.normalize("NFKC");
+  for (const char of normalizedText) {
+    const reading = getCharReading(char);
+    if (reading) return reading;
+  }
+  return "";
 }
 
 function getCharReading(char) {

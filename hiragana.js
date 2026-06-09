@@ -75,7 +75,7 @@ let recognition = null;
 let currentLetter = "";
 let correct = 0;
 let listening = false;
-let lastLetter = "";
+let letterQueue = [];
 
 if (SpeechRecognition) {
   recognition = new SpeechRecognition();
@@ -107,16 +107,22 @@ if (SpeechRecognition) {
 }
 
 function pickLetter() {
-  let next = letters[Math.floor(Math.random() * letters.length)];
-  if (letters.length > 1) {
-    while (next === lastLetter) {
-      next = letters[Math.floor(Math.random() * letters.length)];
-    }
+  if (letterQueue.length === 0) {
+    letterQueue = shuffleLetters();
   }
-  lastLetter = next;
+  const next = letterQueue.pop();
   currentLetter = next;
   letterCard.textContent = currentLetter;
   showFeedback(" ", "");
+}
+
+function shuffleLetters() {
+  const shuffled = [...letters];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
 }
 
 function startListening() {
@@ -139,9 +145,8 @@ function stopListening() {
 }
 
 function checkAnswer(transcript) {
-  const normalized = normalizeKana(transcript);
-  const readings = collectReadings(transcript);
-  const isCorrect = normalized.includes(currentLetter) || readings.includes(currentLetter);
+  const firstReading = getFirstReading(transcript);
+  const isCorrect = firstReading === currentLetter;
 
   if (isCorrect) {
     correct += 1;
@@ -167,11 +172,20 @@ function normalizeKana(text) {
 
 function collectReadings(text) {
   const normalizedText = text.normalize("NFKC");
-  let readings = normalizeKana(normalizedText);
+  let readings = "";
   for (const char of normalizedText) {
-    readings += speechReadings[char] || "";
+    readings += getCharReading(char);
   }
   return readings;
+}
+
+function getFirstReading(text) {
+  return collectReadings(text).charAt(0);
+}
+
+function getCharReading(char) {
+  const kana = normalizeKana(char);
+  return kana || speechReadings[char] || "";
 }
 
 function showFeedback(text, type) {
@@ -185,6 +199,7 @@ function showComplete() {
 
 function resetLesson() {
   correct = 0;
+  letterQueue = [];
   correctCount.textContent = correct;
   heardText.textContent = "まだありません";
   completePanel.classList.add("hidden");

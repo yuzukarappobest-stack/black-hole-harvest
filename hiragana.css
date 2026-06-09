@@ -52,6 +52,10 @@ body {
   gap: 10px;
 }
 
+.topbar.single {
+  justify-content: center;
+}
+
 .topbar div,
 .topbar a {
   display: inline-flex;

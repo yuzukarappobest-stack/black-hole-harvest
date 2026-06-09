@@ -11,13 +11,15 @@ const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 
 const ROUND_SECONDS = 60;
+const START_HOLE_RADIUS = 26;
+const MAX_HOLE_RADIUS = 66;
 const CELESTIALS = [
-  { name: "小惑星", points: 1, radius: 11, color: "#9a958a", glow: "#c3bbb0", weight: 30 },
-  { name: "小さい惑星", points: 2, radius: 15, color: "#66d9ff", glow: "#b9f1ff", weight: 23 },
-  { name: "大きい惑星", points: 3, radius: 21, color: "#ff8f70", glow: "#ffd0bf", weight: 16 },
-  { name: "恒星", points: 4, radius: 18, color: "#ffe066", glow: "#fff5b8", weight: 13 },
-  { name: "星雲", points: 5, radius: 26, color: "#d46cff", glow: "#f0c2ff", weight: 10 },
-  { name: "ブラックホール", points: 10, radius: 20, color: "#05050a", glow: "#ffb703", weight: 8 },
+  { name: "小惑星", points: 1, radius: 11, color: "#9a958a", glow: "#c3bbb0", weight: 42 },
+  { name: "小さい惑星", points: 2, radius: 15, color: "#66d9ff", glow: "#b9f1ff", weight: 34 },
+  { name: "大きい惑星", points: 3, radius: 21, color: "#ff8f70", glow: "#ffd0bf", weight: 13 },
+  { name: "恒星", points: 4, radius: 18, color: "#ffe066", glow: "#fff5b8", weight: 8 },
+  { name: "星雲", points: 5, radius: 26, color: "#d46cff", glow: "#f0c2ff", weight: 5 },
+  { name: "ブラックホール", points: 10, radius: 20, color: "#05050a", glow: "#ffb703", weight: 3 },
 ];
 
 let width = 0;
@@ -34,7 +36,7 @@ let objects = [];
 let particles = [];
 let stars = [];
 let pointer = { x: 0, y: 0, active: false };
-let hole = { x: 0, y: 0, radius: 38, targetX: 0, targetY: 0 };
+let hole = { x: 0, y: 0, radius: START_HOLE_RADIUS, targetX: 0, targetY: 0 };
 
 bestEl.textContent = best;
 
@@ -110,6 +112,7 @@ function startGame() {
   spawnTimer = 0;
   objects = [];
   particles = [];
+  hole.radius = START_HOLE_RADIUS;
   startPanel.classList.add("hidden");
   finishPanel.classList.add("hidden");
   updateHud();
@@ -179,6 +182,7 @@ function updateObjects(dt) {
     const eaten = Math.hypot(dx, dy) < hole.radius + obj.radius * 0.4;
     if (eaten) {
       score += obj.points;
+      growHole(obj.points);
       shake = Math.min(10, shake + obj.points * 0.6);
       burst(obj);
       updateHud();
@@ -186,6 +190,11 @@ function updateObjects(dt) {
     }
     return obj.x > -100 && obj.x < width + 100 && obj.y > -100 && obj.y < height + 100;
   });
+}
+
+function growHole(points) {
+  const growth = 0.55 + points * 0.13;
+  hole.radius = Math.min(MAX_HOLE_RADIUS, hole.radius + growth);
 }
 
 function burst(obj) {

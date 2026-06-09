@@ -21,6 +21,10 @@ python3 -m http.server 8000
 
 その後、`http://localhost:8000` を開きます。
 
+## ひらがな学習
+
+`hiragana.html` では、ランダムに表示されたひらがなを音声入力で答える幼児向け学習アプリを遊べます。10問正解すると、ミニゲームとしてブラックホール・ハーベストへ移動できます。
+
 ## GitHub Pages
 
 静的ファイルだけで動くため、GitHub Pages の Source を `Deploy from a branch`、Branch を `main`、Folder を `/root` に設定すると公開できます。

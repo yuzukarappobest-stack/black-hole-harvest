@@ -19,6 +19,7 @@ const nextButton = document.getElementById("nextButton");
 const completePanel = document.getElementById("completePanel");
 const playGameButton = document.getElementById("playGameButton");
 const stayButton = document.getElementById("stayButton");
+const heardText = document.getElementById("heardText");
 
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition = null;
@@ -37,11 +38,13 @@ if (SpeechRecognition) {
     const transcript = Array.from(event.results[0])
       .map((result) => result.transcript)
       .join(" ");
+    heardText.textContent = transcript || "ききとれませんでした";
     checkAnswer(transcript);
   });
 
   recognition.addEventListener("error", () => {
     stopListening();
+    heardText.textContent = "ききとれませんでした";
     showFeedback("もういちど", "bad");
   });
 
@@ -124,6 +127,7 @@ function showComplete() {
 function resetLesson() {
   correct = 0;
   correctCount.textContent = correct;
+  heardText.textContent = "まだありません";
   completePanel.classList.add("hidden");
   pickLetter();
 }

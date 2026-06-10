@@ -82,6 +82,55 @@ const listenWords = {
   "ん": "みかん",
 };
 
+const pictureHints = {
+  "あ": "🌅",
+  "い": "🐶",
+  "う": "🌊",
+  "え": "📖",
+  "お": "🍙",
+  "か": "☂️",
+  "き": "🍄",
+  "く": "👟",
+  "け": "💨",
+  "こ": "🌀",
+  "さ": "🐟",
+  "し": "🏝️",
+  "す": "🍉",
+  "せ": "🪲",
+  "そ": "☁️",
+  "た": "🥁",
+  "ち": "🗺️",
+  "つ": "🌙",
+  "て": "✉️",
+  "と": "⏰",
+  "な": "🍆",
+  "に": "🌈",
+  "ぬ": "🧣",
+  "ね": "🐱",
+  "の": "⬛",
+  "は": "🌸",
+  "ひ": "✈️",
+  "ふ": "⛵",
+  "へ": "🐍",
+  "ほ": "⭐",
+  "ま": "🫘",
+  "み": "🍊",
+  "む": "🐛",
+  "め": "👓",
+  "も": "🍑",
+  "や": "⛰️",
+  "ゆ": "❄️",
+  "よ": "🌙",
+  "ら": "🎺",
+  "り": "🐿️",
+  "る": "🏠",
+  "れ": "🍋",
+  "ろ": "🕯️",
+  "わ": "🐊",
+  "を": "📚",
+  "ん": "🍊",
+};
+
 const speechReadings = {
   "亜": "あ",
   "1": "い", "一": "い",
@@ -140,6 +189,9 @@ const speechReadings = {
 };
 
 const letterCard = document.getElementById("letterCard");
+const pictureHint = document.getElementById("pictureHint");
+const pictureEmoji = document.getElementById("pictureEmoji");
+const pictureWord = document.getElementById("pictureWord");
 const prompt = document.getElementById("prompt");
 const feedback = document.getElementById("feedback");
 const correctCount = document.getElementById("correctCount");
@@ -210,6 +262,7 @@ function setMode(mode) {
   speechModeButton.classList.toggle("active", mode === "speech");
   listenControls.classList.toggle("hidden", mode !== "listen");
   speechControls.classList.toggle("hidden", mode !== "speech");
+  pictureHint.classList.toggle("hidden", mode !== "listen");
   heardBox.classList.toggle("hidden", mode !== "speech");
   prompt.textContent = mode === "listen" ? "よくきいてえらぼう" : "よんでみよう";
   heardText.textContent = "まだありません";
@@ -222,6 +275,7 @@ function pickLetter() {
   }
   currentLetter = letterQueue.pop();
   letterCard.textContent = currentMode === "listen" ? "?" : currentLetter;
+  updatePictureHint();
   showFeedback(" ", "");
   answered = false;
 
@@ -229,6 +283,12 @@ function pickLetter() {
     renderChoices();
     window.setTimeout(speakCurrentLetter, LESSON_CONFIG.listenReplayDelayMs);
   }
+}
+
+function updatePictureHint() {
+  const cue = listenWords[currentLetter] || "";
+  pictureEmoji.textContent = pictureHints[currentLetter] || "🌟";
+  pictureWord.textContent = cue;
 }
 
 function renderChoices() {

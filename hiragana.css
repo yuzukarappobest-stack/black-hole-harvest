@@ -165,12 +165,6 @@ body {
   filter: drop-shadow(0 8px 10px rgba(92, 65, 28, 0.18));
 }
 
-.picture-hint strong {
-  color: var(--soft);
-  font-size: clamp(1.05rem, 4vw, 1.55rem);
-  line-height: 1.1;
-}
-
 .feedback {
   align-self: start;
   min-height: 1.35em;

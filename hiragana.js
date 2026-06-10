@@ -191,7 +191,6 @@ const speechReadings = {
 const letterCard = document.getElementById("letterCard");
 const pictureHint = document.getElementById("pictureHint");
 const pictureEmoji = document.getElementById("pictureEmoji");
-const pictureWord = document.getElementById("pictureWord");
 const prompt = document.getElementById("prompt");
 const feedback = document.getElementById("feedback");
 const correctCount = document.getElementById("correctCount");
@@ -286,9 +285,7 @@ function pickLetter() {
 }
 
 function updatePictureHint() {
-  const cue = listenWords[currentLetter] || "";
   pictureEmoji.textContent = pictureHints[currentLetter] || "🌟";
-  pictureWord.textContent = cue;
 }
 
 function renderChoices() {

@@ -10,7 +10,20 @@ const resultMessageEl = document.getElementById("resultMessage");
 const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 
-const ROUND_SECONDS = 30;
+const GAME_CONFIG = {
+  roundSeconds: 30,
+  clearScore: 200,
+  initialObjects: 16,
+  spawnBaseInterval: 0.34,
+  spawnMinInterval: 0.09,
+  spawnScoreDivisor: 650,
+  bonusSpawnScore: 30,
+  bonusSpawnChance: 0.58,
+  clearJetSeconds: 2.5,
+};
+
+const ROUND_SECONDS = GAME_CONFIG.roundSeconds;
+const CLEAR_SCORE = GAME_CONFIG.clearScore;
 const START_HOLE_RADIUS = 26;
 const MAX_HOLE_RADIUS = 66;
 const CELESTIALS = [
@@ -32,6 +45,8 @@ let running = false;
 let lastTime = 0;
 let spawnTimer = 0;
 let shake = 0;
+let jetTimer = 0;
+let gameCleared = false;
 let objects = [];
 let particles = [];
 let stars = [];
@@ -108,6 +123,8 @@ function startGame() {
   score = 0;
   timeLeft = ROUND_SECONDS;
   running = true;
+  gameCleared = false;
+  jetTimer = 0;
   lastTime = performance.now();
   spawnTimer = 0;
   objects = [];
@@ -116,21 +133,32 @@ function startGame() {
   startPanel.classList.add("hidden");
   finishPanel.classList.add("hidden");
   updateHud();
-  for (let i = 0; i < 8; i += 1) spawnObject();
+  for (let i = 0; i < GAME_CONFIG.initialObjects; i += 1) spawnObject();
   requestAnimationFrame(loop);
 }
 
-function finishGame() {
+function finishGame(cleared = false) {
   running = false;
+  gameCleared = cleared;
+  if (cleared) {
+    jetTimer = GAME_CONFIG.clearJetSeconds;
+    burst({ x: hole.x, y: hole.y, points: 18, glow: "#56d7ff" });
+  }
   finalScoreEl.textContent = score;
-  if (score > best) {
+  if (cleared) {
+    resultMessageEl.textContent = "クリア！ジェットがふきだした！";
+  } else if (score > best) {
     best = score;
     localStorage.setItem("blackHoleHarvestBest", String(best));
     resultMessageEl.textContent = "新記録。さらに大きな重力圏を狙える。";
-  } else if (score >= 180) {
-    resultMessageEl.textContent = "かなり強い吸引力。200点台も見えている。";
+  } else if (score >= CLEAR_SCORE * 0.85) {
+    resultMessageEl.textContent = "あと少しでクリア。200点を狙おう。";
   } else {
     resultMessageEl.textContent = "動き続けるほど稼げる。外周の高得点を狙おう。";
+  }
+  if (score > best) {
+    best = score;
+    localStorage.setItem("blackHoleHarvestBest", String(best));
   }
   bestEl.textContent = best;
   finishPanel.classList.remove("hidden");
@@ -152,10 +180,13 @@ function moveHole(dt) {
 
 function updateObjects(dt) {
   spawnTimer -= dt;
-  const interval = Math.max(0.18, 0.55 - score / 900);
+  const interval = Math.max(
+    GAME_CONFIG.spawnMinInterval,
+    GAME_CONFIG.spawnBaseInterval - score / GAME_CONFIG.spawnScoreDivisor,
+  );
   if (spawnTimer <= 0) {
     spawnObject();
-    if (score > 60 && Math.random() < 0.25) spawnObject();
+    if (score > GAME_CONFIG.bonusSpawnScore && Math.random() < GAME_CONFIG.bonusSpawnChance) spawnObject();
     spawnTimer = interval;
   }
 
@@ -186,6 +217,9 @@ function updateObjects(dt) {
       shake = Math.min(10, shake + obj.points * 0.6);
       burst(obj);
       updateHud();
+      if (running && score >= CLEAR_SCORE) {
+        finishGame(true);
+      }
       return false;
     }
     return obj.x > -100 && obj.x < width + 100 && obj.y > -100 && obj.y < height + 100;
@@ -380,6 +414,37 @@ function drawHole() {
   ctx.beginPath();
   ctx.arc(hole.x, hole.y, hole.radius * 1.08, performance.now() / 400, performance.now() / 400 + Math.PI * 1.3);
   ctx.stroke();
+
+  if (gameCleared || jetTimer > 0) {
+    drawJets();
+  }
+}
+
+function drawJets() {
+  const pulse = 0.75 + Math.sin(performance.now() / 80) * 0.18;
+  const length = Math.max(width, height) * 0.55 * pulse;
+  const angle = -0.7;
+  drawJet(angle, length);
+  drawJet(angle + Math.PI, length);
+}
+
+function drawJet(angle, length) {
+  ctx.save();
+  ctx.translate(hole.x, hole.y);
+  ctx.rotate(angle);
+  const jet = ctx.createLinearGradient(hole.radius * 0.4, 0, length, 0);
+  jet.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+  jet.addColorStop(0.18, "rgba(86, 215, 255, 0.86)");
+  jet.addColorStop(1, "rgba(86, 215, 255, 0)");
+  ctx.fillStyle = jet;
+  ctx.beginPath();
+  ctx.moveTo(hole.radius * 0.45, -hole.radius * 0.2);
+  ctx.lineTo(length, -hole.radius * 0.78);
+  ctx.lineTo(length, hole.radius * 0.78);
+  ctx.lineTo(hole.radius * 0.45, hole.radius * 0.2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function loop(now) {
@@ -392,11 +457,14 @@ function loop(now) {
     updateObjects(dt);
     updateParticles(dt);
     updateHud();
-    if (timeLeft <= 0) finishGame();
+    if (timeLeft <= 0) finishGame(false);
+  } else if (jetTimer > 0) {
+    jetTimer -= dt;
+    updateParticles(dt);
   }
 
   draw();
-  if (running) requestAnimationFrame(loop);
+  if (running || jetTimer > 0) requestAnimationFrame(loop);
 }
 
 function clamp(value, min, max) {

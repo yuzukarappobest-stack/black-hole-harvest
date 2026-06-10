@@ -37,34 +37,34 @@ const listenWords = {
   "あ": "あさひ",
   "い": "いぬ",
   "う": "うみ",
-  "え": "えほん",
+  "え": "えんぴつ",
   "お": "おにぎり",
   "か": "かさ",
   "き": "きのこ",
   "く": "くつ",
-  "け": "けむり",
-  "こ": "こま",
+  "け": "けーき",
+  "こ": "こあら",
   "さ": "さかな",
-  "し": "しま",
+  "し": "しまうま",
   "す": "すいか",
   "せ": "せみ",
   "そ": "そら",
   "た": "たいこ",
-  "ち": "ちず",
+  "ち": "ちきゅう",
   "つ": "つき",
   "て": "てがみ",
   "と": "とけい",
   "な": "なす",
   "に": "にじ",
-  "ぬ": "ぬの",
+  "ぬ": "ぬいぐるみ",
   "ね": "ねこ",
-  "の": "のり",
+  "の": "のりまき",
   "は": "はな",
   "ひ": "ひこうき",
   "ふ": "ふね",
   "へ": "へび",
   "ほ": "ほし",
-  "ま": "まめ",
+  "ま": "まる",
   "み": "みかん",
   "む": "むし",
   "め": "めがね",
@@ -74,7 +74,7 @@ const listenWords = {
   "よ": "よる",
   "ら": "らっぱ",
   "り": "りす",
-  "る": "るすばん",
+  "る": "るびー",
   "れ": "れもん",
   "ろ": "ろうそく",
   "わ": "わに",
@@ -86,44 +86,44 @@ const pictureHints = {
   "あ": "🌅",
   "い": "🐶",
   "う": "🌊",
-  "え": "📖",
+  "え": "✏️",
   "お": "🍙",
   "か": "☂️",
   "き": "🍄",
   "く": "👟",
-  "け": "💨",
-  "こ": "🌀",
+  "け": "🍰",
+  "こ": "🐨",
   "さ": "🐟",
-  "し": "🏝️",
+  "し": "🦓",
   "す": "🍉",
-  "せ": "🪲",
-  "そ": "☁️",
+  "せ": { src: "assets/cicada.svg" },
+  "そ": "🌤️",
   "た": "🥁",
-  "ち": "🗺️",
+  "ち": "🌍",
   "つ": "🌙",
   "て": "✉️",
   "と": "⏰",
   "な": "🍆",
   "に": "🌈",
-  "ぬ": "🧣",
+  "ぬ": "🧸",
   "ね": "🐱",
-  "の": "⬛",
+  "の": "🍣",
   "は": "🌸",
   "ひ": "✈️",
   "ふ": "⛵",
   "へ": "🐍",
   "ほ": "⭐",
-  "ま": "🫘",
+  "ま": "⭕",
   "み": "🍊",
   "む": "🐛",
   "め": "👓",
   "も": "🍑",
   "や": "⛰️",
   "ゆ": "❄️",
-  "よ": "🌙",
+  "よ": "🌌",
   "ら": "🎺",
   "り": "🐿️",
-  "る": "🏠",
+  "る": "💎",
   "れ": "🍋",
   "ろ": "🕯️",
   "わ": "🐊",
@@ -191,6 +191,7 @@ const speechReadings = {
 const letterCard = document.getElementById("letterCard");
 const pictureHint = document.getElementById("pictureHint");
 const pictureEmoji = document.getElementById("pictureEmoji");
+const pictureImage = document.getElementById("pictureImage");
 const prompt = document.getElementById("prompt");
 const feedback = document.getElementById("feedback");
 const correctCount = document.getElementById("correctCount");
@@ -285,7 +286,17 @@ function pickLetter() {
 }
 
 function updatePictureHint() {
-  pictureEmoji.textContent = pictureHints[currentLetter] || "🌟";
+  const hint = pictureHints[currentLetter] || "🌟";
+  if (typeof hint === "string") {
+    pictureEmoji.textContent = hint;
+    pictureEmoji.classList.remove("hidden");
+    pictureImage.classList.add("hidden");
+    pictureImage.removeAttribute("src");
+    return;
+  }
+  pictureImage.src = hint.src;
+  pictureImage.classList.remove("hidden");
+  pictureEmoji.classList.add("hidden");
 }
 
 function renderChoices() {

@@ -79,7 +79,7 @@ const listenWords = {
   "ろ": "ろうそく",
   "わ": "わに",
   "を": "ほんをよむ",
-  "ん": "みかん",
+  "ん": "きりん",
 };
 
 const pictureHints = {
@@ -96,7 +96,7 @@ const pictureHints = {
   "さ": "🐟",
   "し": "🦓",
   "す": "🍉",
-  "せ": { src: "assets/cicada.svg" },
+  "せ": { src: "assets/cicada.jpg" },
   "そ": "🌤️",
   "た": "🥁",
   "ち": "🌍",
@@ -107,7 +107,7 @@ const pictureHints = {
   "に": "🌈",
   "ぬ": "🧸",
   "ね": "🐱",
-  "の": "🍣",
+  "の": { src: "assets/norimaki.jpg" },
   "は": "🌸",
   "ひ": "✈️",
   "ふ": "⛵",
@@ -128,7 +128,7 @@ const pictureHints = {
   "ろ": "🕯️",
   "わ": "🐊",
   "を": "📚",
-  "ん": "🍊",
+  "ん": { src: "assets/giraffe.jpg" },
 };
 
 const speechReadings = {

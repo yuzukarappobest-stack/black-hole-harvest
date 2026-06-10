@@ -168,6 +168,7 @@ let level = 1;
 let listening = false;
 let letterQueue = [];
 let answered = false;
+let speechToken = 0;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 
@@ -284,17 +285,29 @@ function checkChoice(choice, button) {
 
 function speakCurrentLetter() {
   if (!("speechSynthesis" in window) || !currentLetter || currentMode !== "listen") return;
+  speechToken += 1;
+  const token = speechToken;
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(buildListenPrompt(currentLetter));
-  utterance.lang = "ja-JP";
-  utterance.rate = 0.72;
-  utterance.pitch = 1.12;
-  window.speechSynthesis.speak(utterance);
+  const parts = buildListenPromptParts(currentLetter);
+  speakPromptPart(parts, 0, token);
 }
 
-function buildListenPrompt(letter) {
+function buildListenPromptParts(letter) {
   const cue = listenWords[letter] || letter;
-  return `${cue}の、${letter}、えらんでね`;
+  return [`${cue}の`, letter, "をえらんでね"];
+}
+
+function speakPromptPart(parts, index, token) {
+  if (token !== speechToken || currentMode !== "listen" || index >= parts.length) return;
+  const utterance = new SpeechSynthesisUtterance(parts[index]);
+  utterance.lang = "ja-JP";
+  utterance.rate = index === 1 ? 0.62 : 0.72;
+  utterance.pitch = 1.12;
+  utterance.onend = () => {
+    const pause = index === 0 ? 380 : 240;
+    window.setTimeout(() => speakPromptPart(parts, index + 1, token), pause);
+  };
+  window.speechSynthesis.speak(utterance);
 }
 
 function shuffleLetters() {

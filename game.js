@@ -52,6 +52,7 @@ let particles = [];
 let stars = [];
 let pointer = { x: 0, y: 0, active: false };
 let hole = { x: 0, y: 0, radius: START_HOLE_RADIUS, targetX: 0, targetY: 0 };
+let audioContext = null;
 
 bestEl.textContent = best;
 
@@ -120,6 +121,7 @@ function spawnObject() {
 }
 
 function startGame() {
+  prepareAudio();
   score = 0;
   timeLeft = ROUND_SECONDS;
   running = true;
@@ -217,6 +219,7 @@ function updateObjects(dt) {
       score += obj.points;
       growHole(obj.points);
       shake = Math.min(10, shake + obj.points * 0.6);
+      playEatSound(obj.points);
       burst(obj);
       updateHud();
       if (running && score >= CLEAR_SCORE) {
@@ -226,6 +229,42 @@ function updateObjects(dt) {
     }
     return obj.x > -100 && obj.x < width + 100 && obj.y > -100 && obj.y < height + 100;
   });
+}
+
+function prepareAudio() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  if (!audioContext) audioContext = new AudioCtx();
+  if (audioContext.state === "suspended") audioContext.resume();
+}
+
+function playEatSound(points) {
+  if (!audioContext) return;
+  const now = audioContext.currentTime;
+  const duration = 0.18;
+  const gain = audioContext.createGain();
+  const low = audioContext.createOscillator();
+  const sparkle = audioContext.createOscillator();
+
+  gain.connect(audioContext.destination);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.16, now + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+  low.type = "sine";
+  low.frequency.setValueAtTime(190 + points * 16, now);
+  low.frequency.exponentialRampToValueAtTime(90 + points * 7, now + duration);
+  low.connect(gain);
+
+  sparkle.type = "triangle";
+  sparkle.frequency.setValueAtTime(620 + points * 45, now + 0.025);
+  sparkle.frequency.exponentialRampToValueAtTime(980 + points * 55, now + duration);
+  sparkle.connect(gain);
+
+  low.start(now);
+  sparkle.start(now + 0.025);
+  low.stop(now + duration);
+  sparkle.stop(now + duration);
 }
 
 function growHole(points) {

@@ -228,6 +228,7 @@ function checkChoice(choice, button) {
   if (answered) return;
   answered = true;
   const isCorrect = choice === currentLetter;
+  letterCard.textContent = currentLetter;
   button.classList.add(isCorrect ? "correct" : "wrong");
   finishQuestion(isCorrect);
 }

@@ -132,6 +132,7 @@ function startGame() {
   hole.radius = START_HOLE_RADIUS;
   startPanel.classList.add("hidden");
   finishPanel.classList.add("hidden");
+  finishPanel.classList.remove("clear-result");
   updateHud();
   for (let i = 0; i < GAME_CONFIG.initialObjects; i += 1) spawnObject();
   requestAnimationFrame(loop);
@@ -161,6 +162,7 @@ function finishGame(cleared = false) {
     localStorage.setItem("blackHoleHarvestBest", String(best));
   }
   bestEl.textContent = best;
+  finishPanel.classList.toggle("clear-result", cleared);
   finishPanel.classList.remove("hidden");
 }
 

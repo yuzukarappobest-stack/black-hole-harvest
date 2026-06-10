@@ -110,6 +110,31 @@ canvas {
   display: none;
 }
 
+.panel.clear-result {
+  top: auto;
+  bottom: 14px;
+  width: min(82vw, 300px);
+  padding: 12px 14px;
+  background: rgba(13, 18, 34, 0.48);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.22);
+  backdrop-filter: blur(8px);
+  transform: translateX(-50%);
+}
+
+.panel.clear-result h2 {
+  margin-top: 4px;
+  font-size: clamp(2rem, 10vw, 3.3rem);
+}
+
+.panel.clear-result p:not(.label) {
+  margin: 8px auto 10px;
+  line-height: 1.35;
+}
+
+.panel.clear-result .primary-button {
+  min-height: 42px;
+}
+
 h1,
 h2 {
   margin: 0;

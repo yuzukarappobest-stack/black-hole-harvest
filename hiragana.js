@@ -1,5 +1,5 @@
 const LESSON_CONFIG = {
-  requiredCorrect: 5,
+  requiredCorrect: 8,
   nextLetterDelayMs: 520,
   listenReplayDelayMs: 260,
   maxLevel: 4,
@@ -32,6 +32,55 @@ const similarGroups = [
   ["ま", "も", "ほ"],
   ["れ", "わ", "ね"],
 ];
+
+const listenWords = {
+  "あ": "あさひ",
+  "い": "いぬ",
+  "う": "うみ",
+  "え": "えほん",
+  "お": "おにぎり",
+  "か": "かさ",
+  "き": "きのこ",
+  "く": "くつ",
+  "け": "けむり",
+  "こ": "こま",
+  "さ": "さかな",
+  "し": "しま",
+  "す": "すいか",
+  "せ": "せみ",
+  "そ": "そら",
+  "た": "たいこ",
+  "ち": "ちず",
+  "つ": "つき",
+  "て": "てがみ",
+  "と": "とけい",
+  "な": "なす",
+  "に": "にじ",
+  "ぬ": "ぬの",
+  "ね": "ねこ",
+  "の": "のり",
+  "は": "はな",
+  "ひ": "ひこうき",
+  "ふ": "ふね",
+  "へ": "へび",
+  "ほ": "ほし",
+  "ま": "まめ",
+  "み": "みかん",
+  "む": "むし",
+  "め": "めがね",
+  "も": "もも",
+  "や": "やま",
+  "ゆ": "ゆき",
+  "よ": "よる",
+  "ら": "らっぱ",
+  "り": "りす",
+  "る": "るすばん",
+  "れ": "れもん",
+  "ろ": "ろうそく",
+  "わ": "わに",
+  "を": "ほんをよむ",
+  "ん": "みかん",
+};
 
 const speechReadings = {
   "亜": "あ",
@@ -236,11 +285,16 @@ function checkChoice(choice, button) {
 function speakCurrentLetter() {
   if (!("speechSynthesis" in window) || !currentLetter || currentMode !== "listen") return;
   window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(currentLetter);
+  const utterance = new SpeechSynthesisUtterance(buildListenPrompt(currentLetter));
   utterance.lang = "ja-JP";
   utterance.rate = 0.72;
   utterance.pitch = 1.12;
   window.speechSynthesis.speak(utterance);
+}
+
+function buildListenPrompt(letter) {
+  const cue = listenWords[letter] || letter;
+  return `${cue}の、${letter}、えらんでね`;
 }
 
 function shuffleLetters() {

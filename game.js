@@ -14,11 +14,11 @@ const GAME_CONFIG = {
   roundSeconds: 30,
   clearScore: 200,
   initialObjects: 16,
-  spawnBaseInterval: 0.34,
-  spawnMinInterval: 0.09,
-  spawnScoreDivisor: 650,
-  bonusSpawnScore: 30,
-  bonusSpawnChance: 0.58,
+  spawnBaseInterval: 0.38,
+  spawnMinInterval: 0.12,
+  spawnScoreDivisor: 900,
+  bonusSpawnScore: 45,
+  bonusSpawnChance: 0.38,
   clearJetSeconds: 2.5,
 };
 
@@ -28,11 +28,11 @@ const START_HOLE_RADIUS = 26;
 const MAX_HOLE_RADIUS = 66;
 const CELESTIALS = [
   { name: "小惑星", points: 1, radius: 11, color: "#9a958a", glow: "#c3bbb0", weight: 42 },
-  { name: "小さい惑星", points: 2, radius: 15, color: "#66d9ff", glow: "#b9f1ff", weight: 34 },
-  { name: "大きい惑星", points: 3, radius: 21, color: "#ff8f70", glow: "#ffd0bf", weight: 13 },
-  { name: "恒星", points: 4, radius: 18, color: "#ffe066", glow: "#fff5b8", weight: 8 },
-  { name: "星雲", points: 5, radius: 26, color: "#d46cff", glow: "#f0c2ff", weight: 5 },
-  { name: "ブラックホール", points: 10, radius: 20, color: "#05050a", glow: "#ffb703", weight: 3 },
+  { name: "小さい惑星", points: 1, radius: 15, color: "#66d9ff", glow: "#b9f1ff", weight: 34 },
+  { name: "大きい惑星", points: 2, radius: 21, color: "#ff8f70", glow: "#ffd0bf", weight: 13 },
+  { name: "恒星", points: 2, radius: 18, color: "#ffe066", glow: "#fff5b8", weight: 8 },
+  { name: "星雲", points: 3, radius: 26, color: "#d46cff", glow: "#f0c2ff", weight: 5 },
+  { name: "ブラックホール", points: 5, radius: 20, color: "#05050a", glow: "#ffb703", weight: 3 },
 ];
 
 let width = 0;

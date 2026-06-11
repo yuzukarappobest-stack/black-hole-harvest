@@ -460,28 +460,36 @@ function prepareAudio() {
 
 function playAnswerSound(isCorrect) {
   if (!audioContext) return;
+  if (audioContext.state === "suspended") audioContext.resume();
   if (isCorrect) {
-    playToneSequence([880, 1175], 0.18, 0.34, "sine");
+    playToneSequence([880, 1175], 0.22, 0.58, "sine");
   } else {
-    playToneSequence([150, 110], 0.2, 0.36, "sawtooth");
+    playToneSequence([150, 110], 0.24, 0.6, "sawtooth");
   }
 }
 
 function playToneSequence(frequencies, step, volume, type) {
-  const start = audioContext.currentTime;
+  const start = audioContext.currentTime + 0.01;
   frequencies.forEach((frequency, index) => {
     const toneStart = start + index * step;
     const oscillator = audioContext.createOscillator();
+    const subOscillator = audioContext.createOscillator();
     const gain = audioContext.createGain();
     oscillator.type = type;
+    subOscillator.type = "triangle";
     oscillator.frequency.setValueAtTime(frequency, toneStart);
+    subOscillator.frequency.setValueAtTime(frequency * 0.5, toneStart);
     gain.gain.setValueAtTime(0.0001, toneStart);
-    gain.gain.exponentialRampToValueAtTime(volume, toneStart + 0.018);
-    gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + step * 0.82);
+    gain.gain.exponentialRampToValueAtTime(volume, toneStart + 0.012);
+    gain.gain.setValueAtTime(volume, toneStart + step * 0.56);
+    gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + step * 0.96);
     oscillator.connect(gain);
+    subOscillator.connect(gain);
     gain.connect(audioContext.destination);
     oscillator.start(toneStart);
-    oscillator.stop(toneStart + step);
+    subOscillator.start(toneStart);
+    oscillator.stop(toneStart + step * 1.02);
+    subOscillator.stop(toneStart + step * 1.02);
   });
 }
 

@@ -8,6 +8,7 @@ const LESSON_CONFIG = {
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const BLACK_HOLE_GAME_ID = "black-hole";
+const KINGFISHER_GAME_ID = "kingfisher";
 
 const letters = [
   "あ", "い", "う", "え", "お",
@@ -209,7 +210,8 @@ const replayButton = document.getElementById("replayButton");
 const answerButton = document.getElementById("answerButton");
 const nextButton = document.getElementById("nextButton");
 const completePanel = document.getElementById("completePanel");
-const playGameButton = document.getElementById("playGameButton");
+const playBlackHoleButton = document.getElementById("playBlackHoleButton");
+const playKingfisherButton = document.getElementById("playKingfisherButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -459,9 +461,9 @@ function prepareAudio() {
 function playAnswerSound(isCorrect) {
   if (!audioContext) return;
   if (isCorrect) {
-    playToneSequence([523, 659, 784], 0.105, 0.13, "sine");
+    playToneSequence([880, 1175], 0.18, 0.16, "sine");
   } else {
-    playToneSequence([220, 165], 0.13, 0.12, "triangle");
+    playToneSequence([150, 110], 0.2, 0.18, "sawtooth");
   }
 }
 
@@ -536,9 +538,13 @@ speechModeButton.addEventListener("click", () => setMode("speech"));
 replayButton.addEventListener("click", speakCurrentLetter);
 answerButton.addEventListener("click", startListening);
 nextButton.addEventListener("click", pickLetter);
-playGameButton.addEventListener("click", () => {
+playBlackHoleButton.addEventListener("click", () => {
   grantMiniGameAccess(BLACK_HOLE_GAME_ID);
   window.location.href = "index.html";
+});
+playKingfisherButton.addEventListener("click", () => {
+  grantMiniGameAccess(KINGFISHER_GAME_ID);
+  window.location.href = "kingfisher.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

@@ -597,7 +597,9 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 startButton.addEventListener("click", startGame);
-restartButton.addEventListener("click", startGame);
+restartButton.addEventListener("click", () => {
+  window.location.href = LEARNING_URL;
+});
 window.addEventListener("resize", resize);
 
 resize();

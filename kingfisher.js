@@ -10,6 +10,9 @@ const resultMessageEl = document.getElementById("resultMessage");
 const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const GAME_ID = "kingfisher";
+const LEARNING_URL = "hiragana.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   initialFish: 30,
@@ -57,6 +60,21 @@ let reeds = [];
 let clouds = [];
 
 bestEl.textContent = best;
+
+requireMiniGameAccess(GAME_ID);
+
+function requireMiniGameAccess(gameId) {
+  const key = `${MINI_GAME_ACCESS_PREFIX}${gameId}`;
+  if (sessionStorage.getItem(key) === "1") {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  window.location.replace(LEARNING_URL);
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) requireMiniGameAccess(GAME_ID);
+});
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -213,8 +231,9 @@ function updateBird(dt) {
   if (BIRD.state === "diving") {
     BIRD.t += dt / 0.34;
     const t = easeIn(Math.min(1, BIRD.t));
+    const lift = Math.sin(Math.min(1, BIRD.t) * Math.PI) * 48;
     BIRD.x = lerp(BIRD.perchX, BIRD.targetX, t);
-    BIRD.y = lerp(BIRD.perchY, BIRD.targetY, t);
+    BIRD.y = lerp(BIRD.perchY, BIRD.targetY, t) - lift;
     if (BIRD.t >= 1) {
       catchFish();
       addRipple(BIRD.targetX, BIRD.targetY);

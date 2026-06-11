@@ -10,6 +10,9 @@ const resultMessageEl = document.getElementById("resultMessage");
 const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
 
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const GAME_ID = "black-hole";
+const LEARNING_URL = "hiragana.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   clearScore: 200,
@@ -55,6 +58,21 @@ let hole = { x: 0, y: 0, radius: START_HOLE_RADIUS, targetX: 0, targetY: 0 };
 let audioContext = null;
 
 bestEl.textContent = best;
+
+requireMiniGameAccess(GAME_ID);
+
+function requireMiniGameAccess(gameId) {
+  const key = `${MINI_GAME_ACCESS_PREFIX}${gameId}`;
+  if (sessionStorage.getItem(key) === "1") {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  window.location.replace(LEARNING_URL);
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) requireMiniGameAccess(GAME_ID);
+});
 
 function resize() {
   const rect = canvas.getBoundingClientRect();

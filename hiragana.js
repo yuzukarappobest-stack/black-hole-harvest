@@ -6,6 +6,9 @@ const LESSON_CONFIG = {
   defaultMode: "listen",
 };
 
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const BLACK_HOLE_GAME_ID = "black-hole";
+
 const letters = [
   "あ", "い", "う", "え", "お",
   "か", "き", "く", "け", "こ",
@@ -221,6 +224,7 @@ let listening = false;
 let letterQueue = [];
 let answered = false;
 let speechToken = 0;
+let audioContext = null;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 
@@ -344,6 +348,7 @@ function getSimilarLetters(letter) {
 
 function checkChoice(choice, button) {
   if (answered) return;
+  prepareAudio();
   answered = true;
   const isCorrect = choice === currentLetter;
   letterCard.textContent = currentLetter;
@@ -395,6 +400,7 @@ function shuffleArray(items) {
 
 function startListening() {
   if (!recognition || listening || correct >= LESSON_CONFIG.requiredCorrect) return;
+  prepareAudio();
   listening = true;
   answered = false;
   answerButton.disabled = true;
@@ -424,6 +430,7 @@ function checkAnswer(transcript) {
 }
 
 function finishQuestion(isCorrect) {
+  playAnswerSound(isCorrect);
   if (isCorrect) {
     correct += 1;
     level = Math.min(LESSON_CONFIG.maxLevel, level + 1);
@@ -440,6 +447,40 @@ function finishQuestion(isCorrect) {
 
   levelText.textContent = level;
   window.setTimeout(pickLetter, LESSON_CONFIG.nextLetterDelayMs);
+}
+
+function prepareAudio() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  if (!audioContext) audioContext = new AudioCtx();
+  if (audioContext.state === "suspended") audioContext.resume();
+}
+
+function playAnswerSound(isCorrect) {
+  if (!audioContext) return;
+  if (isCorrect) {
+    playToneSequence([523, 659, 784], 0.105, 0.13, "sine");
+  } else {
+    playToneSequence([220, 165], 0.13, 0.12, "triangle");
+  }
+}
+
+function playToneSequence(frequencies, step, volume, type) {
+  const start = audioContext.currentTime;
+  frequencies.forEach((frequency, index) => {
+    const toneStart = start + index * step;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = type;
+    oscillator.frequency.setValueAtTime(frequency, toneStart);
+    gain.gain.setValueAtTime(0.0001, toneStart);
+    gain.gain.exponentialRampToValueAtTime(volume, toneStart + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + step * 0.82);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(toneStart);
+    oscillator.stop(toneStart + step);
+  });
 }
 
 function handleTranscript(transcript) {
@@ -496,8 +537,13 @@ replayButton.addEventListener("click", speakCurrentLetter);
 answerButton.addEventListener("click", startListening);
 nextButton.addEventListener("click", pickLetter);
 playGameButton.addEventListener("click", () => {
+  grantMiniGameAccess(BLACK_HOLE_GAME_ID);
   window.location.href = "index.html";
 });
 stayButton.addEventListener("click", resetLesson);
+
+function grantMiniGameAccess(gameId) {
+  sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${gameId}`, "1");
+}
 
 setMode(LESSON_CONFIG.defaultMode);

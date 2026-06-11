@@ -20,16 +20,18 @@ const GAME_CONFIG = {
   spawnInterval: 0.42,
   rippleSeconds: 0.62,
   lordFirstSecond: 9,
+  lordSpawnEverySeconds: 7,
+  lordMaxCount: 3,
 };
 
 const FISH_TYPES = [
-  { id: "small", label: "小さな魚", points: 1, size: 12, speed: 92, color: "#74d8ff", fin: "#dff7ff", weight: 48 },
+  { id: "small", label: "小さな魚", points: 1, size: 12, speed: 62, color: "#74d8ff", fin: "#dff7ff", weight: 48 },
   { id: "medium", label: "中位の魚", points: 3, size: 17, speed: 78, color: "#ffd36c", fin: "#fff1bd", weight: 25 },
-  { id: "large", label: "大きな魚", points: 6, size: 24, speed: 62, color: "#ff8f5c", fin: "#ffd2bf", weight: 11 },
-  { id: "shrimp", label: "エビ", points: 10, size: 16, speed: 110, color: "#ff6f8f", fin: "#ffd1dd", weight: 5 },
+  { id: "large", label: "大きな魚", points: 6, size: 24, speed: 96, color: "#ff8f5c", fin: "#ffd2bf", weight: 11 },
+  { id: "shrimp", label: "エビ", points: 10, size: 16, speed: 124, color: "#ff6f8f", fin: "#ffd1dd", weight: 5 },
 ];
 
-const LORD = { id: "lord", label: "池の主", points: 30, size: 34, speed: 46, color: "#8c67ff", fin: "#d6ccff", weight: 0 };
+const LORD = { id: "lord", label: "池の主", points: 30, size: 34, speed: 142, color: "#8c67ff", fin: "#d6ccff", weight: 0 };
 const BIRD = {
   perchX: 0,
   perchY: 0,
@@ -52,12 +54,13 @@ let timeLeft = GAME_CONFIG.roundSeconds;
 let running = false;
 let lastTime = 0;
 let spawnTimer = 0;
-let lordSpawned = false;
+let lordSpawnCount = 0;
 let fishes = [];
 let ripples = [];
 let splashes = [];
 let reeds = [];
 let clouds = [];
+let audioContext = null;
 
 bestEl.textContent = best;
 
@@ -104,12 +107,13 @@ function resize() {
 }
 
 function startGame() {
+  prepareAudio();
   score = 0;
   timeLeft = GAME_CONFIG.roundSeconds;
   running = true;
   lastTime = performance.now();
   spawnTimer = 0;
-  lordSpawned = false;
+  lordSpawnCount = 0;
   fishes = [];
   ripples = [];
   splashes = [];
@@ -176,6 +180,8 @@ function spawnFish(initial = false, forcedType = null) {
 
 function diveAt(x, y) {
   if (!running || BIRD.state !== "perched") return;
+  prepareAudio();
+  playDiveSound();
   BIRD.targetX = clamp(x, 24, width - 24);
   BIRD.targetY = clamp(y, waterTop + 18, height - 22);
   BIRD.state = "diving";
@@ -204,9 +210,10 @@ function updateSpawns(dt) {
   const secondsElapsed = GAME_CONFIG.roundSeconds - timeLeft;
   if (spawnTimer <= 0) {
     if (fishes.length < GAME_CONFIG.maxFish) spawnFish();
-    if (!lordSpawned && secondsElapsed >= GAME_CONFIG.lordFirstSecond) {
+    const nextLordSecond = GAME_CONFIG.lordFirstSecond + lordSpawnCount * GAME_CONFIG.lordSpawnEverySeconds;
+    if (lordSpawnCount < GAME_CONFIG.lordMaxCount && secondsElapsed >= nextLordSecond) {
       spawnFish(false, LORD);
-      lordSpawned = true;
+      lordSpawnCount += 1;
     }
     spawnTimer = GAME_CONFIG.spawnInterval * (0.75 + Math.random() * 0.7);
   }
@@ -238,6 +245,7 @@ function updateBird(dt) {
       catchFish();
       addRipple(BIRD.targetX, BIRD.targetY);
       addSplash(BIRD.targetX, BIRD.targetY);
+      playSplashSound(Boolean(BIRD.caught));
       BIRD.state = "returning";
       BIRD.t = 0;
     }
@@ -269,7 +277,49 @@ function catchFish() {
   bestFish.caught = true;
   BIRD.caught = bestFish.type;
   score += bestFish.type.points;
+  playCatchSound(bestFish.type.points);
   splashes.push({ x: BIRD.targetX, y: BIRD.targetY, t: 0, color: bestFish.type.color, score: bestFish.type.points });
+}
+
+function prepareAudio() {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  if (!audioContext) audioContext = new AudioCtx();
+  if (audioContext.state === "suspended") audioContext.resume();
+}
+
+function playDiveSound() {
+  if (!audioContext) return;
+  playTone(760, 0.1, 0.18, "triangle", 1320);
+}
+
+function playSplashSound(hasCatch) {
+  if (!audioContext) return;
+  playTone(hasCatch ? 270 : 190, 0.16, 0.22, "sine", 92);
+}
+
+function playCatchSound(points) {
+  if (!audioContext) return;
+  const start = audioContext.currentTime + 0.02;
+  const volume = Math.min(0.34, 0.18 + points * 0.006);
+  [880, 1240].forEach((frequency, index) => {
+    playTone(frequency, 0.11, volume, "sine", frequency * 1.18, start + index * 0.105);
+  });
+}
+
+function playTone(frequency, duration, volume, type, endFrequency = frequency, startTime = audioContext.currentTime + 0.01) {
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, startTime);
+  oscillator.frequency.exponentialRampToValueAtTime(endFrequency, startTime + duration);
+  gain.gain.setValueAtTime(0.0001, startTime);
+  gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.012);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration * 1.05);
 }
 
 function updateEffects(dt) {

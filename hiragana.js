@@ -227,6 +227,7 @@ let letterQueue = [];
 let answered = false;
 let speechToken = 0;
 let audioContext = null;
+let answerSoundOutput = null;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 
@@ -360,9 +361,8 @@ function checkChoice(choice, button) {
 
 function speakCurrentLetter() {
   if (!("speechSynthesis" in window) || !currentLetter || currentMode !== "listen") return;
-  speechToken += 1;
+  stopPromptSpeech();
   const token = speechToken;
-  window.speechSynthesis.cancel();
   const parts = buildListenPromptParts(currentLetter);
   speakPromptPart(parts, 0, token);
 }
@@ -383,6 +383,11 @@ function speakPromptPart(parts, index, token) {
     window.setTimeout(() => speakPromptPart(parts, index + 1, token), pause);
   };
   window.speechSynthesis.speak(utterance);
+}
+
+function stopPromptSpeech() {
+  speechToken += 1;
+  if ("speechSynthesis" in window) window.speechSynthesis.cancel();
 }
 
 function shuffleLetters() {
@@ -432,6 +437,7 @@ function checkAnswer(transcript) {
 }
 
 function finishQuestion(isCorrect) {
+  stopPromptSpeech();
   playAnswerSound(isCorrect);
   if (isCorrect) {
     correct += 1;
@@ -455,6 +461,11 @@ function prepareAudio() {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   if (!AudioCtx) return;
   if (!audioContext) audioContext = new AudioCtx();
+  if (!answerSoundOutput) {
+    answerSoundOutput = audioContext.createGain();
+    answerSoundOutput.gain.setValueAtTime(0.82, audioContext.currentTime);
+    answerSoundOutput.connect(audioContext.destination);
+  }
   if (audioContext.state === "suspended") audioContext.resume();
 }
 
@@ -462,9 +473,9 @@ function playAnswerSound(isCorrect) {
   if (!audioContext) return;
   if (audioContext.state === "suspended") audioContext.resume();
   if (isCorrect) {
-    playToneSequence([880, 1175], 0.22, 0.58, "sine");
+    playToneSequence([880, 1175], 0.2, 0.34, "sine");
   } else {
-    playToneSequence([150, 110], 0.24, 0.6, "sawtooth");
+    playToneSequence([150, 110], 0.22, 0.36, "sawtooth");
   }
 }
 
@@ -485,7 +496,7 @@ function playToneSequence(frequencies, step, volume, type) {
     gain.gain.exponentialRampToValueAtTime(0.0001, toneStart + step * 0.96);
     oscillator.connect(gain);
     subOscillator.connect(gain);
-    gain.connect(audioContext.destination);
+    gain.connect(answerSoundOutput || audioContext.destination);
     oscillator.start(toneStart);
     subOscillator.start(toneStart);
     oscillator.stop(toneStart + step * 1.02);

@@ -12,7 +12,7 @@ const restartButton = document.getElementById("restartButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "kingfisher";
-const LEARNING_URL = "hiragana.html";
+const LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   initialFish: 30,
@@ -23,13 +23,13 @@ const GAME_CONFIG = {
 };
 
 const FISH_TYPES = [
-  { id: "small", label: "小さな魚", points: 1, size: 12, speed: 64, color: "#74d8ff", fin: "#dff7ff", weight: 48 },
-  { id: "medium", label: "中位の魚", points: 3, size: 17, speed: 54, color: "#ffd36c", fin: "#fff1bd", weight: 25 },
-  { id: "large", label: "大きな魚", points: 6, size: 24, speed: 43, color: "#ff8f5c", fin: "#ffd2bf", weight: 11 },
-  { id: "shrimp", label: "エビ", points: 10, size: 16, speed: 75, color: "#ff6f8f", fin: "#ffd1dd", weight: 5 },
+  { id: "small", label: "小さな魚", points: 1, size: 12, speed: 92, color: "#74d8ff", fin: "#dff7ff", weight: 48 },
+  { id: "medium", label: "中位の魚", points: 3, size: 17, speed: 78, color: "#ffd36c", fin: "#fff1bd", weight: 25 },
+  { id: "large", label: "大きな魚", points: 6, size: 24, speed: 62, color: "#ff8f5c", fin: "#ffd2bf", weight: 11 },
+  { id: "shrimp", label: "エビ", points: 10, size: 16, speed: 110, color: "#ff6f8f", fin: "#ffd1dd", weight: 5 },
 ];
 
-const LORD = { id: "lord", label: "池の主", points: 30, size: 34, speed: 30, color: "#8c67ff", fin: "#d6ccff", weight: 0 };
+const LORD = { id: "lord", label: "池の主", points: 30, size: 34, speed: 46, color: "#8c67ff", fin: "#d6ccff", weight: 0 };
 const BIRD = {
   perchX: 0,
   perchY: 0,
@@ -229,9 +229,9 @@ function updateBird(dt) {
   }
 
   if (BIRD.state === "diving") {
-    BIRD.t += dt / 0.34;
+    BIRD.t += dt / 0.58;
     const t = easeIn(Math.min(1, BIRD.t));
-    const lift = Math.sin(Math.min(1, BIRD.t) * Math.PI) * 48;
+    const lift = Math.sin(Math.min(1, BIRD.t) * Math.PI) * 72;
     BIRD.x = lerp(BIRD.perchX, BIRD.targetX, t);
     BIRD.y = lerp(BIRD.perchY, BIRD.targetY, t) - lift;
     if (BIRD.t >= 1) {

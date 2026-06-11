@@ -12,7 +12,7 @@ const restartButton = document.getElementById("restartButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "black-hole";
-const LEARNING_URL = "hiragana.html";
+const LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   clearScore: 200,
@@ -561,7 +561,7 @@ canvas.addEventListener("pointercancel", () => {
 window.addEventListener("resize", resize);
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", () => {
-  window.location.href = "hiragana.html";
+  window.location.href = LEARNING_URL;
 });
 
 resize();

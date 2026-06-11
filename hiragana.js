@@ -461,9 +461,9 @@ function prepareAudio() {
 function playAnswerSound(isCorrect) {
   if (!audioContext) return;
   if (isCorrect) {
-    playToneSequence([880, 1175], 0.18, 0.16, "sine");
+    playToneSequence([880, 1175], 0.18, 0.34, "sine");
   } else {
-    playToneSequence([150, 110], 0.2, 0.18, "sawtooth");
+    playToneSequence([150, 110], 0.2, 0.36, "sawtooth");
   }
 }
 

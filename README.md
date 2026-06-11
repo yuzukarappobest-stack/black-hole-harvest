@@ -1,30 +1,31 @@
-# ブラックホール・ハーベスト
+# こども向けミニアプリ集
 
-1分間でブラックホールを操作し、流れてくる天体を飲み込んでスコアを競うスマホ・タブレット向け Web ゲームです。ブラックホールは最初は小さく、天体を飲み込むたびに少しずつ大きくなります。
+スマホ・タブレット向けの静的 Web アプリ集です。
 
-## 得点
+## アプリ
 
-- 小惑星: 1点
-- 小さい惑星: 2点
-- 大きい惑星: 3点
-- 恒星: 4点
-- 星雲: 5点
-- ブラックホール: 10点
+- `hiragana.html`: ひらがな学習
+- `index.html`: ブラックホール・ハーベスト
+- `kingfisher.html`: カワセミ・ダイブ
 
 ## 遊び方
 
-`index.html` をブラウザで開くか、ローカルサーバーで配信してください。
+ローカルでは静的サーバーで配信してください。
 
 ```sh
 python3 -m http.server 8000
 ```
 
-その後、`http://localhost:8000` を開きます。
+その後、以下を開きます。
 
-## ひらがな学習
+- `http://localhost:8000/hiragana.html`
+- `http://localhost:8000/`
+- `http://localhost:8000/kingfisher.html`
 
-`hiragana.html` では、ランダムに表示されたひらがなを音声入力で答える幼児向け学習アプリを遊べます。10問正解すると、ミニゲームとしてブラックホール・ハーベストへ移動できます。
+## GitHub Pages URL
 
-## GitHub Pages
+- ひらがな学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana.html
+- ブラックホール・ハーベスト: https://yuzukarappobest-stack.github.io/black-hole-harvest/
+- カワセミ・ダイブ: https://yuzukarappobest-stack.github.io/black-hole-harvest/kingfisher.html
 
 静的ファイルだけで動くため、GitHub Pages の Source を `Deploy from a branch`、Branch を `main`、Folder を `/root` に設定すると公開できます。

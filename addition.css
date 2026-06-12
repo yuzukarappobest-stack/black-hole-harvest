@@ -1,0 +1,330 @@
+:root {
+  color-scheme: light;
+  --bg: #f7fbff;
+  --ink: #071b35;
+  --soft: #6b7b8f;
+  --line: #9fc6ea;
+  --blue: #3489ee;
+  --blue-dark: #1265c9;
+  --green: #35bd72;
+  --red: #ee5f51;
+  --card: #ffffff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  touch-action: none;
+}
+
+body {
+  min-height: 100dvh;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(52, 137, 238, 0.14), transparent 26%),
+    radial-gradient(circle at 86% 12%, rgba(53, 189, 114, 0.12), transparent 24%),
+    var(--bg);
+  color: var(--ink);
+  font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  user-select: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none;
+}
+
+.math-app {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(300px, 0.82fr) minmax(360px, 1.18fr);
+  width: min(100%, 1180px);
+  min-height: 100dvh;
+  margin: 0 auto;
+  padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  gap: 8px;
+}
+
+.work-panel,
+.scratch-panel,
+.complete-box {
+  border: 2px solid rgba(159, 198, 234, 0.62);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 18px 36px rgba(21, 75, 118, 0.12);
+}
+
+.work-panel {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  min-height: 0;
+  align-content: start;
+  padding: clamp(10px, 2dvh, 20px);
+  gap: clamp(7px, 1.3dvh, 12px);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.topbar a,
+.topbar div {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 5px 10px;
+  border: 2px solid rgba(159, 198, 234, 0.62);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--soft);
+  font-weight: 950;
+  text-decoration: none;
+}
+
+.topbar strong {
+  margin-left: 8px;
+  color: var(--blue);
+  font-size: 1.25em;
+}
+
+.mode-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 950;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+}
+
+.mode-button,
+.key,
+.clear-scratch,
+.ghost {
+  border: 2px solid rgba(159, 198, 234, 0.8);
+  background: #ffffff;
+  color: var(--ink);
+}
+
+.mode-button {
+  min-height: 40px;
+  color: var(--soft);
+  font-size: clamp(0.95rem, 2dvh, 1.15rem);
+}
+
+.mode-button.active {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--blue), #65d5ff);
+  color: #ffffff;
+}
+
+.section-title {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font-size: clamp(1.15rem, 3.5dvh, 1.75rem);
+  font-weight: 950;
+}
+
+.problem-card {
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.problem-text {
+  display: grid;
+  place-items: center;
+  min-height: clamp(74px, 15dvh, 128px);
+  font-size: clamp(2.55rem, 10dvh, 5rem);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.answer-area {
+  min-height: 0;
+}
+
+.answer-display {
+  display: flex;
+  align-items: center;
+  min-height: 50px;
+  padding: 7px 12px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background: #ffffff;
+  color: rgba(7, 27, 53, 0.42);
+  font-size: clamp(1.6rem, 5.3dvh, 2.8rem);
+  font-weight: 950;
+  line-height: 1;
+}
+
+.answer-display.filled {
+  color: var(--ink);
+}
+
+.keyboard {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+  touch-action: none;
+}
+
+.key {
+  min-height: clamp(38px, 6.7dvh, 56px);
+  font-size: clamp(1.35rem, 4.5dvh, 2rem);
+}
+
+.key.utility {
+  color: var(--blue-dark);
+}
+
+.submit-button,
+.primary {
+  min-height: 48px;
+  background: linear-gradient(135deg, var(--blue), #4fd08d);
+  color: #ffffff;
+  box-shadow: 0 12px 22px rgba(18, 101, 201, 0.18);
+  font-size: clamp(1.15rem, 3.7dvh, 1.65rem);
+}
+
+.submit-button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.feedback {
+  min-height: 1.1em;
+  margin: 6px 0 0;
+  font-size: clamp(1.2rem, 3.8dvh, 1.8rem);
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.feedback.good {
+  color: var(--green);
+}
+
+.feedback.bad {
+  color: var(--red);
+}
+
+.scratch-panel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  padding: clamp(10px, 2dvh, 20px);
+  gap: 8px;
+}
+
+.scratch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.clear-scratch {
+  min-width: 72px;
+  min-height: 38px;
+  color: var(--blue-dark);
+}
+
+#scratchCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  border: 2px solid var(--line);
+  border-radius: 8px;
+  background:
+    linear-gradient(rgba(159, 198, 234, 0.11) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(159, 198, 234, 0.11) 1px, transparent 1px),
+    #ffffff;
+  background-size: 34px 34px;
+  touch-action: none;
+}
+
+.complete-panel {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(247, 251, 255, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.complete-panel.hidden {
+  display: none;
+}
+
+.complete-box {
+  width: min(92vw, 460px);
+  padding: 24px 20px;
+  text-align: center;
+}
+
+.complete-box h1 {
+  margin: 0;
+  color: var(--green);
+  font-size: clamp(2.3rem, 11vw, 4.6rem);
+  line-height: 1;
+}
+
+.complete-box p {
+  margin: 16px 0 20px;
+  font-size: clamp(1.4rem, 6vw, 2.3rem);
+  font-weight: 950;
+}
+
+.choice-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.choice-row .ghost {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 220px);
+}
+
+.small {
+  min-height: 52px;
+  font-size: clamp(1rem, 3.8vw, 1.45rem);
+}
+
+@media (max-width: 820px) {
+  .math-app {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100dvh;
+  }
+
+  .scratch-panel {
+    min-height: 430px;
+  }
+
+  .keyboard {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .choice-row {
+    grid-template-columns: 1fr;
+  }
+}

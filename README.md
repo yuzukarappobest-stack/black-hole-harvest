@@ -10,6 +10,7 @@
 - `index.html`: ブラックホール・ハーベスト
 - `kingfisher.html`: カワセミ・ダイブ
 - `tetris.html`: テトリス
+- `tetris-drag.html`: テトリス ドラッグベータ
 
 ## 遊び方
 
@@ -26,6 +27,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/`
 - `http://localhost:8000/kingfisher.html`
 - `http://localhost:8000/tetris.html`
+- `http://localhost:8000/tetris-drag.html`
 
 ## GitHub Pages URL
 
@@ -35,5 +37,6 @@ python3 -m http.server 8000
 - ブラックホール・ハーベスト: https://yuzukarappobest-stack.github.io/black-hole-harvest/
 - カワセミ・ダイブ: https://yuzukarappobest-stack.github.io/black-hole-harvest/kingfisher.html
 - テトリス: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris.html
+- テトリス ドラッグベータ: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris-drag.html
 
 静的ファイルだけで動くため、GitHub Pages の Source を `Deploy from a branch`、Branch を `main`、Folder を `/root` に設定すると公開できます。

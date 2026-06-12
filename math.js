@@ -3,7 +3,7 @@ const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const TETRIS_GAME_ID = "tetris";
 const LESSON_CONFIG = {
-  requiredCorrect: 4,
+  requiredCorrect: 3,
   nextDelayMs: 650,
 };
 

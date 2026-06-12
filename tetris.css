@@ -167,7 +167,7 @@ button {
   padding: 18px;
   background: rgba(16, 24, 41, 0.76);
   backdrop-filter: blur(10px);
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .message-panel.hidden {
@@ -192,6 +192,17 @@ button {
   color: var(--ink);
   font-size: clamp(1.2rem, 5vw, 1.8rem);
   font-weight: 950;
+}
+
+.message-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  margin-top: 18px;
+  gap: 10px;
+}
+
+.hidden {
+  display: none;
 }
 
 @media (max-width: 620px) {

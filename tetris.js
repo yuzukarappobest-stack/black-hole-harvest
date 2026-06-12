@@ -14,6 +14,8 @@ const downButton = document.getElementById("downButton");
 const dropButton = document.getElementById("dropButton");
 const messagePanel = document.getElementById("messagePanel");
 const messageText = document.getElementById("messageText");
+const overlayStartButton = document.getElementById("overlayStartButton");
+const overlayLearnButton = document.getElementById("overlayLearnButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "tetris";
@@ -119,6 +121,8 @@ function startGame() {
   dropTimer = 0;
   lastTime = performance.now();
   messagePanel.classList.add("hidden");
+  overlayStartButton.classList.remove("hidden");
+  overlayLearnButton.classList.add("hidden");
   updateHud();
   requestAnimationFrame(loop);
 }
@@ -229,6 +233,8 @@ function finishGame() {
   } else {
     messageText.textContent = "ゲームおわり。もういちど学習してから遊ぼう。";
   }
+  overlayStartButton.classList.add("hidden");
+  overlayLearnButton.classList.remove("hidden");
   updateHud();
   messagePanel.classList.remove("hidden");
 }
@@ -341,7 +347,11 @@ rotateButton.addEventListener("click", rotatePiece);
 downButton.addEventListener("click", () => softDrop(true));
 dropButton.addEventListener("click", hardDrop);
 startButton.addEventListener("click", startGame);
+overlayStartButton.addEventListener("click", startGame);
 learnButton.addEventListener("click", () => {
+  window.location.href = LEARNING_URL;
+});
+overlayLearnButton.addEventListener("click", () => {
   window.location.href = LEARNING_URL;
 });
 

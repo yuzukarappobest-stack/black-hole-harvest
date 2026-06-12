@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#101829">
     <title>テトリス</title>
-    <link rel="stylesheet" href="tetris.css?v=1">
+    <link rel="stylesheet" href="tetris.css?v=2">
   </head>
   <body>
     <main class="tetris-app">
@@ -47,10 +47,14 @@
         <div class="message-box">
           <h1>テトリス</h1>
           <p id="messageText">ブロックをならべて、よこ一列を消そう。</p>
+          <div class="message-actions">
+            <button id="overlayStartButton" class="primary" type="button">START</button>
+            <button id="overlayLearnButton" class="ghost hidden" type="button">がくしゅうへ</button>
+          </div>
         </div>
       </section>
     </main>
 
-    <script src="tetris.js?v=1"></script>
+    <script src="tetris.js?v=2"></script>
   </body>
 </html>

@@ -9,6 +9,7 @@ const LESSON_CONFIG = {
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
+const TETRIS_GAME_ID = "tetris";
 
 const letters = [
   "あ", "い", "う", "え", "お",
@@ -212,6 +213,7 @@ const nextButton = document.getElementById("nextButton");
 const completePanel = document.getElementById("completePanel");
 const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
+const playTetrisButton = document.getElementById("playTetrisButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -564,6 +566,10 @@ playBlackHoleButton.addEventListener("click", () => {
 playKingfisherButton.addEventListener("click", () => {
   grantMiniGameAccess(KINGFISHER_GAME_ID);
   window.location.href = "kingfisher.html";
+});
+playTetrisButton.addEventListener("click", () => {
+  grantMiniGameAccess(TETRIS_GAME_ID);
+  window.location.href = "tetris.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

@@ -345,7 +345,7 @@ button:disabled {
 
 .choice-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
 
@@ -358,7 +358,13 @@ button:disabled {
 .small {
   min-width: 0;
   min-height: 58px;
-  font-size: clamp(1.25rem, 5vw, 1.8rem);
+  font-size: clamp(1rem, 4.2vw, 1.55rem);
+}
+
+@media (max-width: 520px) {
+  .choice-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-height: 620px) and (orientation: landscape) {

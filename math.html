@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#f7fbff">
     <title>さんすう れんしゅう</title>
-    <link rel="stylesheet" href="math.css?v=1">
+    <link rel="stylesheet" href="math.css?v=2">
   </head>
   <body>
     <main class="math-app">
@@ -14,7 +14,7 @@
           <a href="learn.html" aria-label="学習メニューへ">←</a>
           <div>
             <span>せいかい</span>
-            <strong id="correctCount">0</strong><span id="goalCount">/3</span>
+            <strong id="correctCount">0</strong><span id="goalCount">/4</span>
           </div>
         </header>
 
@@ -26,7 +26,7 @@
 
         <section class="problem-card" aria-live="polite">
           <p class="section-title">もんだい</p>
-          <div id="problemText" class="problem-text">3 × 4</div>
+          <div id="problemText" class="problem-text">23 × 14</div>
         </section>
 
         <section class="answer-area">
@@ -53,10 +53,7 @@
 
       <section class="scratch-panel">
         <div class="scratch-header">
-          <div>
-            <p class="section-title">フリー入力らん</p>
-            <strong>手書き</strong>
-          </div>
+          <p class="section-title">フリー入力らん</p>
           <button id="clearScratchButton" class="clear-scratch" type="button">消す</button>
         </div>
         <canvas id="scratchCanvas" aria-label="途中式を書く手書き欄"></canvas>
@@ -65,16 +62,17 @@
       <section id="completePanel" class="complete-panel hidden" aria-live="assertive">
         <div class="complete-box">
           <h1>おめでとう！</h1>
-          <p>どっちであそぶ？</p>
+          <p>どれであそぶ？</p>
           <div class="choice-row">
             <button id="playBlackHoleButton" class="primary small" type="button">ブラックホール</button>
             <button id="playKingfisherButton" class="primary small" type="button">カワセミ</button>
+            <button id="playTetrisButton" class="primary small" type="button">テトリス</button>
             <button id="againButton" class="ghost small" type="button">もういちど</button>
           </div>
         </div>
       </section>
     </main>
 
-    <script src="math.js?v=1"></script>
+    <script src="math.js?v=2"></script>
   </body>
 </html>

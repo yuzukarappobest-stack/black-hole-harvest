@@ -1,8 +1,9 @@
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
+const TETRIS_GAME_ID = "tetris";
 const LESSON_CONFIG = {
-  requiredCorrect: 3,
+  requiredCorrect: 4,
   nextDelayMs: 650,
 };
 
@@ -23,6 +24,7 @@ const scratchCtx = scratchCanvas.getContext("2d");
 const completePanel = document.getElementById("completePanel");
 const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
+const playTetrisButton = document.getElementById("playTetrisButton");
 const againButton = document.getElementById("againButton");
 
 let mode = "mixed";
@@ -63,16 +65,16 @@ function nextProblem() {
 function createProblem() {
   const kind = mode === "mixed" ? (Math.random() < 0.5 ? "multiply" : "divide") : mode;
   if (kind === "multiply") {
-    const left = randomInt(2, 9);
-    const right = randomInt(2, 9);
+    const left = randomInt(12, 99);
+    const right = randomInt(12, 99);
     return {
       text: `${left} × ${right}`,
       answer: left * right,
     };
   }
 
-  const divisor = randomInt(2, 9);
-  const quotient = randomInt(2, 9);
+  const divisor = randomInt(12, 32);
+  const quotient = randomInt(9, 31);
   return {
     text: `${divisor * quotient} ÷ ${divisor}`,
     answer: quotient,
@@ -80,7 +82,7 @@ function createProblem() {
 }
 
 function appendDigit(digit) {
-  if (answer.length >= 3) return;
+  if (answer.length >= 5) return;
   answer = answer === "0" ? digit : answer + digit;
   updateAnswerDisplay();
 }
@@ -191,6 +193,10 @@ playBlackHoleButton.addEventListener("click", () => {
 playKingfisherButton.addEventListener("click", () => {
   grantMiniGameAccess(KINGFISHER_GAME_ID);
   window.location.href = "kingfisher.html";
+});
+playTetrisButton.addEventListener("click", () => {
+  grantMiniGameAccess(TETRIS_GAME_ID);
+  window.location.href = "tetris.html";
 });
 againButton.addEventListener("click", resetLesson);
 

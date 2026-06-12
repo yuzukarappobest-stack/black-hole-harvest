@@ -9,6 +9,7 @@
 - `learn.html`: 学習アプリの親ページ
 - `index.html`: ブラックホール・ハーベスト
 - `kingfisher.html`: カワセミ・ダイブ
+- `tetris.html`: テトリス
 
 ## 遊び方
 
@@ -24,6 +25,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/math.html`
 - `http://localhost:8000/`
 - `http://localhost:8000/kingfisher.html`
+- `http://localhost:8000/tetris.html`
 
 ## GitHub Pages URL
 
@@ -32,5 +34,6 @@ python3 -m http.server 8000
 - 算数学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/math.html
 - ブラックホール・ハーベスト: https://yuzukarappobest-stack.github.io/black-hole-harvest/
 - カワセミ・ダイブ: https://yuzukarappobest-stack.github.io/black-hole-harvest/kingfisher.html
+- テトリス: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris.html
 
 静的ファイルだけで動くため、GitHub Pages の Source を `Deploy from a branch`、Branch を `main`、Folder を `/root` に設定すると公開できます。

@@ -15,6 +15,7 @@ const GAME_ID = "kingfisher";
 const LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
+  clearScore: 200,
   initialFish: 30,
   maxFish: 48,
   spawnInterval: 0.42,
@@ -61,6 +62,8 @@ let splashes = [];
 let reeds = [];
 let clouds = [];
 let audioContext = null;
+let cleared = false;
+let clearAnimationTimer = 0;
 
 bestEl.textContent = best;
 
@@ -117,6 +120,8 @@ function startGame() {
   fishes = [];
   ripples = [];
   splashes = [];
+  cleared = false;
+  clearAnimationTimer = 0;
   resetBird();
   startPanel.classList.add("hidden");
   finishPanel.classList.add("hidden");
@@ -135,10 +140,18 @@ function resetBird() {
   BIRD.caught = null;
 }
 
-function finishGame() {
+function finishGame(wasCleared = false) {
+  if (!running && !wasCleared) return;
   running = false;
   finalScoreEl.textContent = score;
-  if (score > best) {
+  if (wasCleared) {
+    cleared = true;
+    clearAnimationTimer = 2.8;
+    resultMessageEl.textContent = "アカショウビンだ！";
+    BIRD.state = "perched";
+    BIRD.caught = null;
+    playClearSound();
+  } else if (score > best) {
     best = score;
     localStorage.setItem("kingfisherDiveBest", String(best));
     resultMessageEl.textContent = "新記録。水面を見る目がするどい。";
@@ -146,6 +159,10 @@ function finishGame() {
     resultMessageEl.textContent = "大漁。池の主も夢じゃない。";
   } else {
     resultMessageEl.textContent = "魚の群れをよく見て飛び込もう。";
+  }
+  if (score > best) {
+    best = score;
+    localStorage.setItem("kingfisherDiveBest", String(best));
   }
   bestEl.textContent = best;
   finishPanel.classList.remove("hidden");
@@ -246,6 +263,13 @@ function updateBird(dt) {
       addRipple(BIRD.targetX, BIRD.targetY);
       addSplash(BIRD.targetX, BIRD.targetY);
       playSplashSound(Boolean(BIRD.caught));
+      if (cleared) {
+        BIRD.x = BIRD.perchX;
+        BIRD.y = BIRD.perchY;
+        BIRD.state = "perched";
+        BIRD.t = 0;
+        return;
+      }
       BIRD.state = "returning";
       BIRD.t = 0;
     }
@@ -279,6 +303,7 @@ function catchFish() {
   score += bestFish.type.points;
   playCatchSound(bestFish.type.points);
   splashes.push({ x: BIRD.targetX, y: BIRD.targetY, t: 0, color: bestFish.type.color, score: bestFish.type.points });
+  if (score >= GAME_CONFIG.clearScore) finishGame(true);
 }
 
 function prepareAudio() {
@@ -307,6 +332,14 @@ function playCatchSound(points) {
   });
 }
 
+function playClearSound() {
+  if (!audioContext) return;
+  const start = audioContext.currentTime + 0.03;
+  [880, 1175, 1568, 1760].forEach((frequency, index) => {
+    playTone(frequency, 0.14, 0.28, "triangle", frequency * 1.1, start + index * 0.11);
+  });
+}
+
 function playTone(frequency, duration, volume, type, endFrequency = frequency, startTime = audioContext.currentTime + 0.01) {
   const oscillator = audioContext.createOscillator();
   const gain = audioContext.createGain();
@@ -323,6 +356,7 @@ function playTone(frequency, duration, volume, type, endFrequency = frequency, s
 }
 
 function updateEffects(dt) {
+  if (clearAnimationTimer > 0) clearAnimationTimer = Math.max(0, clearAnimationTimer - dt);
   for (const ripple of ripples) ripple.t += dt;
   ripples = ripples.filter((ripple) => ripple.t < GAME_CONFIG.rippleSeconds);
   for (const splash of splashes) splash.t += dt;
@@ -447,28 +481,29 @@ function drawKingfisher() {
     : BIRD.state === "returning"
       ? Math.atan2(BIRD.perchY - BIRD.y, BIRD.perchX - BIRD.x)
       : 0;
-  const scale = BIRD.state === "perched" ? 1 : 0.95;
+  const clearPulse = cleared ? 1 + Math.sin(performance.now() / 150) * 0.04 : 1;
+  const scale = (BIRD.state === "perched" ? 1 : 0.95) * (cleared ? 1.22 : 1) * clearPulse;
   ctx.save();
   ctx.translate(BIRD.x, BIRD.y);
   ctx.rotate(angle * 0.42);
   ctx.scale(scale, scale);
 
-  ctx.fillStyle = "#1297c6";
+  ctx.fillStyle = cleared ? "#d93b34" : "#1297c6";
   ctx.beginPath();
   ctx.ellipse(0, 0, 30, 18, -0.08, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#f28b2d";
+  ctx.fillStyle = cleared ? "#ffdf78" : "#f28b2d";
   ctx.beginPath();
   ctx.ellipse(-4, 8, 22, 10, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#1db7e0";
+  ctx.fillStyle = cleared ? "#ff6b45" : "#1db7e0";
   ctx.beginPath();
   ctx.ellipse(-4, -4, 21, 8, -0.35, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#1579a5";
+  ctx.fillStyle = cleared ? "#b8242f" : "#1579a5";
   ctx.beginPath();
   ctx.ellipse(26, -1, 14, 13, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -490,7 +525,7 @@ function drawKingfisher() {
   ctx.arc(30, -6, 2, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#0c7399";
+  ctx.fillStyle = cleared ? "#9d1f29" : "#0c7399";
   ctx.beginPath();
   ctx.moveTo(-25, -2);
   ctx.lineTo(-58, -10);
@@ -612,7 +647,7 @@ function loop(now) {
   lastTime = now;
   update(dt);
   draw();
-  if (running || BIRD.state !== "perched" || ripples.length || splashes.length) requestAnimationFrame(loop);
+  if (running || BIRD.state !== "perched" || ripples.length || splashes.length || clearAnimationTimer > 0) requestAnimationFrame(loop);
 }
 
 function pointerPosition(event) {

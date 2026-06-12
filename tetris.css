@@ -19,6 +19,7 @@ body {
   width: 100%;
   min-height: 100%;
   margin: 0;
+  touch-action: none;
 }
 
 body {
@@ -31,6 +32,8 @@ body {
   color: var(--ink);
   font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
   user-select: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none;
 }
 
 .tetris-app {
@@ -93,6 +96,7 @@ body {
   border: 2px solid var(--line);
   border-radius: 8px;
   background: rgba(5, 9, 18, 0.86);
+  touch-action: none;
 }
 
 #board {
@@ -124,7 +128,9 @@ button {
   font: inherit;
   font-weight: 950;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
 }
 
 .primary,
@@ -147,6 +153,7 @@ button {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
+  touch-action: none;
 }
 
 .controls button {

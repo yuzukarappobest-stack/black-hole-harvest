@@ -3,7 +3,7 @@ const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const TETRIS_GAME_ID = "tetris";
 const LESSON_CONFIG = {
-  requiredCorrect: 3,
+  requiredCorrect: 2,
   nextDelayMs: 650,
 };
 
@@ -12,9 +12,6 @@ const answerDisplay = document.getElementById("answerDisplay");
 const correctCount = document.getElementById("correctCount");
 const goalCount = document.getElementById("goalCount");
 const feedback = document.getElementById("feedback");
-const mixedModeButton = document.getElementById("mixedModeButton");
-const multiplyModeButton = document.getElementById("multiplyModeButton");
-const divideModeButton = document.getElementById("divideModeButton");
 const submitButton = document.getElementById("submitButton");
 const backspaceButton = document.getElementById("backspaceButton");
 const clearAnswerButton = document.getElementById("clearAnswerButton");
@@ -27,25 +24,18 @@ const playKingfisherButton = document.getElementById("playKingfisherButton");
 const playTetrisButton = document.getElementById("playTetrisButton");
 const againButton = document.getElementById("againButton");
 
-let mode = "mixed";
 let correct = 0;
 let answer = "";
 let currentProblem = null;
+let problemQueue = [];
 let drawing = false;
 let dpr = 1;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 
-function setMode(nextMode) {
-  mode = nextMode;
-  mixedModeButton.classList.toggle("active", mode === "mixed");
-  multiplyModeButton.classList.toggle("active", mode === "multiply");
-  divideModeButton.classList.toggle("active", mode === "divide");
-  resetLesson();
-}
-
 function resetLesson() {
   correct = 0;
+  problemQueue = shuffle(["multiply", "divide"]);
   correctCount.textContent = correct;
   completePanel.classList.add("hidden");
   clearScratch();
@@ -54,7 +44,7 @@ function resetLesson() {
 
 function nextProblem() {
   answer = "";
-  currentProblem = createProblem();
+  currentProblem = createProblem(problemQueue[0]);
   problemText.textContent = currentProblem.text;
   feedback.textContent = " ";
   feedback.className = "feedback";
@@ -62,8 +52,7 @@ function nextProblem() {
   clearScratch();
 }
 
-function createProblem() {
-  const kind = mode === "mixed" ? (Math.random() < 0.5 ? "multiply" : "divide") : mode;
+function createProblem(kind) {
   if (kind === "multiply") {
     const left = randomInt(12, 99);
     const right = randomInt(12, 99);
@@ -97,6 +86,7 @@ function submitAnswer() {
   const isCorrect = Number(answer) === currentProblem.answer;
   if (isCorrect) {
     correct += 1;
+    problemQueue.shift();
     correctCount.textContent = correct;
     feedback.textContent = "せいかい！";
     feedback.className = "feedback good";
@@ -170,6 +160,13 @@ function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function shuffle(items) {
+  return items
+    .map((item) => ({ item, order: Math.random() }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ item }) => item);
+}
+
 document.querySelectorAll(".key[data-key]").forEach((button) => {
   button.addEventListener("click", () => appendDigit(button.dataset.key));
 });
@@ -182,9 +179,6 @@ clearAnswerButton.addEventListener("click", () => {
   updateAnswerDisplay();
 });
 submitButton.addEventListener("click", submitAnswer);
-mixedModeButton.addEventListener("click", () => setMode("mixed"));
-multiplyModeButton.addEventListener("click", () => setMode("multiply"));
-divideModeButton.addEventListener("click", () => setMode("divide"));
 clearScratchButton.addEventListener("click", clearScratch);
 playBlackHoleButton.addEventListener("click", () => {
   grantMiniGameAccess(BLACK_HOLE_GAME_ID);
@@ -207,4 +201,4 @@ scratchCanvas.addEventListener("pointercancel", stopDrawing);
 window.addEventListener("resize", resizeScratch);
 
 resizeScratch();
-nextProblem();
+resetLesson();

@@ -55,6 +55,7 @@ let dropTimer = 0;
 let cell = 20;
 let nextCell = 20;
 let audioContext = null;
+let lastTouchEnd = 0;
 
 bestEl.textContent = best;
 requireMiniGameAccess(GAME_ID);
@@ -341,17 +342,17 @@ function playClearSound(count) {
   });
 }
 
-leftButton.addEventListener("click", () => move(-1));
-rightButton.addEventListener("click", () => move(1));
-rotateButton.addEventListener("click", rotatePiece);
-downButton.addEventListener("click", () => softDrop(true));
-dropButton.addEventListener("click", hardDrop);
-startButton.addEventListener("click", startGame);
-overlayStartButton.addEventListener("click", startGame);
-learnButton.addEventListener("click", () => {
+bindGameButton(leftButton, () => move(-1));
+bindGameButton(rightButton, () => move(1));
+bindGameButton(rotateButton, rotatePiece);
+bindGameButton(downButton, () => softDrop(true));
+bindGameButton(dropButton, hardDrop);
+bindGameButton(startButton, startGame);
+bindGameButton(overlayStartButton, startGame);
+bindGameButton(learnButton, () => {
   window.location.href = LEARNING_URL;
 });
-overlayLearnButton.addEventListener("click", () => {
+bindGameButton(overlayLearnButton, () => {
   window.location.href = LEARNING_URL;
 });
 
@@ -363,6 +364,35 @@ window.addEventListener("keydown", (event) => {
   if (event.key === " ") hardDrop();
 });
 window.addEventListener("resize", resize);
+document.addEventListener(
+  "touchend",
+  (event) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 360) event.preventDefault();
+    lastTouchEnd = now;
+  },
+  { passive: false },
+);
+
+function bindGameButton(button, handler) {
+  let handledPointer = false;
+  button.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse") return;
+    event.preventDefault();
+    handledPointer = true;
+    handler();
+    window.setTimeout(() => {
+      handledPointer = false;
+    }, 450);
+  });
+  button.addEventListener("click", (event) => {
+    if (handledPointer) {
+      event.preventDefault();
+      return;
+    }
+    handler();
+  });
+}
 
 resize();
 draw();

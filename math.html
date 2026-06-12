@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#f7fbff">
+    <title>さんすう れんしゅう</title>
+    <link rel="stylesheet" href="math.css?v=1">
+  </head>
+  <body>
+    <main class="math-app">
+      <section class="work-panel">
+        <header class="topbar">
+          <a href="learn.html" aria-label="学習メニューへ">←</a>
+          <div>
+            <span>せいかい</span>
+            <strong id="correctCount">0</strong><span id="goalCount">/3</span>
+          </div>
+        </header>
+
+        <section class="mode-tabs" aria-label="れんしゅうモード">
+          <button id="mixedModeButton" class="mode-button active" type="button">おまかせ</button>
+          <button id="multiplyModeButton" class="mode-button" type="button">かけ算</button>
+          <button id="divideModeButton" class="mode-button" type="button">わり算</button>
+        </section>
+
+        <section class="problem-card" aria-live="polite">
+          <p class="section-title">もんだい</p>
+          <div id="problemText" class="problem-text">3 × 4</div>
+        </section>
+
+        <section class="answer-area">
+          <p class="section-title">こたえ</p>
+          <div id="answerDisplay" class="answer-display" aria-live="polite">入力らん</div>
+          <div class="keyboard" aria-label="ソフトウェアキーボード">
+            <button class="key" data-key="1" type="button">1</button>
+            <button class="key" data-key="2" type="button">2</button>
+            <button class="key" data-key="3" type="button">3</button>
+            <button class="key" data-key="4" type="button">4</button>
+            <button class="key" data-key="5" type="button">5</button>
+            <button class="key" data-key="6" type="button">6</button>
+            <button class="key" data-key="7" type="button">7</button>
+            <button class="key" data-key="8" type="button">8</button>
+            <button class="key" data-key="9" type="button">9</button>
+            <button class="key" data-key="0" type="button">0</button>
+            <button id="backspaceButton" class="key utility" type="button">⌫</button>
+            <button id="clearAnswerButton" class="key utility" type="button">C</button>
+          </div>
+          <button id="submitButton" class="submit-button" type="button">こたえる</button>
+          <p id="feedback" class="feedback"> </p>
+        </section>
+      </section>
+
+      <section class="scratch-panel">
+        <div class="scratch-header">
+          <div>
+            <p class="section-title">フリー入力らん</p>
+            <strong>手書き</strong>
+          </div>
+          <button id="clearScratchButton" class="clear-scratch" type="button">消す</button>
+        </div>
+        <canvas id="scratchCanvas" aria-label="途中式を書く手書き欄"></canvas>
+      </section>
+
+      <section id="completePanel" class="complete-panel hidden" aria-live="assertive">
+        <div class="complete-box">
+          <h1>おめでとう！</h1>
+          <p>どっちであそぶ？</p>
+          <div class="choice-row">
+            <button id="playBlackHoleButton" class="primary small" type="button">ブラックホール</button>
+            <button id="playKingfisherButton" class="primary small" type="button">カワセミ</button>
+            <button id="againButton" class="ghost small" type="button">もういちど</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="math.js?v=1"></script>
+  </body>
+</html>

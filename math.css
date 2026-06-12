@@ -20,6 +20,7 @@ body {
   width: 100%;
   height: 100%;
   margin: 0;
+  touch-action: none;
 }
 
 body {
@@ -32,6 +33,8 @@ body {
   color: var(--ink);
   font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
   user-select: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none;
 }
 
 .math-app {
@@ -102,7 +105,9 @@ button {
   font: inherit;
   font-weight: 950;
   cursor: pointer;
+  touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
 }
 
 .mode-button,
@@ -176,6 +181,7 @@ button {
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
   margin-top: 8px;
+  touch-action: none;
 }
 
 .key {

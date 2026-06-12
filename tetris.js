@@ -365,6 +365,13 @@ window.addEventListener("keydown", (event) => {
 });
 window.addEventListener("resize", resize);
 document.addEventListener(
+  "touchmove",
+  (event) => {
+    if (event.touches.length > 1) event.preventDefault();
+  },
+  { passive: false },
+);
+document.addEventListener(
   "touchend",
   (event) => {
     const now = Date.now();
@@ -373,6 +380,9 @@ document.addEventListener(
   },
   { passive: false },
 );
+document.addEventListener("gesturestart", (event) => event.preventDefault());
+document.addEventListener("gesturechange", (event) => event.preventDefault());
+document.addEventListener("gestureend", (event) => event.preventDefault());
 
 function bindGameButton(button, handler) {
   let handledPointer = false;

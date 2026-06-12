@@ -30,6 +30,7 @@ let currentProblem = null;
 let problemQueue = [];
 let drawing = false;
 let dpr = 1;
+let lastTouchEnd = 0;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 
@@ -168,37 +169,76 @@ function shuffle(items) {
 }
 
 document.querySelectorAll(".key[data-key]").forEach((button) => {
-  button.addEventListener("click", () => appendDigit(button.dataset.key));
+  bindAppButton(button, () => appendDigit(button.dataset.key));
 });
-backspaceButton.addEventListener("click", () => {
+bindAppButton(backspaceButton, () => {
   answer = answer.slice(0, -1);
   updateAnswerDisplay();
 });
-clearAnswerButton.addEventListener("click", () => {
+bindAppButton(clearAnswerButton, () => {
   answer = "";
   updateAnswerDisplay();
 });
-submitButton.addEventListener("click", submitAnswer);
-clearScratchButton.addEventListener("click", clearScratch);
-playBlackHoleButton.addEventListener("click", () => {
+bindAppButton(submitButton, submitAnswer);
+bindAppButton(clearScratchButton, clearScratch);
+bindAppButton(playBlackHoleButton, () => {
   grantMiniGameAccess(BLACK_HOLE_GAME_ID);
   window.location.href = "index.html";
 });
-playKingfisherButton.addEventListener("click", () => {
+bindAppButton(playKingfisherButton, () => {
   grantMiniGameAccess(KINGFISHER_GAME_ID);
   window.location.href = "kingfisher.html";
 });
-playTetrisButton.addEventListener("click", () => {
+bindAppButton(playTetrisButton, () => {
   grantMiniGameAccess(TETRIS_GAME_ID);
   window.location.href = "tetris.html";
 });
-againButton.addEventListener("click", resetLesson);
+bindAppButton(againButton, resetLesson);
 
 scratchCanvas.addEventListener("pointerdown", startDrawing);
 scratchCanvas.addEventListener("pointermove", draw);
 scratchCanvas.addEventListener("pointerup", stopDrawing);
 scratchCanvas.addEventListener("pointercancel", stopDrawing);
 window.addEventListener("resize", resizeScratch);
+document.addEventListener(
+  "touchmove",
+  (event) => {
+    if (event.touches.length > 1) event.preventDefault();
+  },
+  { passive: false },
+);
+document.addEventListener(
+  "touchend",
+  (event) => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 360) event.preventDefault();
+    lastTouchEnd = now;
+  },
+  { passive: false },
+);
+document.addEventListener("gesturestart", (event) => event.preventDefault());
+document.addEventListener("gesturechange", (event) => event.preventDefault());
+document.addEventListener("gestureend", (event) => event.preventDefault());
+
+function bindAppButton(button, handler) {
+  let handledPointer = false;
+  button.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse") return;
+    event.preventDefault();
+    handledPointer = true;
+    handler();
+    window.setTimeout(() => {
+      handledPointer = false;
+    }, 450);
+  });
+  button.addEventListener("click", (event) => {
+    if (handledPointer) {
+      event.preventDefault();
+      return;
+    }
+    handler();
+  });
+}
 
 resizeScratch();
 resetLesson();

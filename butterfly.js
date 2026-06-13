@@ -17,16 +17,17 @@ const GAME_ID = "butterfly";
 const LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
-  spawnStart: 1.05,
-  spawnMin: 0.48,
+  spawnStart: 1.75,
+  spawnMin: 0.86,
+  maxEnemies: 4,
   clearFlowers: 42,
 };
 
 const ENEMY_TYPES = [
-  { id: "sparrow", label: "すずめ", size: 28, speed: 175, weight: 28 },
-  { id: "crow", label: "からす", size: 36, speed: 152, weight: 18 },
-  { id: "bee", label: "はち", size: 21, speed: 210, weight: 28 },
-  { id: "dragonfly", label: "とんぼ", size: 24, speed: 230, weight: 18 },
+  { id: "sparrow", label: "すずめ", size: 27, speed: 145, weight: 30 },
+  { id: "crow", label: "からす", size: 34, speed: 132, weight: 14 },
+  { id: "bee", label: "はち", size: 20, speed: 170, weight: 28 },
+  { id: "dragonfly", label: "とんぼ", size: 23, speed: 188, weight: 16 },
 ];
 
 const butterfly = {
@@ -113,7 +114,7 @@ function startGame() {
   enemies = [];
   flowers = [];
   confetti = [];
-  spawnTimer = 0.55;
+  spawnTimer = 1.15;
   butterfly.x = width * 0.18;
   butterfly.y = height * 0.45;
   butterfly.vy = 0;
@@ -199,7 +200,7 @@ function update(dt) {
 }
 
 function updateButterfly(dt) {
-  const lift = pressing ? -540 : 0;
+  const lift = pressing ? -1280 : 0;
   butterfly.vy += (780 + lift) * dt;
   butterfly.vy = clamp(butterfly.vy, -265, 315);
   butterfly.y += butterfly.vy * dt;
@@ -212,8 +213,8 @@ function updateEnemies(dt) {
   spawnTimer -= dt;
   const elapsed = GAME_CONFIG.roundSeconds - timeLeft;
   if (spawnTimer <= 0) {
-    spawnEnemy();
-    spawnTimer = Math.max(GAME_CONFIG.spawnMin, GAME_CONFIG.spawnStart - elapsed * 0.022) * (0.78 + Math.random() * 0.48);
+    if (enemies.length < GAME_CONFIG.maxEnemies) spawnEnemy();
+    spawnTimer = Math.max(GAME_CONFIG.spawnMin, GAME_CONFIG.spawnStart - elapsed * 0.014) * (0.86 + Math.random() * 0.44);
   }
 
   for (const enemy of enemies) {
@@ -223,7 +224,7 @@ function updateEnemies(dt) {
   }
 
   for (const enemy of enemies) {
-    const hitDistance = enemy.size * 0.72 + 17;
+    const hitDistance = enemy.size * 0.62 + 14;
     if (Math.hypot(enemy.x - butterfly.x, enemy.y - butterfly.y) < hitDistance) {
       finishGame("gameover");
       return;
@@ -599,19 +600,53 @@ function setPressing(value) {
 }
 
 function bindPressControl(target) {
-  target.addEventListener("pointerdown", (event) => {
+  const pressStart = (event) => {
     event.preventDefault();
     prepareAudio();
-    target.setPointerCapture(event.pointerId);
+    if (event.pointerId !== undefined && target.setPointerCapture) {
+      try {
+        target.setPointerCapture(event.pointerId);
+      } catch {
+        // Some mobile browsers expose pointer events without reliable capture.
+      }
+    }
     setPressing(true);
-  });
-  target.addEventListener("pointerup", (event) => {
+  };
+  const pressEnd = (event) => {
     event.preventDefault();
     setPressing(false);
-    target.releasePointerCapture(event.pointerId);
+    if (event.pointerId !== undefined && target.releasePointerCapture) {
+      try {
+        target.releasePointerCapture(event.pointerId);
+      } catch {
+        // Matching the guarded capture call above.
+      }
+    }
+  };
+
+  target.addEventListener("pointerdown", (event) => {
+    pressStart(event);
+  });
+  target.addEventListener("pointerup", (event) => {
+    pressEnd(event);
   });
   target.addEventListener("pointercancel", () => setPressing(false));
   target.addEventListener("pointerleave", () => setPressing(false));
+  target.addEventListener(
+    "touchstart",
+    (event) => {
+      pressStart(event);
+    },
+    { passive: false },
+  );
+  target.addEventListener(
+    "touchend",
+    (event) => {
+      pressEnd(event);
+    },
+    { passive: false },
+  );
+  target.addEventListener("touchcancel", () => setPressing(false), { passive: false });
 }
 
 function preventZoomGestures() {

@@ -11,6 +11,7 @@
 - `learn.html`: 学習アプリの親ページ
 - `index.html`: ブラックホール・ハーベスト
 - `kingfisher.html`: カワセミ・ダイブ
+- `butterfly.html`: ちょうちょ・フライト
 - `tetris.html`: テトリス
 - `tetris-drag.html`: テトリス ドラッグベータ
 
@@ -30,6 +31,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/addition.html`
 - `http://localhost:8000/`
 - `http://localhost:8000/kingfisher.html`
+- `http://localhost:8000/butterfly.html`
 - `http://localhost:8000/tetris.html`
 - `http://localhost:8000/tetris-drag.html`
 
@@ -42,6 +44,7 @@ python3 -m http.server 8000
 - 一桁の足し算: https://yuzukarappobest-stack.github.io/black-hole-harvest/addition.html
 - ブラックホール・ハーベスト: https://yuzukarappobest-stack.github.io/black-hole-harvest/
 - カワセミ・ダイブ: https://yuzukarappobest-stack.github.io/black-hole-harvest/kingfisher.html
+- ちょうちょ・フライト: https://yuzukarappobest-stack.github.io/black-hole-harvest/butterfly.html
 - テトリス: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris.html
 - テトリス ドラッグベータ: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris-drag.html
 

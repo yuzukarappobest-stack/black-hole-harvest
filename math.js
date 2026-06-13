@@ -2,6 +2,7 @@ const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const TETRIS_GAME_ID = "tetris";
+const BUTTERFLY_GAME_ID = "butterfly";
 const LESSON_CONFIG = {
   requiredCorrect: 2,
   nextDelayMs: 650,
@@ -22,6 +23,7 @@ const completePanel = document.getElementById("completePanel");
 const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
 const playTetrisButton = document.getElementById("playTetrisButton");
+const playButterflyButton = document.getElementById("playButterflyButton");
 const againButton = document.getElementById("againButton");
 
 let correct = 0;
@@ -192,6 +194,10 @@ bindAppButton(playKingfisherButton, () => {
 bindAppButton(playTetrisButton, () => {
   grantMiniGameAccess(TETRIS_GAME_ID);
   window.location.href = "tetris.html";
+});
+bindAppButton(playButterflyButton, () => {
+  grantMiniGameAccess(BUTTERFLY_GAME_ID);
+  window.location.href = "butterfly.html";
 });
 bindAppButton(againButton, resetLesson);
 

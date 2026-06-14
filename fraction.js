@@ -61,14 +61,16 @@ function createProblem() {
     let denominatorB = randomInt(2, 9);
     while (denominatorB === denominatorA) denominatorB = randomInt(2, 9);
 
-    left = {
+    left = reduceFraction({
       numerator: randomInt(1, denominatorA - 1),
       denominator: denominatorA,
-    };
-    right = {
+    });
+    right = reduceFraction({
       numerator: randomInt(1, denominatorB - 1),
       denominator: denominatorB,
-    };
+    });
+    if (left.denominator === right.denominator) continue;
+
     operator = Math.random() < 0.56 ? "+" : "-";
 
     if (operator === "-" && compareFractions(left, right) <= 0) {
@@ -105,6 +107,14 @@ function createProblem() {
 
 function compareFractions(a, b) {
   return a.numerator * b.denominator - b.numerator * a.denominator;
+}
+
+function reduceFraction(fraction) {
+  const divisor = gcd(fraction.numerator, fraction.denominator);
+  return {
+    numerator: fraction.numerator / divisor,
+    denominator: fraction.denominator / divisor,
+  };
 }
 
 function renderProblem() {

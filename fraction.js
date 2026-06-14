@@ -17,6 +17,9 @@ const feedback = document.getElementById("feedback");
 const submitButton = document.getElementById("submitButton");
 const backspaceButton = document.getElementById("backspaceButton");
 const clearAnswerButton = document.getElementById("clearAnswerButton");
+const clearScratchButton = document.getElementById("clearScratchButton");
+const scratchCanvas = document.getElementById("scratchCanvas");
+const scratchCtx = scratchCanvas.getContext("2d");
 const completePanel = document.getElementById("completePanel");
 const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
@@ -32,6 +35,8 @@ let answer = {
 };
 let currentProblem = null;
 let lastTouchEnd = 0;
+let drawing = false;
+let dpr = 1;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 
@@ -48,6 +53,7 @@ function nextProblem() {
   currentProblem = createProblem();
   renderProblem();
   updateAnswerDisplay();
+  clearScratch();
   showFeedback(" ", "");
 }
 
@@ -235,6 +241,53 @@ function gcd(a, b) {
   return left || 1;
 }
 
+function resizeScratch() {
+  const rect = scratchCanvas.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  scratchCanvas.width = Math.max(1, Math.floor(rect.width * dpr));
+  scratchCanvas.height = Math.max(1, Math.floor(rect.height * dpr));
+  scratchCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  scratchCtx.lineCap = "round";
+  scratchCtx.lineJoin = "round";
+  scratchCtx.lineWidth = 5;
+  scratchCtx.strokeStyle = "#071b35";
+}
+
+function clearScratch() {
+  scratchCtx.clearRect(0, 0, scratchCanvas.width, scratchCanvas.height);
+}
+
+function scratchPoint(event) {
+  const rect = scratchCanvas.getBoundingClientRect();
+  return {
+    x: event.clientX - rect.left,
+    y: event.clientY - rect.top,
+  };
+}
+
+function startDrawing(event) {
+  event.preventDefault();
+  drawing = true;
+  scratchCanvas.setPointerCapture(event.pointerId);
+  const point = scratchPoint(event);
+  scratchCtx.beginPath();
+  scratchCtx.moveTo(point.x, point.y);
+}
+
+function draw(event) {
+  if (!drawing) return;
+  event.preventDefault();
+  const point = scratchPoint(event);
+  scratchCtx.lineTo(point.x, point.y);
+  scratchCtx.stroke();
+}
+
+function stopDrawing(event) {
+  if (!drawing) return;
+  drawing = false;
+  scratchCanvas.releasePointerCapture(event.pointerId);
+}
+
 function bindAppButton(button, handler) {
   let handledPointer = false;
   button.addEventListener("pointerdown", (event) => {
@@ -263,6 +316,7 @@ bindAppButton(denominatorInput, () => selectField("denominator"));
 bindAppButton(backspaceButton, backspace);
 bindAppButton(clearAnswerButton, clearAnswer);
 bindAppButton(submitButton, submitAnswer);
+bindAppButton(clearScratchButton, clearScratch);
 bindAppButton(playBlackHoleButton, () => {
   grantMiniGameAccess(BLACK_HOLE_GAME_ID);
   window.location.href = "index.html";
@@ -280,6 +334,12 @@ bindAppButton(playButterflyButton, () => {
   window.location.href = "butterfly.html";
 });
 bindAppButton(againButton, resetLesson);
+
+scratchCanvas.addEventListener("pointerdown", startDrawing);
+scratchCanvas.addEventListener("pointermove", draw);
+scratchCanvas.addEventListener("pointerup", stopDrawing);
+scratchCanvas.addEventListener("pointercancel", stopDrawing);
+window.addEventListener("resize", resizeScratch);
 
 document.addEventListener(
   "touchmove",
@@ -301,4 +361,5 @@ document.addEventListener("gesturestart", (event) => event.preventDefault());
 document.addEventListener("gesturechange", (event) => event.preventDefault());
 document.addEventListener("gestureend", (event) => event.preventDefault());
 
+resizeScratch();
 resetLesson();

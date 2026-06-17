@@ -35,7 +35,7 @@ const letters = letterGroups.flat();
 
 const listenWords = {
   "が": "がっこう",
-  "ぎ": "ぎゅうにゅう",
+  "ぎ": "ぎたー",
   "ぐ": "ぐみ",
   "げ": "げた",
   "ご": "ごりら",
@@ -96,7 +96,7 @@ const listenWords = {
 
 const pictureHints = {
   "が": "🏫",
-  "ぎ": "🥛",
+  "ぎ": "🎸",
   "ぐ": { src: "assets/gummy.jpg" },
   "げ": "🩴",
   "ご": "🦍",

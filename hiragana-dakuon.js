@@ -11,6 +11,7 @@ const MINI_GAME_RETURN_URL = "miniGameReturnUrl";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const BUTTERFLY_GAME_ID = "butterfly";
+const METEOR_GAME_ID = "meteor";
 
 const letterGroups = [
   ["が", "ぎ", "ぐ", "げ", "ご"],
@@ -187,6 +188,7 @@ const completePanel = document.getElementById("completePanel");
 const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
 const playButterflyButton = document.getElementById("playButterflyButton");
+const playMeteorButton = document.getElementById("playMeteorButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -537,6 +539,10 @@ playKingfisherButton.addEventListener("click", () => {
 playButterflyButton.addEventListener("click", () => {
   grantMiniGameAccess(BUTTERFLY_GAME_ID);
   window.location.href = "butterfly.html";
+});
+playMeteorButton.addEventListener("click", () => {
+  grantMiniGameAccess(METEOR_GAME_ID);
+  window.location.href = "meteor.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

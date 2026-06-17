@@ -11,6 +11,7 @@ const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const TETRIS_GAME_ID = "tetris";
 const BUTTERFLY_GAME_ID = "butterfly";
+const METEOR_GAME_ID = "meteor";
 
 function toKatakana(text) {
   return text.replace(/[\u3041-\u3096]/g, (char) => String.fromCharCode(char.charCodeAt(0) + 0x60));
@@ -224,6 +225,7 @@ const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
 const playTetrisButton = document.getElementById("playTetrisButton");
 const playButterflyButton = document.getElementById("playButterflyButton");
+const playMeteorButton = document.getElementById("playMeteorButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -584,6 +586,10 @@ playTetrisButton.addEventListener("click", () => {
 playButterflyButton.addEventListener("click", () => {
   grantMiniGameAccess(BUTTERFLY_GAME_ID);
   window.location.href = "butterfly.html";
+});
+playMeteorButton.addEventListener("click", () => {
+  grantMiniGameAccess(METEOR_GAME_ID);
+  window.location.href = "meteor.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

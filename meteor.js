@@ -52,6 +52,7 @@ let groundY = 0;
 let score = 0;
 let timeLeft = GAME_CONFIG.roundSeconds;
 let running = false;
+let gameCleared = false;
 let lastTime = 0;
 let spawnTimer = 0;
 let fireTimer = 0;
@@ -109,6 +110,7 @@ function startGame() {
   score = 0;
   timeLeft = GAME_CONFIG.roundSeconds;
   running = true;
+  gameCleared = false;
   lastTime = performance.now();
   spawnTimer = 0.32;
   fireTimer = 0;
@@ -234,9 +236,10 @@ function checkHits() {
 function finishGame() {
   running = false;
   const cleared = score >= GAME_CONFIG.clearScore;
+  gameCleared = cleared;
   resultLabel.textContent = cleared ? "CLEAR" : "RESULT";
   resultTitle.textContent = `${score}てん`;
-  resultMessage.textContent = cleared ? "まちを守れた！" : "400てんまであと少し。";
+  resultMessage.textContent = cleared ? "ちきゅうをまもったぞ！" : "400てんまであと少し。";
   finishPanel.classList.toggle("clear", cleared);
   finishPanel.classList.toggle("miss", !cleared);
   finishPanel.classList.remove("hidden");
@@ -378,6 +381,11 @@ function draw() {
 }
 
 function drawBackground() {
+  if (gameCleared) {
+    drawClearSkyBackground();
+    return;
+  }
+
   const sky = ctx.createLinearGradient(0, 0, 0, height);
   sky.addColorStop(0, "#07152d");
   sky.addColorStop(0.58, "#12346d");
@@ -405,6 +413,46 @@ function drawBackground() {
     ctx.closePath();
     ctx.fill();
   }
+}
+
+function drawClearSkyBackground() {
+  const sky = ctx.createLinearGradient(0, 0, 0, height);
+  sky.addColorStop(0, "#63c9ff");
+  sky.addColorStop(0.58, "#b9efff");
+  sky.addColorStop(1, "#e8fbff");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+  drawCloud(width * 0.18, height * 0.18, 1.05);
+  drawCloud(width * 0.72, height * 0.24, 0.92);
+  drawCloud(width * 0.46, height * 0.12, 0.65);
+
+  ctx.fillStyle = "#35b96f";
+  ctx.fillRect(0, groundY, width, height - groundY);
+  ctx.fillStyle = "#54d17b";
+  for (let x = -20; x < width + 20; x += 34) {
+    ctx.beginPath();
+    ctx.moveTo(x, groundY);
+    ctx.lineTo(x + 20, groundY - 18 - Math.sin(x) * 7);
+    ctx.lineTo(x + 42, groundY);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+function drawCloud(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.beginPath();
+  ctx.arc(-34, 9, 22, 0, Math.PI * 2);
+  ctx.arc(-11, -4, 28, 0, Math.PI * 2);
+  ctx.arc(20, 3, 24, 0, Math.PI * 2);
+  ctx.arc(43, 12, 18, 0, Math.PI * 2);
+  ctx.rect(-50, 10, 106, 24);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawMeteor(meteor) {

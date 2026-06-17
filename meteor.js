@@ -20,15 +20,30 @@ const GAME_CONFIG = {
   spawnMin: 0.31,
   maxMeteors: 12,
   fireCooldown: 0.16,
+  bossFirstSecond: 17,
+  bossSpawnEverySeconds: 4.2,
+  bossMaxCount: 3,
 };
 
 const METEOR_TYPES = [
-  { id: "pebble", label: "小さな隕石", points: 5, radius: 13, speed: 92, hp: 1, color: "#a88d76", glow: "#ffd0a6", weight: 34 },
-  { id: "rock", label: "中くらいの隕石", points: 10, radius: 19, speed: 78, hp: 1, color: "#8b6e63", glow: "#ffb27c", weight: 28 },
-  { id: "boulder", label: "大きな隕石", points: 18, radius: 27, speed: 62, hp: 2, color: "#6d5a58", glow: "#ff8f5c", weight: 18 },
-  { id: "ice", label: "氷の隕石", points: 25, radius: 23, speed: 96, hp: 1, color: "#7ee7ff", glow: "#d7fbff", weight: 12 },
-  { id: "gold", label: "金の隕石", points: 40, radius: 21, speed: 118, hp: 1, color: "#ffd75e", glow: "#fff3a5", weight: 8 },
+  { id: "pebble", label: "小さな隕石", points: 2, radius: 13, speed: 92, hp: 1, color: "#a88d76", glow: "#ffd0a6", weight: 34 },
+  { id: "rock", label: "中くらいの隕石", points: 4, radius: 19, speed: 78, hp: 1, color: "#8b6e63", glow: "#ffb27c", weight: 28 },
+  { id: "boulder", label: "大きな隕石", points: 8, radius: 27, speed: 62, hp: 2, color: "#6d5a58", glow: "#ff8f5c", weight: 18 },
+  { id: "ice", label: "氷の隕石", points: 11, radius: 23, speed: 96, hp: 1, color: "#7ee7ff", glow: "#d7fbff", weight: 12 },
+  { id: "gold", label: "金の隕石", points: 18, radius: 21, speed: 118, hp: 1, color: "#ffd75e", glow: "#fff3a5", weight: 8 },
 ];
+
+const BOSS_METEOR = {
+  id: "boss",
+  label: "超大型隕石",
+  points: 70,
+  radius: 48,
+  speed: 42,
+  hp: 10,
+  color: "#3f3445",
+  glow: "#ff4f9a",
+  weight: 0,
+};
 
 let width = 0;
 let height = 0;
@@ -40,6 +55,8 @@ let running = false;
 let lastTime = 0;
 let spawnTimer = 0;
 let fireTimer = 0;
+let bossSpawnTimer = 0;
+let bossSpawnCount = 0;
 let shake = 0;
 let meteors = [];
 let shots = [];
@@ -95,6 +112,8 @@ function startGame() {
   lastTime = performance.now();
   spawnTimer = 0.32;
   fireTimer = 0;
+  bossSpawnTimer = GAME_CONFIG.bossFirstSecond;
+  bossSpawnCount = 0;
   shake = 0;
   meteors = [];
   shots = [];
@@ -129,6 +148,16 @@ function update(dt) {
   if (spawnTimer <= 0 && meteors.length < GAME_CONFIG.maxMeteors) {
     spawnMeteor();
     spawnTimer = interval * (0.72 + Math.random() * 0.58);
+  }
+  bossSpawnTimer -= dt;
+  if (
+    elapsed >= GAME_CONFIG.bossFirstSecond
+    && bossSpawnTimer <= 0
+    && bossSpawnCount < GAME_CONFIG.bossMaxCount
+  ) {
+    spawnBossMeteor();
+    bossSpawnCount += 1;
+    bossSpawnTimer = GAME_CONFIG.bossSpawnEverySeconds;
   }
 
   updateShots(dt);
@@ -237,6 +266,21 @@ function spawnMeteor() {
     hp: type.hp,
     spin: Math.random() * Math.PI,
     spinSpeed: (Math.random() - 0.5) * 4,
+  });
+}
+
+function spawnBossMeteor() {
+  const drift = (Math.random() - 0.5) * 24;
+  meteors.push({
+    type: BOSS_METEOR,
+    x: width * (0.28 + Math.random() * 0.44),
+    y: -BOSS_METEOR.radius - 18,
+    radius: BOSS_METEOR.radius * (0.92 + Math.random() * 0.12),
+    vx: drift,
+    vy: BOSS_METEOR.speed * (0.9 + Math.random() * 0.16),
+    hp: BOSS_METEOR.hp,
+    spin: Math.random() * Math.PI,
+    spinSpeed: (Math.random() - 0.5) * 1.6,
   });
 }
 

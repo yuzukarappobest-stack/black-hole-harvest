@@ -14,7 +14,7 @@ const flapButton = document.getElementById("flapButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "butterfly";
-const LEARNING_URL = "learn.html";
+const DEFAULT_LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   spawnStart: 1.75,
@@ -66,7 +66,11 @@ function requireMiniGameAccess(gameId) {
     sessionStorage.removeItem(key);
     return;
   }
-  window.location.replace(LEARNING_URL);
+  window.location.replace(getLearningUrl());
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
 }
 
 window.addEventListener("pageshow", (event) => {
@@ -685,7 +689,7 @@ function clamp(value, min, max) {
 
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", () => {
-  window.location.href = LEARNING_URL;
+  window.location.href = getLearningUrl();
 });
 pauseButton.addEventListener("click", togglePause);
 bindPressControl(flapButton);

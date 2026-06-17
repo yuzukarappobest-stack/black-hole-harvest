@@ -19,7 +19,7 @@ const overlayLearnButton = document.getElementById("overlayLearnButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "tetris";
-const LEARNING_URL = "learn.html";
+const DEFAULT_LEARNING_URL = "learn.html";
 const COLS = 10;
 const ROWS = 20;
 const DROP_START_MS = 760;
@@ -66,7 +66,11 @@ function requireMiniGameAccess(gameId) {
     sessionStorage.removeItem(key);
     return;
   }
-  window.location.replace(LEARNING_URL);
+  window.location.replace(getLearningUrl());
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
 }
 
 window.addEventListener("pageshow", (event) => {
@@ -350,10 +354,10 @@ bindGameButton(dropButton, hardDrop);
 bindGameButton(startButton, startGame);
 bindGameButton(overlayStartButton, startGame);
 bindGameButton(learnButton, () => {
-  window.location.href = LEARNING_URL;
+  window.location.href = getLearningUrl();
 });
 bindGameButton(overlayLearnButton, () => {
-  window.location.href = LEARNING_URL;
+  window.location.href = getLearningUrl();
 });
 
 window.addEventListener("keydown", (event) => {

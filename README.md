@@ -5,6 +5,7 @@
 ## アプリ
 
 - `hiragana.html`: ひらがな学習
+- `hiragana-dakuon.html`: ひらがな第二弾（濁音・半濁音・拗音）
 - `katakana.html`: カタカナ学習
 - `math.html`: 算数学習
 - `addition.html`: 一桁の足し算
@@ -27,6 +28,7 @@ python3 -m http.server 8000
 その後、以下を開きます。
 
 - `http://localhost:8000/learn.html`
+- `http://localhost:8000/hiragana-dakuon.html`
 - `http://localhost:8000/katakana.html`
 - `http://localhost:8000/math.html`
 - `http://localhost:8000/addition.html`
@@ -41,6 +43,7 @@ python3 -m http.server 8000
 
 - 学習メニュー: https://yuzukarappobest-stack.github.io/black-hole-harvest/learn.html
 - ひらがな学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana.html
+- ひらがな第二弾（濁音・半濁音・拗音）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-dakuon.html
 - カタカナ学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana.html
 - 算数学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/math.html
 - 一桁の足し算: https://yuzukarappobest-stack.github.io/black-hole-harvest/addition.html

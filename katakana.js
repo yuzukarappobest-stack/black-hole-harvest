@@ -589,6 +589,7 @@ stayButton.addEventListener("click", resetLesson);
 
 function grantMiniGameAccess(gameId) {
   sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${gameId}`, "1");
+  sessionStorage.setItem("miniGameReturnUrl", "learn.html");
 }
 
 setMode(LESSON_CONFIG.defaultMode);

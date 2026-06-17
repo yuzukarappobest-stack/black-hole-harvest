@@ -12,7 +12,7 @@ const restartButton = document.getElementById("restartButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "black-hole";
-const LEARNING_URL = "learn.html";
+const DEFAULT_LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   clearScore: 200,
@@ -67,7 +67,11 @@ function requireMiniGameAccess(gameId) {
     sessionStorage.removeItem(key);
     return;
   }
-  window.location.replace(LEARNING_URL);
+  window.location.replace(getLearningUrl());
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
 }
 
 window.addEventListener("pageshow", (event) => {
@@ -561,7 +565,7 @@ canvas.addEventListener("pointercancel", () => {
 window.addEventListener("resize", resize);
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", () => {
-  window.location.href = LEARNING_URL;
+  window.location.href = getLearningUrl();
 });
 
 resize();

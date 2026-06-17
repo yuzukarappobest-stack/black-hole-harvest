@@ -224,6 +224,7 @@ function showComplete() {
 
 function grantMiniGameAccess(gameId) {
   sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${gameId}`, "1");
+  sessionStorage.setItem("miniGameReturnUrl", "learn.html");
 }
 
 function randomInt(min, max) {

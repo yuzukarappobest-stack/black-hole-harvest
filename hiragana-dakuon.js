@@ -7,191 +7,163 @@ const LESSON_CONFIG = {
 };
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const MINI_GAME_RETURN_URL = "miniGameReturnUrl";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
-const TETRIS_GAME_ID = "tetris";
 const BUTTERFLY_GAME_ID = "butterfly";
 
-const letters = [
-  "あ", "い", "う", "え", "お",
-  "か", "き", "く", "け", "こ",
-  "さ", "し", "す", "せ", "そ",
-  "た", "ち", "つ", "て", "と",
-  "な", "に", "ぬ", "ね", "の",
-  "は", "ひ", "ふ", "へ", "ほ",
-  "ま", "み", "む", "め", "も",
-  "や", "ゆ", "よ",
-  "ら", "り", "る", "れ", "ろ",
-  "わ", "を", "ん",
+const letterGroups = [
+  ["が", "ぎ", "ぐ", "げ", "ご"],
+  ["ざ", "じ", "ず", "ぜ", "ぞ"],
+  ["だ", "ぢ", "づ", "で", "ど"],
+  ["ば", "び", "ぶ", "べ", "ぼ"],
+  ["ぱ", "ぴ", "ぷ", "ぺ", "ぽ"],
+  ["きゃ", "きゅ", "きょ"],
+  ["ぎゃ", "ぎゅ", "ぎょ"],
+  ["しゃ", "しゅ", "しょ"],
+  ["じゃ", "じゅ", "じょ"],
+  ["ちゃ", "ちゅ", "ちょ"],
+  ["にゃ", "にゅ", "にょ"],
+  ["ひゃ", "ひゅ", "ひょ"],
+  ["びゃ", "びゅ", "びょ"],
+  ["ぴゃ", "ぴゅ", "ぴょ"],
+  ["みゃ", "みゅ", "みょ"],
+  ["りゃ", "りゅ", "りょ"],
 ];
 
-const similarGroups = [
-  ["あ", "お", "め", "ぬ", "の"],
-  ["い", "り", "こ", "に"],
-  ["う", "つ", "ら", "ろ", "る"],
-  ["え", "そ", "ん"],
-  ["か", "や", "が"],
-  ["き", "さ", "ち"],
-  ["く", "へ", "し"],
-  ["け", "は", "ほ"],
-  ["た", "な", "に"],
-  ["ま", "も", "ほ"],
-  ["れ", "わ", "ね"],
-];
+const letters = letterGroups.flat();
 
 const listenWords = {
-  "あ": "あさひ",
-  "い": "いぬ",
-  "う": "うみ",
-  "え": "えんぴつ",
-  "お": "おにぎり",
-  "か": "かさ",
-  "き": "きのこ",
-  "く": "くつ",
-  "け": "けーき",
-  "こ": "こあら",
-  "さ": "さかな",
-  "し": "しまうま",
-  "す": "すいか",
-  "せ": "せみ",
-  "そ": "そら",
-  "た": "たいこ",
-  "ち": "ちきゅう",
-  "つ": "つき",
-  "て": "てがみ",
-  "と": "とけい",
-  "な": "なす",
-  "に": "にじ",
-  "ぬ": "ぬいぐるみ",
-  "ね": "ねこ",
-  "の": "のりまき",
-  "は": "はな",
-  "ひ": "ひこうき",
-  "ふ": "ふね",
-  "へ": "へび",
-  "ほ": "ほし",
-  "ま": "まる",
-  "み": "みかん",
-  "む": "むし",
-  "め": "めがね",
-  "も": "もも",
-  "や": "やま",
-  "ゆ": "ゆき",
-  "よ": "よる",
-  "ら": "らっぱ",
-  "り": "りす",
-  "る": "るびー",
-  "れ": "れもん",
-  "ろ": "ろうそく",
-  "わ": "わに",
-  "を": "ほんをよむ",
-  "ん": "きりん",
+  "が": "がっこう",
+  "ぎ": "ぎゅうにゅう",
+  "ぐ": "ぐみ",
+  "げ": "げた",
+  "ご": "ごりら",
+  "ざ": "ざりがに",
+  "じ": "じてんしゃ",
+  "ず": "ずぼん",
+  "ぜ": "ぜりー",
+  "ぞ": "ぞう",
+  "だ": "だるま",
+  "ぢ": "はなぢ",
+  "づ": "みかづき",
+  "で": "でんしゃ",
+  "ど": "どんぐり",
+  "ば": "ばなな",
+  "び": "びーだま",
+  "ぶ": "ぶどう",
+  "べ": "べる",
+  "ぼ": "ぼうし",
+  "ぱ": "ぱん",
+  "ぴ": "ぴあの",
+  "ぷ": "ぷりん",
+  "ぺ": "ぺんぎん",
+  "ぽ": "ぽすと",
+  "きゃ": "きゃべつ",
+  "きゅ": "きゅうり",
+  "きょ": "きょうりゅう",
+  "ぎゃ": "ぎゃく",
+  "ぎゅ": "ぎゅうにゅう",
+  "ぎょ": "ぎょーざ",
+  "しゃ": "しゃしん",
+  "しゅ": "しゅりけん",
+  "しょ": "しょうぼうしゃ",
+  "じゃ": "じゃんぐる",
+  "じゅ": "じゅーす",
+  "じょ": "じょうろ",
+  "ちゃ": "ちゃわん",
+  "ちゅ": "ちゅーりっぷ",
+  "ちょ": "ちょうちょ",
+  "にゃ": "にゃんこ",
+  "にゅ": "にゅうどうぐも",
+  "にょ": "にょきにょき",
+  "ひゃ": "ひゃく",
+  "ひゅ": "ひゅー",
+  "ひょ": "ひょう",
+  "びゃ": "びゃくや",
+  "びゅ": "びゅーん",
+  "びょ": "びょういん",
+  "ぴゃ": "ぴゃっと",
+  "ぴゅ": "ぴゅーん",
+  "ぴょ": "ぴょん",
+  "みゃ": "みゃく",
+  "みゅ": "みゅーじっく",
+  "みょ": "みょうが",
+  "りゃ": "りゃく",
+  "りゅ": "りゅう",
+  "りょ": "りょこう",
 };
 
 const pictureHints = {
-  "あ": "🌅",
-  "い": "🐶",
-  "う": "🌊",
-  "え": "✏️",
-  "お": "🍙",
-  "か": "☂️",
-  "き": "🍄",
-  "く": "👟",
-  "け": "🍰",
-  "こ": "🐨",
-  "さ": "🐟",
-  "し": "🦓",
-  "す": "🍉",
-  "せ": { src: "assets/cicada.jpg" },
-  "そ": "🌤️",
-  "た": "🥁",
-  "ち": "🌍",
-  "つ": "🌙",
-  "て": "✉️",
-  "と": "⏰",
-  "な": "🍆",
-  "に": "🌈",
-  "ぬ": "🧸",
-  "ね": "🐱",
-  "の": { src: "assets/norimaki.jpg" },
-  "は": "🌸",
-  "ひ": "✈️",
-  "ふ": "⛵",
-  "へ": "🐍",
-  "ほ": "⭐",
-  "ま": "⭕",
-  "み": "🍊",
-  "む": "🐛",
-  "め": "👓",
-  "も": "🍑",
-  "や": "⛰️",
-  "ゆ": "❄️",
-  "よ": "🌌",
-  "ら": "🎺",
-  "り": "🐿️",
-  "る": "💎",
-  "れ": "🍋",
-  "ろ": "🕯️",
-  "わ": "🐊",
-  "を": "📚",
-  "ん": { src: "assets/giraffe.jpg" },
+  "が": "🏫",
+  "ぎ": "🥛",
+  "ぐ": "🫐",
+  "げ": "🩴",
+  "ご": "🦍",
+  "ざ": "🦞",
+  "じ": "🚲",
+  "ず": "👖",
+  "ぜ": "🍮",
+  "ぞ": "🐘",
+  "だ": "🎎",
+  "ぢ": "🩸",
+  "づ": "🌙",
+  "で": "🚃",
+  "ど": "🌰",
+  "ば": "🍌",
+  "び": "🔵",
+  "ぶ": "🍇",
+  "べ": "🔔",
+  "ぼ": "👒",
+  "ぱ": "🍞",
+  "ぴ": "🎹",
+  "ぷ": "🍮",
+  "ぺ": "🐧",
+  "ぽ": "📮",
+  "きゃ": "🥬",
+  "きゅ": "🥒",
+  "きょ": "🦕",
+  "ぎゃ": "↩️",
+  "ぎゅ": "🥛",
+  "ぎょ": "🥟",
+  "しゃ": "📷",
+  "しゅ": "🥷",
+  "しょ": "🚒",
+  "じゃ": "🌴",
+  "じゅ": "🧃",
+  "じょ": "🚿",
+  "ちゃ": "🍵",
+  "ちゅ": "🌷",
+  "ちょ": "🦋",
+  "にゃ": "🐱",
+  "にゅ": "☁️",
+  "にょ": "🌱",
+  "ひゃ": "💯",
+  "ひゅ": "💨",
+  "ひょ": "🐆",
+  "びゃ": "🌃",
+  "びゅ": "💨",
+  "びょ": "🏥",
+  "ぴゃ": "💥",
+  "ぴゅ": "🚀",
+  "ぴょ": "🐰",
+  "みゃ": "💓",
+  "みゅ": "🎵",
+  "みょ": "🫚",
+  "りゃ": "📝",
+  "りゅ": "🐉",
+  "りょ": "🧳",
 };
 
 const speechReadings = {
-  "亜": "あ",
-  "1": "い", "一": "い",
-  "胃": "い", "井": "い", "位": "い",
-  "鵜": "う", "卯": "う",
-  "絵": "え", "江": "え",
-  "尾": "お", "緒": "お",
-  "蚊": "か", "可": "か", "課": "か",
-  "木": "き", "気": "き", "黄": "き",
-  "区": "く", "句": "く", "苦": "く",
-  "毛": "け", "家": "け",
-  "子": "こ", "個": "こ", "粉": "こ",
-  "差": "さ", "佐": "さ",
-  "氏": "し", "市": "し", "死": "し",
-  "巣": "す", "酢": "す", "素": "す",
-  "背": "せ", "瀬": "せ",
-  "祖": "そ", "曽": "そ",
-  "田": "た", "他": "た",
-  "血": "ち", "地": "ち",
-  "津": "つ", "都": "とつ",
-  "手": "て",
-  "戸": "と",
-  "名": "な", "菜": "な",
-  "7": "な", "七": "な",
-  "二": "に", "荷": "に",
-  "2": "に",
-  "縫": "ぬ",
-  "根": "ね", "音": "ね",
-  "野": "の",
-  "歯": "は", "葉": "は",
-  "8": "は", "八": "は",
-  "日": "ひ", "火": "ひ",
-  "府": "ふ", "負": "ふ",
-  "屁": "へ", "辺": "へ",
-  "穂": "ほ", "帆": "ほ",
-  "間": "ま", "真": "ま",
-  "身": "み", "実": "み", "美": "み",
-  "3": "み", "三": "み",
-  "無": "む", "夢": "む",
-  "目": "め", "芽": "め",
-  "藻": "も",
-  "矢": "や", "屋": "や",
-  "湯": "ゆ", "油": "ゆ",
-  "世": "よ", "夜": "よ",
-  "4": "しよ", "四": "しよ",
-  "等": "ら", "羅": "ら",
-  "利": "り", "理": "り",
-  "留": "る", "流": "る",
-  "例": "れ", "礼": "れ",
-  "炉": "ろ", "路": "ろ",
-  "6": "ろ", "六": "ろ",
-  "9": "く", "九": "く",
-  "輪": "わ", "和": "わ",
-  "を": "を",
-  "ん": "ん",
+  "学": "が",
+  "牛": "ぎゅ",
+  "写": "しゃ",
+  "手": "しゅ",
+  "消": "しょ",
+  "茶": "ちゃ",
+  "竜": "りゅ",
+  "旅": "りょ",
 };
 
 const letterCard = document.getElementById("letterCard");
@@ -214,7 +186,6 @@ const nextButton = document.getElementById("nextButton");
 const completePanel = document.getElementById("completePanel");
 const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
-const playTetrisButton = document.getElementById("playTetrisButton");
 const playButterflyButton = document.getElementById("playButterflyButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
@@ -324,33 +295,19 @@ function renderChoices() {
 }
 
 function buildChoices(answer, currentLevel) {
-  const similar = getSimilarLetters(answer);
-  const similarCount = Math.min(similar.length, Math.max(0, currentLevel - 1));
+  const group = getSeriesLetters(answer);
   const picked = new Set([answer]);
 
-  for (const item of shuffleArray(similar)) {
-    if (picked.size >= similarCount + 1) break;
-    picked.add(item);
-  }
-
-  const distant = letters.filter((letter) => !picked.has(letter) && !similar.includes(letter));
-  for (const item of shuffleArray(distant)) {
-    if (picked.size >= 5) break;
-    picked.add(item);
-  }
-
-  for (const item of shuffleArray(letters)) {
-    if (picked.size >= 5) break;
+  for (const item of shuffleArray(group.filter((letter) => letter !== answer))) {
+    if (picked.size >= 3) break;
     picked.add(item);
   }
 
   return shuffleArray(Array.from(picked));
 }
 
-function getSimilarLetters(letter) {
-  const group = similarGroups.find((items) => items.includes(letter));
-  if (!group) return [];
-  return group.filter((item) => item !== letter && letters.includes(item));
+function getSeriesLetters(letter) {
+  return letterGroups.find((items) => items.includes(letter)) || [letter];
 }
 
 function checkChoice(choice, button) {
@@ -436,8 +393,8 @@ function checkAnswer(transcript) {
   if (recognition && listening) {
     recognition.stop();
   }
-  const firstReading = getFirstReadingCandidates(transcript);
-  finishQuestion(firstReading.includes(currentLetter));
+  const readings = getReadingCandidates(transcript);
+  finishQuestion(readings.includes(currentLetter));
 }
 
 function finishQuestion(isCorrect) {
@@ -522,13 +479,21 @@ function normalizeKana(text) {
     .replace(/[^\u3041-\u3096]/g, "");
 }
 
-function getFirstReadingCandidates(text) {
+function getReadingCandidates(text) {
   const normalizedText = text.normalize("NFKC");
+  const normalizedKana = normalizeKana(normalizedText);
+  const readings = [];
+
+  for (const letter of letters) {
+    if (normalizedKana.startsWith(letter)) readings.push(letter);
+  }
+
   for (const char of normalizedText) {
     const reading = getCharReading(char);
-    if (reading) return reading;
+    if (reading) readings.push(reading);
   }
-  return "";
+
+  return readings;
 }
 
 function getCharReading(char) {
@@ -569,10 +534,6 @@ playKingfisherButton.addEventListener("click", () => {
   grantMiniGameAccess(KINGFISHER_GAME_ID);
   window.location.href = "kingfisher.html";
 });
-playTetrisButton.addEventListener("click", () => {
-  grantMiniGameAccess(TETRIS_GAME_ID);
-  window.location.href = "tetris.html";
-});
 playButterflyButton.addEventListener("click", () => {
   grantMiniGameAccess(BUTTERFLY_GAME_ID);
   window.location.href = "butterfly.html";
@@ -581,7 +542,7 @@ stayButton.addEventListener("click", resetLesson);
 
 function grantMiniGameAccess(gameId) {
   sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${gameId}`, "1");
-  sessionStorage.setItem("miniGameReturnUrl", "learn.html");
+  sessionStorage.setItem(MINI_GAME_RETURN_URL, "hiragana-dakuon.html");
 }
 
 setMode(LESSON_CONFIG.defaultMode);

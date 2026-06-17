@@ -649,7 +649,7 @@ canvas.addEventListener("pointerup", (event) => {
 
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", () => {
-  window.location.href = getLearningUrl();
+  window.location.href = DEFAULT_LEARNING_URL;
 });
 window.addEventListener("resize", resize);
 preventZoomGestures();

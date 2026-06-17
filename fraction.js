@@ -169,7 +169,7 @@ function appendDigit(digit) {
   const current = answer[activeField];
   if (current.length >= 3) return;
   answer[activeField] = current === "0" ? digit : current + digit;
-  if (activeField === "numerator" && answer.numerator.length >= 2) activeField = "denominator";
+  if (activeField === "numerator" && answer.numerator.length >= 3) activeField = "denominator";
   updateAnswerDisplay();
 }
 

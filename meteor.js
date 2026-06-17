@@ -15,7 +15,7 @@ const GAME_ID = "meteor";
 const DEFAULT_LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
-  clearScore: 200,
+  clearScore: 400,
   spawnStart: 0.58,
   spawnMin: 0.31,
   maxMeteors: 12,
@@ -236,7 +236,7 @@ function finishGame() {
   const cleared = score >= GAME_CONFIG.clearScore;
   resultLabel.textContent = cleared ? "CLEAR" : "RESULT";
   resultTitle.textContent = `${score}てん`;
-  resultMessage.textContent = cleared ? "まちを守れた！" : "200てんまであと少し。";
+  resultMessage.textContent = cleared ? "まちを守れた！" : "400てんまであと少し。";
   finishPanel.classList.toggle("clear", cleared);
   finishPanel.classList.toggle("miss", !cleared);
   finishPanel.classList.remove("hidden");

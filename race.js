@@ -37,6 +37,11 @@ class MiniRaceGame {
       { z: 3180, x: 0.44, type: "hay" },
       { z: 4040, x: -0.5, type: "cone" },
     ];
+    this.rivalTemplates = [
+      { z: 520, x: -0.34, speed: 168, color: "#ffd45e", accent: "#ff8f39" },
+      { z: 980, x: 0.32, speed: 174, color: "#5f8dff", accent: "#b7d1ff" },
+      { z: 1540, x: -0.08, speed: 181, color: "#7adf7e", accent: "#d8ffd8" },
+    ];
 
     this.state = "ready";
     this.width = 0;
@@ -46,6 +51,8 @@ class MiniRaceGame {
     this.distance = 0;
     this.speed = 0;
     this.playerX = 0;
+    this.playerVx = 0;
+    this.visualDistance = 0;
     this.cameraShake = 0;
     this.lastTime = 0;
     this.input = {
@@ -57,6 +64,8 @@ class MiniRaceGame {
     };
     this.bestTime = Number(localStorage.getItem("miniRaceBestTime") || 0);
     this.hitMemory = new Set();
+    this.rivalHitMemory = new Set();
+    this.rivals = this.createRivals();
     this.lastTouchEnd = 0;
     this.roadCenterCache = [];
 
@@ -180,10 +189,14 @@ class MiniRaceGame {
     this.state = "running";
     this.elapsed = 0;
     this.distance = 0;
+    this.visualDistance = 0;
     this.speed = 0;
     this.playerX = 0;
+    this.playerVx = 0;
     this.cameraShake = 0;
     this.hitMemory.clear();
+    this.rivalHitMemory.clear();
+    this.rivals = this.createRivals();
     this.readyPanel.classList.add("hidden");
     this.finishPanel.classList.add("hidden");
     this.finishPanel.classList.remove("goal", "gameover");
@@ -196,8 +209,10 @@ class MiniRaceGame {
     this.state = "ready";
     this.speed = 0;
     this.distance = 0;
+    this.visualDistance = 0;
     this.elapsed = 0;
     this.playerX = 0;
+    this.playerVx = 0;
     this.readyPanel.classList.remove("hidden");
     this.finishPanel.classList.add("hidden");
     this.updateHud();
@@ -235,19 +250,24 @@ class MiniRaceGame {
 
     const curve = this.curveAt(this.distance);
     const steer = this.getSteer();
-    const steerPower = 1.42 * (0.28 + this.speed / maxSpeed);
-    this.playerX += steer * steerPower * dt;
-    this.playerX -= curve * (this.speed / maxSpeed) * 0.56 * dt;
+    const steerPower = 2.35 * (0.32 + this.speed / maxSpeed);
+    const targetVx = steer * steerPower - curve * (this.speed / maxSpeed) * 0.86;
+    this.playerVx += (targetVx - this.playerVx) * Math.min(1, dt * 9);
+    this.playerX += this.playerVx * dt;
 
-    const offRoad = Math.abs(this.playerX) > 1;
+    const offRoad = Math.abs(this.playerX) > 1.24;
     if (offRoad) {
-      this.speed = Math.max(42, this.speed - 145 * dt);
-      this.playerX = this.clamp(this.playerX, -1.22, 1.22);
+      this.speed = Math.max(42, this.speed - 130 * dt);
+      this.playerX = this.clamp(this.playerX, -1.56, 1.56);
+      this.playerVx *= 0.88;
     }
 
     this.distance += this.speed * dt;
+    this.visualDistance += (this.distance - this.visualDistance) * Math.min(1, dt * 14);
     this.cameraShake = Math.max(0, this.cameraShake - dt * 5);
+    this.updateRivals(dt);
     this.checkObstacleHit();
+    this.checkRivalHit();
     this.updateHud();
 
     if (this.distance >= this.courseLength) {
@@ -274,6 +294,36 @@ class MiniRaceGame {
         this.speed *= 0.42;
         this.cameraShake = 1;
         this.hitMemory.add(i);
+      }
+    }
+  }
+
+  createRivals() {
+    return this.rivalTemplates.map((rival, index) => ({
+      ...rival,
+      id: index,
+      z: rival.z,
+      wobble: Math.random() * Math.PI * 2,
+    }));
+  }
+
+  updateRivals(dt) {
+    for (const rival of this.rivals) {
+      rival.z += rival.speed * dt;
+      rival.x += Math.sin(this.elapsed * 1.2 + rival.wobble) * 0.05 * dt;
+      rival.x = this.clamp(rival.x, -0.82, 0.82);
+    }
+  }
+
+  checkRivalHit() {
+    for (const rival of this.rivals) {
+      const dz = rival.z - this.distance;
+      if (dz < -20 || dz > 38 || this.rivalHitMemory.has(rival.id)) continue;
+      if (Math.abs(this.playerX - rival.x) < 0.28) {
+        this.speed *= 0.56;
+        this.playerVx *= -0.35;
+        this.cameraShake = 1;
+        this.rivalHitMemory.add(rival.id);
       }
     }
   }
@@ -323,6 +373,7 @@ class MiniRaceGame {
     this.drawBackground();
     this.drawRoad();
     this.drawObjects();
+    this.drawRivals();
     this.drawGoalMarker();
     this.drawCar();
     ctx.restore();
@@ -399,17 +450,17 @@ class MiniRaceGame {
       this.roadCenterCache.push(row2);
 
       if (previous) {
-        const grassColor = Math.floor((this.distance / 80 + i) % 2) ? "#69c86f" : "#5dbb62";
+        const grassColor = Math.floor((this.visualDistance / 80 + i) % 2) ? "#69c86f" : "#5dbb62";
         ctx.fillStyle = grassColor;
         ctx.fillRect(0, previous.y, w, row2.y - previous.y + 1);
       }
 
-      const roadShade = Math.floor((this.distance / 120 + i) % 2) ? "#42484d" : "#363c41";
+      const roadShade = Math.floor((this.visualDistance / 120 + i) % 2) ? "#42484d" : "#363c41";
       this.drawTrapezoid(row1.center - row1.width, row1.y, row1.center + row1.width, row1.y, row2.center + row2.width, row2.y, row2.center - row2.width, row2.y, roadShade);
 
       const railWidth1 = Math.max(2, row1.width * 0.05);
       const railWidth2 = Math.max(3, row2.width * 0.05);
-      const railColor = Math.floor((this.distance / 100 + i) % 2) ? "#ffffff" : "#ff6f6f";
+      const railColor = Math.floor((this.visualDistance / 100 + i) % 2) ? "#ffffff" : "#ff6f6f";
       this.drawTrapezoid(row1.center - row1.width - railWidth1 * 1.8, row1.y, row1.center - row1.width - railWidth1 * 0.25, row1.y, row2.center - row2.width - railWidth2 * 0.25, row2.y, row2.center - row2.width - railWidth2 * 1.8, row2.y, railColor);
       this.drawTrapezoid(row1.center + row1.width + railWidth1 * 0.25, row1.y, row1.center + row1.width + railWidth1 * 1.8, row1.y, row2.center + row2.width + railWidth2 * 1.8, row2.y, row2.center + row2.width + railWidth2 * 0.25, row2.y, railColor);
 
@@ -425,12 +476,12 @@ class MiniRaceGame {
   projectRoadRow(p, y) {
     const safeP = Math.max(0.018, p);
     const lookAhead = ((1 - safeP) * (1 - safeP) / safeP) * 360;
-    const z = this.distance + lookAhead;
+    const z = this.visualDistance + lookAhead;
     const curve = this.curveAt(z);
     const nextCurve = this.curveAt(z + 180);
     const roadWidth = this.width * (0.075 + Math.pow(safeP, 1.6) * 0.72);
     const bend = (curve * this.width * 0.24 + nextCurve * this.width * 0.1) * (1 - safeP);
-    const playerOffset = this.playerX * roadWidth * 0.42 * Math.pow(safeP, 1.2);
+    const playerOffset = this.playerX * roadWidth * 0.56 * Math.pow(safeP, 1.2);
     return {
       y,
       z,
@@ -453,6 +504,48 @@ class MiniRaceGame {
       if (obstacle.type === "hay") this.drawHay(x, y, size);
       else this.drawCone(x, y, size);
     }
+  }
+
+  drawRivals() {
+    const visible = this.rivals
+      .map((rival) => ({ rival, dz: rival.z - this.distance }))
+      .filter(({ dz }) => dz > -90 && dz < 1350)
+      .sort((a, b) => b.dz - a.dz);
+
+    for (const { rival, dz } of visible) {
+      const p = 1 / (1 + dz / 240);
+      const y = this.height * 0.39 + p * (this.height * 0.58);
+      if (y < this.height * 0.39 || y > this.height + 60) continue;
+      const row = this.projectRoadRow(p, y);
+      const x = row.center + rival.x * row.width;
+      this.drawRivalCar(x, y, Math.max(0.18, p), rival);
+    }
+  }
+
+  drawRivalCar(x, y, scale, rival) {
+    const ctx = this.ctx;
+    const carW = Math.min(96, 78 * scale);
+    const carH = carW * 0.66;
+    ctx.save();
+    ctx.translate(x, y - carH * 0.35);
+    ctx.fillStyle = "rgba(0,0,0,0.24)";
+    ctx.beginPath();
+    ctx.ellipse(0, carH * 0.42, carW * 0.52, carH * 0.14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = rival.color;
+    this.roundRect(-carW * 0.48, -carH * 0.32, carW * 0.96, carH * 0.58, carW * 0.13);
+    ctx.fill();
+    ctx.fillStyle = rival.accent;
+    this.roundRect(-carW * 0.28, -carH * 0.56, carW * 0.56, carH * 0.34, carW * 0.1);
+    ctx.fill();
+    ctx.fillStyle = "#202020";
+    ctx.fillRect(-carW * 0.52, carH * 0.03, carW * 0.17, carH * 0.22);
+    ctx.fillRect(carW * 0.35, carH * 0.03, carW * 0.17, carH * 0.22);
+    ctx.fillStyle = "#f7fbff";
+    ctx.fillRect(-carW * 0.34, -carH * 0.13, carW * 0.14, carH * 0.08);
+    ctx.fillRect(carW * 0.2, -carH * 0.13, carW * 0.14, carH * 0.08);
+    ctx.restore();
   }
 
   drawCone(x, y, size) {
@@ -555,9 +648,17 @@ class MiniRaceGame {
 
   curveAt(distance) {
     let cursor = 0;
+    let previousCurve = this.course[0]?.curve || 0;
     for (const segment of this.course) {
-      cursor += segment.length;
-      if (distance <= cursor) return segment.curve;
+      const start = cursor;
+      const end = cursor + segment.length;
+      if (distance <= end) {
+        const t = this.clamp((distance - start) / segment.length, 0, 1);
+        const smooth = t * t * (3 - 2 * t);
+        return previousCurve + (segment.curve - previousCurve) * smooth;
+      }
+      previousCurve = segment.curve;
+      cursor = end;
     }
     return 0;
   }

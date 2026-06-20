@@ -1,3 +1,7 @@
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const GAME_ID = "race";
+const DEFAULT_LEARNING_URL = "learn.html";
+
 class MiniRaceGame {
   constructor(root = document) {
     this.canvas = root.getElementById("raceCanvas");
@@ -96,7 +100,9 @@ class MiniRaceGame {
   bindEvents() {
     window.addEventListener("resize", () => this.resize());
     this.startButton.addEventListener("click", () => this.start());
-    this.againButton.addEventListener("click", () => this.reset());
+    this.againButton.addEventListener("click", () => {
+      window.location.href = getLearningUrl();
+    });
     this.pauseButton.addEventListener("click", () => this.togglePause());
     this.orientationButton.addEventListener("click", () => this.requestOrientation());
 
@@ -848,6 +854,25 @@ class MiniRaceGame {
   }
 }
 
+function requireMiniGameAccess(gameId) {
+  const key = `${MINI_GAME_ACCESS_PREFIX}${gameId}`;
+  if (sessionStorage.getItem(key) === "1") {
+    sessionStorage.removeItem(key);
+    return true;
+  }
+  window.location.replace(getLearningUrl());
+  return false;
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) requireMiniGameAccess(GAME_ID);
+});
+
 window.addEventListener("DOMContentLoaded", () => {
+  if (!requireMiniGameAccess(GAME_ID)) return;
   window.miniRaceGame = new MiniRaceGame(document);
 });

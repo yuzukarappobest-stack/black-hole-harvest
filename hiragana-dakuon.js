@@ -12,6 +12,7 @@ const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const BUTTERFLY_GAME_ID = "butterfly";
 const METEOR_GAME_ID = "meteor";
+const RACE_GAME_ID = "race";
 
 const letterGroups = [
   ["が", "ぎ", "ぐ", "げ", "ご"],
@@ -189,6 +190,7 @@ const playBlackHoleButton = document.getElementById("playBlackHoleButton");
 const playKingfisherButton = document.getElementById("playKingfisherButton");
 const playButterflyButton = document.getElementById("playButterflyButton");
 const playMeteorButton = document.getElementById("playMeteorButton");
+const playRaceButton = document.getElementById("playRaceButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -543,6 +545,10 @@ playButterflyButton.addEventListener("click", () => {
 playMeteorButton.addEventListener("click", () => {
   grantMiniGameAccess(METEOR_GAME_ID);
   window.location.href = "meteor.html";
+});
+playRaceButton.addEventListener("click", () => {
+  grantMiniGameAccess(RACE_GAME_ID);
+  window.location.href = "race.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

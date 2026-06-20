@@ -19,15 +19,15 @@ class MiniRaceGame {
     this.rightButton = root.getElementById("rightButton");
 
     this.course = [
-      { length: 450, curve: 0 },
-      { length: 540, curve: 0.62 },
-      { length: 360, curve: 0 },
-      { length: 620, curve: -0.56 },
-      { length: 420, curve: 0.34 },
+      { length: 760, curve: 0 },
+      { length: 920, curve: 0.62 },
       { length: 620, curve: 0 },
-      { length: 560, curve: -0.68 },
-      { length: 500, curve: 0.5 },
-      { length: 900, curve: 0 },
+      { length: 1050, curve: -0.56 },
+      { length: 720, curve: 0.34 },
+      { length: 1050, curve: 0 },
+      { length: 950, curve: -0.68 },
+      { length: 850, curve: 0.5 },
+      { length: 1530, curve: 0 },
     ];
     this.courseLength = this.course.reduce((sum, segment) => sum + segment.length, 0);
     this.obstacles = [
@@ -38,9 +38,18 @@ class MiniRaceGame {
       { z: 4040, x: -0.5, type: "cone" },
     ];
     this.rivalTemplates = [
-      { z: 520, x: -0.34, speed: 168, color: "#ffd45e", accent: "#ff8f39" },
-      { z: 980, x: 0.32, speed: 174, color: "#5f8dff", accent: "#b7d1ff" },
-      { z: 1540, x: -0.08, speed: 181, color: "#7adf7e", accent: "#d8ffd8" },
+      { z: 420, x: -0.34, speed: 96, color: "#ffd45e", accent: "#ff8f39" },
+      { z: 880, x: 0.32, speed: 112, color: "#5f8dff", accent: "#b7d1ff" },
+      { z: 1340, x: -0.08, speed: 104, color: "#7adf7e", accent: "#d8ffd8" },
+      { z: 1840, x: 0.54, speed: 118, color: "#ff7aa8", accent: "#ffd2e2" },
+      { z: 2380, x: -0.56, speed: 98, color: "#b987ff", accent: "#ead7ff" },
+      { z: 2960, x: 0.18, speed: 116, color: "#ffae57", accent: "#fff1bd" },
+      { z: 3580, x: -0.28, speed: 106, color: "#47d9ff", accent: "#d7fbff" },
+      { z: 4160, x: 0.4, speed: 122, color: "#f95f62", accent: "#ffe3e3" },
+      { z: 4720, x: -0.46, speed: 100, color: "#8cf06b", accent: "#efffdc" },
+      { z: 5280, x: 0.12, speed: 92, color: "#ffef62", accent: "#ff9f43" },
+      { z: 5860, x: 0.58, speed: 82, color: "#5de0c9", accent: "#dcfff8" },
+      { z: 6420, x: -0.18, speed: 74, color: "#ff91dc", accent: "#ffe1f6" },
     ];
 
     this.state = "ready";
@@ -65,7 +74,9 @@ class MiniRaceGame {
     this.bestTime = Number(localStorage.getItem("miniRaceBestTime") || 0);
     this.hitMemory = new Set();
     this.rivalHitMemory = new Set();
+    this.rivalPassMemory = new Set();
     this.rivals = this.createRivals();
+    this.effects = [];
     this.lastTouchEnd = 0;
     this.roadCenterCache = [];
 
@@ -196,7 +207,9 @@ class MiniRaceGame {
     this.cameraShake = 0;
     this.hitMemory.clear();
     this.rivalHitMemory.clear();
+    this.rivalPassMemory.clear();
     this.rivals = this.createRivals();
+    this.effects = [];
     this.readyPanel.classList.add("hidden");
     this.finishPanel.classList.add("hidden");
     this.finishPanel.classList.remove("goal", "gameover");
@@ -244,13 +257,13 @@ class MiniRaceGame {
 
   update(dt) {
     this.elapsed += dt;
-    const maxSpeed = 190;
-    const acceleration = this.input.accel ? 118 : -54;
+    const maxSpeed = 320;
+    const acceleration = this.input.accel ? 235 : -92;
     this.speed = this.clamp(this.speed + acceleration * dt, 0, maxSpeed);
 
     const curve = this.curveAt(this.distance);
     const steer = this.getSteer();
-    const steerPower = 2.35 * (0.32 + this.speed / maxSpeed);
+    const steerPower = 2.75 * (0.28 + this.speed / maxSpeed);
     const targetVx = steer * steerPower - curve * (this.speed / maxSpeed) * 0.86;
     this.playerVx += (targetVx - this.playerVx) * Math.min(1, dt * 9);
     this.playerX += this.playerVx * dt;
@@ -266,6 +279,7 @@ class MiniRaceGame {
     this.visualDistance += (this.distance - this.visualDistance) * Math.min(1, dt * 14);
     this.cameraShake = Math.max(0, this.cameraShake - dt * 5);
     this.updateRivals(dt);
+    this.updateEffects(dt);
     this.checkObstacleHit();
     this.checkRivalHit();
     this.updateHud();
@@ -312,7 +326,30 @@ class MiniRaceGame {
       rival.z += rival.speed * dt;
       rival.x += Math.sin(this.elapsed * 1.2 + rival.wobble) * 0.05 * dt;
       rival.x = this.clamp(rival.x, -0.82, 0.82);
+      const dz = rival.z - this.distance;
+      if (dz < -35 && !this.rivalPassMemory.has(rival.id)) {
+        this.rivalPassMemory.add(rival.id);
+        this.addEffect("PASS!", rival.x, "#fff45e");
+      }
     }
+  }
+
+  updateEffects(dt) {
+    for (const effect of this.effects) {
+      effect.life -= dt;
+      effect.y -= dt * 42;
+    }
+    this.effects = this.effects.filter((effect) => effect.life > 0);
+  }
+
+  addEffect(text, x, color) {
+    this.effects.push({
+      text,
+      x,
+      y: this.height * 0.58,
+      color,
+      life: 0.9,
+    });
   }
 
   checkRivalHit() {
@@ -374,8 +411,10 @@ class MiniRaceGame {
     this.drawRoad();
     this.drawObjects();
     this.drawRivals();
+    this.drawSpeedLines();
     this.drawGoalMarker();
     this.drawCar();
+    this.drawEffects();
     ctx.restore();
   }
 
@@ -520,6 +559,48 @@ class MiniRaceGame {
       const x = row.center + rival.x * row.width;
       this.drawRivalCar(x, y, Math.max(0.18, p), rival);
     }
+  }
+
+  drawEffects() {
+    const ctx = this.ctx;
+    for (const effect of this.effects) {
+      const alpha = this.clamp(effect.life / 0.9, 0, 1);
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = effect.color;
+      ctx.strokeStyle = "rgba(18, 48, 71, 0.55)";
+      ctx.lineWidth = 5;
+      ctx.font = "950 34px ui-rounded, Hiragino Maru Gothic ProN, sans-serif";
+      ctx.textAlign = "center";
+      const x = this.width / 2 + effect.x * this.width * 0.22;
+      ctx.strokeText(effect.text, x, effect.y);
+      ctx.fillText(effect.text, x, effect.y);
+      ctx.restore();
+    }
+  }
+
+  drawSpeedLines() {
+    if (this.speed < 160) return;
+    const ctx = this.ctx;
+    const strength = this.clamp((this.speed - 160) / 160, 0, 1);
+    const pulse = (this.visualDistance * 0.08) % 28;
+    ctx.save();
+    ctx.globalAlpha = 0.16 + strength * 0.22;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
+    ctx.lineWidth = 2 + strength * 3;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 16; i += 1) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const row = Math.floor(i / 2);
+      const y = this.height * (0.46 + row * 0.065) + pulse;
+      const x = this.width / 2 + side * this.width * (0.23 + row * 0.035);
+      const len = (34 + row * 13) * strength;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + side * len, y + len * 0.36);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   drawRivalCar(x, y, scale, rival) {

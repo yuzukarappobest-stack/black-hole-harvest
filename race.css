@@ -1,0 +1,226 @@
+:root {
+  color-scheme: light;
+  --sky: #73d6ff;
+  --ink: #123047;
+  --soft: #4f7186;
+  --panel: rgba(255, 255, 255, 0.84);
+  --line: rgba(18, 48, 71, 0.16);
+  --blue: #258df4;
+  --green: #5fd071;
+  --yellow: #ffd45e;
+  --red: #ff6f8f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  touch-action: none;
+}
+
+body {
+  min-height: 100dvh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #73d6ff 0%, #b8efff 52%, #77d36f 100%);
+  color: var(--ink);
+  font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  user-select: none;
+  -webkit-text-size-adjust: 100%;
+  -webkit-user-select: none;
+}
+
+.race-app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100dvh;
+  padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  gap: 8px;
+}
+
+.race-hud {
+  display: grid;
+  grid-template-columns: 1fr 0.8fr 1fr;
+  gap: 8px;
+}
+
+.race-hud > div,
+.race-panel {
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 32px rgba(42, 103, 134, 0.18);
+  backdrop-filter: blur(12px);
+}
+
+.race-hud > div {
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.race-hud span,
+.label {
+  display: block;
+  margin: 0 0 2px;
+  color: var(--soft);
+  font-size: clamp(0.72rem, 2.5vw, 1rem);
+  font-weight: 950;
+  line-height: 1.1;
+}
+
+.race-hud strong {
+  display: block;
+  color: var(--ink);
+  font-size: clamp(1.25rem, 5.2vw, 2rem);
+  font-weight: 950;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.race-stage {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.86);
+  border-radius: 8px;
+  background: #73d6ff;
+  box-shadow: inset 0 0 0 1px rgba(18, 48, 71, 0.08);
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.race-panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(88vw, 520px);
+  padding: 18px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.race-panel.hidden {
+  display: none;
+}
+
+.race-panel h1,
+.race-panel h2 {
+  margin: 0 0 10px;
+  color: var(--blue);
+  font-size: clamp(2.4rem, 9vw, 4.8rem);
+  font-weight: 950;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.race-panel p {
+  margin: 6px 0;
+  color: var(--ink);
+  font-size: clamp(1rem, 3.8vw, 1.35rem);
+  font-weight: 900;
+  line-height: 1.35;
+}
+
+.race-panel.goal h2 {
+  color: var(--green);
+}
+
+.race-panel.gameover h2 {
+  color: var(--red);
+}
+
+.panel-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 950;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.race-panel button {
+  min-height: 58px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, var(--yellow), #ff9f5c);
+  color: #40230a;
+  box-shadow: 0 12px 28px rgba(92, 65, 28, 0.18);
+  font-size: clamp(1.05rem, 4.4vw, 1.7rem);
+}
+
+.race-panel .secondary-button {
+  background: linear-gradient(135deg, #dbf7ff, #8ee7ff);
+  color: var(--ink);
+}
+
+.race-controls {
+  display: grid;
+  grid-template-columns: 72px 72px 72px minmax(140px, 1fr);
+  align-items: stretch;
+  gap: 8px;
+}
+
+.steer-button,
+.pause-button,
+.accelerator-button {
+  min-height: 70px;
+  box-shadow: 0 14px 30px rgba(42, 103, 134, 0.2);
+  font-size: clamp(1.45rem, 5vw, 2.2rem);
+}
+
+.steer-button {
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--blue);
+}
+
+.pause-button {
+  background: rgba(255, 255, 255, 0.82);
+  color: var(--soft);
+}
+
+.accelerator-button {
+  background: linear-gradient(135deg, #ff7aa8, #ffb46e);
+  color: #ffffff;
+  font-size: clamp(1.5rem, 6vw, 2.4rem);
+}
+
+.accelerator-button.pressed,
+.steer-button.pressed {
+  transform: translateY(2px) scale(0.98);
+  filter: brightness(1.08);
+}
+
+@media (orientation: portrait) {
+  .race-app {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .panel-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .race-controls {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  .accelerator-button {
+    grid-column: 1 / -1;
+  }
+}

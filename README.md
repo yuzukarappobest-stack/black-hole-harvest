@@ -15,6 +15,7 @@
 - `kingfisher.html`: カワセミ・ダイブ
 - `butterfly.html`: ちょうちょ・フライト
 - `meteor.html`: いんせきシューティング
+- `race.html`: ミニレース（開発用）
 - `tetris.html`: テトリス
 - `tetris-drag.html`: テトリス ドラッグベータ
 
@@ -38,6 +39,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/kingfisher.html`
 - `http://localhost:8000/butterfly.html`
 - `http://localhost:8000/meteor.html`
+- `http://localhost:8000/race.html`
 - `http://localhost:8000/tetris.html`
 - `http://localhost:8000/tetris-drag.html`
 
@@ -54,6 +56,7 @@ python3 -m http.server 8000
 - カワセミ・ダイブ: https://yuzukarappobest-stack.github.io/black-hole-harvest/kingfisher.html
 - ちょうちょ・フライト: https://yuzukarappobest-stack.github.io/black-hole-harvest/butterfly.html
 - いんせきシューティング: https://yuzukarappobest-stack.github.io/black-hole-harvest/meteor.html
+- ミニレース（開発用）: https://yuzukarappobest-stack.github.io/black-hole-harvest/race.html
 - テトリス: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris.html
 - テトリス ドラッグベータ: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris-drag.html
 

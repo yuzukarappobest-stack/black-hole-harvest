@@ -4,6 +4,7 @@ class MiniRaceGame {
     this.ctx = this.canvas.getContext("2d");
     this.timeEl = root.getElementById("raceTime");
     this.speedEl = root.getElementById("raceSpeed");
+    this.rankEl = root.getElementById("raceRank");
     this.bestEl = root.getElementById("raceBest");
     this.readyPanel = root.getElementById("readyPanel");
     this.finishPanel = root.getElementById("finishPanel");
@@ -49,7 +50,7 @@ class MiniRaceGame {
       { z: 4720, x: -0.46, speed: 100, color: "#8cf06b", accent: "#efffdc" },
       { z: 5280, x: 0.12, speed: 92, color: "#ffef62", accent: "#ff9f43" },
       { z: 5860, x: 0.58, speed: 82, color: "#5de0c9", accent: "#dcfff8" },
-      { z: 6420, x: -0.18, speed: 74, color: "#ff91dc", accent: "#ffe1f6" },
+      { z: 6120, x: -0.18, speed: 66, color: "#ff91dc", accent: "#ffe1f6" },
     ];
 
     this.state = "ready";
@@ -63,6 +64,7 @@ class MiniRaceGame {
     this.playerVx = 0;
     this.visualDistance = 0;
     this.cameraShake = 0;
+    this.rank = this.rivalTemplates.length + 1;
     this.lastTime = 0;
     this.input = {
       accel: false,
@@ -77,6 +79,11 @@ class MiniRaceGame {
     this.rivalPassMemory = new Set();
     this.rivals = this.createRivals();
     this.effects = [];
+    this.audioContext = null;
+    this.engineOscillator = null;
+    this.engineFilter = null;
+    this.engineGain = null;
+    this.engineOutput = null;
     this.lastTouchEnd = 0;
     this.roadCenterCache = [];
 
@@ -144,6 +151,7 @@ class MiniRaceGame {
     const set = (value) => {
       this.input[key] = value;
       button.classList.toggle("pressed", value);
+      if (key === "accel" && value) this.ensureAudio();
     };
     button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
@@ -197,6 +205,7 @@ class MiniRaceGame {
   }
 
   start() {
+    this.ensureAudio();
     this.state = "running";
     this.elapsed = 0;
     this.distance = 0;
@@ -205,6 +214,7 @@ class MiniRaceGame {
     this.playerX = 0;
     this.playerVx = 0;
     this.cameraShake = 0;
+    this.rank = this.rivalTemplates.length + 1;
     this.hitMemory.clear();
     this.rivalHitMemory.clear();
     this.rivalPassMemory.clear();
@@ -220,12 +230,14 @@ class MiniRaceGame {
 
   reset() {
     this.state = "ready";
+    this.stopEngineSound();
     this.speed = 0;
     this.distance = 0;
     this.visualDistance = 0;
     this.elapsed = 0;
     this.playerX = 0;
     this.playerVx = 0;
+    this.rank = this.rivalTemplates.length + 1;
     this.readyPanel.classList.remove("hidden");
     this.finishPanel.classList.add("hidden");
     this.updateHud();
@@ -235,6 +247,7 @@ class MiniRaceGame {
   togglePause() {
     if (this.state === "running") {
       this.state = "paused";
+      this.updateEngineSound(0);
       this.pauseButton.textContent = "▶";
       return;
     }
@@ -282,10 +295,12 @@ class MiniRaceGame {
     this.updateEffects(dt);
     this.checkObstacleHit();
     this.checkRivalHit();
+    this.updateRank();
+    this.updateEngineSound(dt);
     this.updateHud();
 
     if (this.distance >= this.courseLength) {
-      this.finish("goal");
+      this.finish(this.rank === 1 ? "goal" : "gameover");
       return;
     }
     if (this.elapsed >= 60) {
@@ -330,8 +345,14 @@ class MiniRaceGame {
       if (dz < -35 && !this.rivalPassMemory.has(rival.id)) {
         this.rivalPassMemory.add(rival.id);
         this.addEffect("PASS!", rival.x, "#fff45e");
+        this.playPassSound();
       }
     }
+  }
+
+  updateRank() {
+    const racersAhead = this.rivals.filter((rival) => rival.z > this.distance).length;
+    this.rank = racersAhead + 1;
   }
 
   updateEffects(dt) {
@@ -365,8 +386,78 @@ class MiniRaceGame {
     }
   }
 
+  ensureAudio() {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!this.audioContext) {
+      this.audioContext = new AudioCtx();
+      this.engineOutput = this.audioContext.createGain();
+      this.engineOutput.gain.value = 0.72;
+      this.engineOutput.connect(this.audioContext.destination);
+    }
+    if (this.audioContext.state === "suspended") {
+      this.audioContext.resume();
+    }
+    if (!this.engineOscillator) {
+      const oscillator = this.audioContext.createOscillator();
+      const filter = this.audioContext.createBiquadFilter();
+      const gain = this.audioContext.createGain();
+      oscillator.type = "sawtooth";
+      oscillator.frequency.value = 72;
+      filter.type = "lowpass";
+      filter.frequency.value = 520;
+      gain.gain.value = 0.0001;
+      oscillator.connect(filter);
+      filter.connect(gain);
+      gain.connect(this.engineOutput);
+      oscillator.start();
+      this.engineOscillator = oscillator;
+      this.engineFilter = filter;
+      this.engineGain = gain;
+    }
+  }
+
+  updateEngineSound(dt) {
+    if (!this.engineOscillator || !this.engineGain || !this.audioContext) return;
+    const now = this.audioContext.currentTime;
+    const speedRatio = this.clamp(this.speed / 320, 0, 1);
+    const targetVolume = this.input.accel && this.state === "running" ? 0.045 + speedRatio * 0.075 : 0.0001;
+    const targetFrequency = 58 + speedRatio * 170 + (this.input.accel ? 18 : 0);
+    const targetFilter = 420 + speedRatio * 1000;
+    this.engineOscillator.frequency.setTargetAtTime(targetFrequency, now, 0.045);
+    this.engineFilter.frequency.setTargetAtTime(targetFilter, now, 0.08);
+    this.engineGain.gain.setTargetAtTime(targetVolume, now, dt ? Math.max(0.025, dt * 2) : 0.035);
+  }
+
+  stopEngineSound() {
+    if (!this.engineGain || !this.audioContext) return;
+    this.engineGain.gain.setTargetAtTime(0.0001, this.audioContext.currentTime, 0.03);
+  }
+
+  playPassSound() {
+    if (!this.audioContext) return;
+    const now = this.audioContext.currentTime;
+    const output = this.engineOutput || this.audioContext.destination;
+    const gain = this.audioContext.createGain();
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.018);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.26);
+    gain.connect(output);
+
+    [520, 780].forEach((frequency, index) => {
+      const oscillator = this.audioContext.createOscillator();
+      oscillator.type = index ? "triangle" : "square";
+      oscillator.frequency.setValueAtTime(frequency, now + index * 0.035);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.35, now + 0.18 + index * 0.02);
+      oscillator.connect(gain);
+      oscillator.start(now + index * 0.035);
+      oscillator.stop(now + 0.28 + index * 0.02);
+    });
+  }
+
   finish(state) {
     this.state = state;
+    this.stopEngineSound();
     this.input.accel = false;
     this.input.left = false;
     this.input.right = false;
@@ -374,17 +465,20 @@ class MiniRaceGame {
     this.leftButton.classList.remove("pressed");
     this.rightButton.classList.remove("pressed");
     const isGoal = state === "goal";
+    const reachedFinish = this.distance >= this.courseLength;
     let bestUpdated = false;
     if (isGoal && (!this.bestTime || this.elapsed < this.bestTime)) {
       this.bestTime = this.elapsed;
       localStorage.setItem("miniRaceBestTime", String(this.bestTime));
       bestUpdated = true;
     }
-    this.resultLabel.textContent = isGoal ? "ゴール！" : "ゲームオーバー";
-    this.resultTitle.textContent = isGoal ? this.formatTime(this.elapsed) : "60.00";
+    this.resultLabel.textContent = isGoal ? "クリア！" : "ゲームオーバー";
+    this.resultTitle.textContent = isGoal ? "1位ゴール！" : reachedFinish ? `${this.rank}位ゴール` : "60.00";
     this.resultMessage.textContent = isGoal
       ? `今回のタイム ${this.formatTime(this.elapsed)}${bestUpdated ? " / 自己ベスト更新！" : ""}`
-      : "60秒以内にゴールできなかったよ";
+      : reachedFinish
+        ? "1位でゴールするとクリアだよ"
+        : "60秒以内にゴールできなかったよ";
     this.finishPanel.classList.toggle("goal", isGoal);
     this.finishPanel.classList.toggle("gameover", !isGoal);
     this.finishPanel.classList.remove("hidden");
@@ -395,6 +489,7 @@ class MiniRaceGame {
   updateHud() {
     this.timeEl.textContent = this.formatTime(this.elapsed);
     this.speedEl.textContent = Math.round(this.speed);
+    this.rankEl.textContent = `${this.rank}位`;
     this.bestEl.textContent = this.bestTime ? this.formatTime(this.bestTime) : "--.--";
   }
 

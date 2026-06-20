@@ -45,7 +45,7 @@ body {
 
 .race-hud {
   display: grid;
-  grid-template-columns: 1fr 0.8fr 1fr;
+  grid-template-columns: 1fr 0.85fr 0.85fr 1fr;
   gap: 8px;
 }
 
@@ -222,5 +222,15 @@ button {
 
   .accelerator-button {
     grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 760px) {
+  .race-hud {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .race-hud > div {
+    padding: 7px 6px;
   }
 }

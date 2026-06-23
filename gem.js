@@ -40,6 +40,7 @@ let score = 0;
 let found = 0;
 let lastTime = 0;
 let board = [];
+let elapsed = 0;
 let player = { x: 0, y: 0 };
 let particles = [];
 let lastTouchEnd = 0;
@@ -80,6 +81,7 @@ function resize() {
 function startGame() {
   running = true;
   timeLeft = CONFIG.seconds;
+  elapsed = 0;
   score = 0;
   found = 0;
   player = { x: 0, y: CONFIG.rows - 1 };
@@ -97,7 +99,7 @@ function createBoard() {
   for (let y = 0; y < CONFIG.rows; y += 1) {
     const row = [];
     for (let x = 0; x < CONFIG.cols; x += 1) {
-      row.push({ hp: 2 + Math.floor(Math.random() * 4), maxHp: 5, gem: null, open: false });
+      row.push({ hp: 2 + Math.floor(Math.random() * 4), maxHp: 5, gem: null, open: false, glowOffset: 0 });
     }
     tiles.push(row);
   }
@@ -109,6 +111,7 @@ function createBoard() {
   }
   shuffle(spots).slice(0, 10).forEach((spot) => {
     tiles[spot.y][spot.x].gem = pickGem();
+    tiles[spot.y][spot.x].glowOffset = Math.random() * 5;
     tiles[spot.y][spot.x].hp += 1;
     tiles[spot.y][spot.x].maxHp = tiles[spot.y][spot.x].hp;
   });
@@ -129,6 +132,7 @@ function loop(now) {
   if (!running) return;
   const dt = Math.min(0.033, (now - lastTime) / 1000 || 0);
   lastTime = now;
+  elapsed += dt;
   timeLeft -= dt;
   particles.forEach((p) => {
     p.x += p.vx * dt;
@@ -219,8 +223,32 @@ function drawTile(x, y) {
   if (!tile.open) {
     ctx.fillStyle = "rgba(255,255,255,0.18)";
     ctx.fillRect(px + 6, py + 6, cell - 12, Math.max(3, (cell - 12) * (tile.hp / tile.maxHp)));
+    if (tile.gem) drawHiddenGemGlow(px, py, tile);
   }
   if (tile.open && tile.gem) drawGem(px + cell / 2, py + cell / 2, tile.gem.color, cell * 0.28);
+}
+
+function drawHiddenGemGlow(px, py, tile) {
+  const phase = (elapsed + tile.glowOffset) % 5;
+  const pulse = phase < 0.72 ? Math.sin((phase / 0.72) * Math.PI) : 0;
+  if (pulse <= 0) return;
+  const cx = px + cell / 2;
+  const cy = py + cell / 2;
+  const radius = cell * (0.22 + pulse * 0.34);
+  const glow = ctx.createRadialGradient(cx, cy, 2, cx, cy, radius);
+  glow.addColorStop(0, tile.gem.color);
+  glow.addColorStop(0.35, `rgba(255, 255, 180, ${0.55 * pulse})`);
+  glow.addColorStop(1, "rgba(255, 255, 180, 0)");
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = `rgba(255,255,255,${0.75 * pulse})`;
+  ctx.lineWidth = 2 + pulse * 3;
+  ctx.strokeRect(px + 5, py + 5, cell - 10, cell - 10);
+  ctx.restore();
 }
 
 function drawGem(x, y, color, r) {

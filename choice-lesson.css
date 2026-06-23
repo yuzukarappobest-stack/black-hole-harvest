@@ -115,42 +115,16 @@ body {
 }
 
 .note-stage {
-  position: relative;
-  width: min(78vw, 520px);
-  height: min(46dvh, 300px);
+  width: min(78vw, 540px);
+  aspect-ratio: 2.2;
 }
 
-.staff-line {
-  position: absolute;
-  left: 7%;
-  right: 7%;
-  height: 4px;
-  border-radius: 999px;
-  background: #27384b;
-}
-
-.note-mark {
-  position: absolute;
-  left: 50%;
-  width: clamp(54px, 12vw, 78px);
-  height: clamp(42px, 9vw, 58px);
-  border-radius: 50%;
-  background: linear-gradient(135deg, #27384b, #4b6078);
-  transform: translate(-50%, -50%) rotate(-18deg);
-  box-shadow: 0 10px 16px rgba(39, 56, 75, 0.22);
-}
-
-.note-mark::after {
-  content: "";
-  position: absolute;
-  right: -18%;
-  bottom: 45%;
-  width: 7px;
-  height: clamp(78px, 15vw, 108px);
-  border-radius: 999px;
-  background: #27384b;
-  transform: rotate(18deg);
-  transform-origin: bottom;
+.note-image {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 .feedback {

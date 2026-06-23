@@ -17,20 +17,20 @@ const REWARDS = [
 ];
 
 const NOTES = [
-  { name: "ド", top: 82 },
-  { name: "レ", top: 76 },
-  { name: "ミ", top: 70 },
-  { name: "ファ", top: 64 },
-  { name: "ソ", top: 58 },
-  { name: "ラ", top: 52 },
-  { name: "シ", top: 46 },
+  { name: "ド", image: "assets/music-notes/do.jpg" },
+  { name: "レ", image: "assets/music-notes/re.jpg" },
+  { name: "ミ", image: "assets/music-notes/mi.jpg" },
+  { name: "ファ", image: "assets/music-notes/fa.jpg" },
+  { name: "ソ", image: "assets/music-notes/so.jpg" },
+  { name: "ラ", image: "assets/music-notes/la.jpg" },
+  { name: "シ", image: "assets/music-notes/si.jpg" },
 ];
 
 const NOTE_NAMES = NOTES.map((note) => note.name);
 const correctCount = document.getElementById("correctCount");
 const goalCount = document.getElementById("goalCount");
 const prompt = document.getElementById("prompt");
-const noteMark = document.getElementById("noteMark");
+const noteImage = document.getElementById("noteImage");
 const feedback = document.getElementById("feedback");
 const choiceGrid = document.getElementById("choiceGrid");
 const completePanel = document.getElementById("completePanel");
@@ -59,7 +59,8 @@ function nextQuestion() {
   if (!queue.length) queue = shuffle([...NOTES, ...NOTES, ...NOTES]);
   current = queue.pop();
   prompt.textContent = "これはなに？";
-  noteMark.style.top = `${current.top}%`;
+  noteImage.src = current.image;
+  noteImage.alt = `${current.name}の音符`;
   feedback.textContent = " ";
   feedback.className = "feedback";
   renderChoices();

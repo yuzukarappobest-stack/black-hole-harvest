@@ -1,0 +1,314 @@
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const timeEl = document.getElementById("time");
+const scoreEl = document.getElementById("score");
+const foundEl = document.getElementById("found");
+const startPanel = document.getElementById("startPanel");
+const finishPanel = document.getElementById("finishPanel");
+const resultLabel = document.getElementById("resultLabel");
+const resultTitle = document.getElementById("resultTitle");
+const resultMessage = document.getElementById("resultMessage");
+const startButton = document.getElementById("startButton");
+const restartButton = document.getElementById("restartButton");
+const upButton = document.getElementById("upButton");
+const leftButton = document.getElementById("leftButton");
+const rightButton = document.getElementById("rightButton");
+const downButton = document.getElementById("downButton");
+const digButton = document.getElementById("digButton");
+
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const GAME_ID = "gem";
+const DEFAULT_LEARNING_URL = "learn.html";
+const CONFIG = { seconds: 30, clearScore: 200, cols: 12, rows: 8 };
+const GEM_TYPES = [
+  { name: "すいしょう", points: 8, color: "#d9fbff", weight: 30 },
+  { name: "あめじすと", points: 14, color: "#b479ff", weight: 24 },
+  { name: "えめらるど", points: 22, color: "#43d07c", weight: 18 },
+  { name: "るびー", points: 34, color: "#ff4f7b", weight: 12 },
+  { name: "だいや", points: 55, color: "#ffffff", weight: 7 },
+];
+
+let width = 0;
+let height = 0;
+let dpr = 1;
+let cell = 40;
+let offsetX = 0;
+let offsetY = 0;
+let running = false;
+let timeLeft = CONFIG.seconds;
+let score = 0;
+let found = 0;
+let lastTime = 0;
+let board = [];
+let player = { x: 0, y: 0 };
+let particles = [];
+let lastTouchEnd = 0;
+
+requireMiniGameAccess(GAME_ID);
+
+function requireMiniGameAccess(gameId) {
+  const key = `${MINI_GAME_ACCESS_PREFIX}${gameId}`;
+  if (sessionStorage.getItem(key) === "1") {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  window.location.replace(getLearningUrl());
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) requireMiniGameAccess(GAME_ID);
+});
+
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  width = Math.max(320, Math.floor(rect.width));
+  height = Math.max(280, Math.floor(rect.height));
+  canvas.width = Math.floor(width * dpr);
+  canvas.height = Math.floor(height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cell = Math.floor(Math.min(width / CONFIG.cols, height / CONFIG.rows));
+  offsetX = (width - cell * CONFIG.cols) / 2;
+  offsetY = (height - cell * CONFIG.rows) / 2;
+  draw();
+}
+
+function startGame() {
+  running = true;
+  timeLeft = CONFIG.seconds;
+  score = 0;
+  found = 0;
+  player = { x: 0, y: CONFIG.rows - 1 };
+  particles = [];
+  board = createBoard();
+  startPanel.classList.add("hidden");
+  finishPanel.classList.add("hidden");
+  updateHud();
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function createBoard() {
+  const tiles = [];
+  for (let y = 0; y < CONFIG.rows; y += 1) {
+    const row = [];
+    for (let x = 0; x < CONFIG.cols; x += 1) {
+      row.push({ hp: 2 + Math.floor(Math.random() * 4), maxHp: 5, gem: null, open: false });
+    }
+    tiles.push(row);
+  }
+  const spots = [];
+  for (let y = 0; y < CONFIG.rows; y += 1) {
+    for (let x = 0; x < CONFIG.cols; x += 1) {
+      if (x || y !== CONFIG.rows - 1) spots.push({ x, y });
+    }
+  }
+  shuffle(spots).slice(0, 10).forEach((spot) => {
+    tiles[spot.y][spot.x].gem = pickGem();
+    tiles[spot.y][spot.x].hp += 1;
+    tiles[spot.y][spot.x].maxHp = tiles[spot.y][spot.x].hp;
+  });
+  return tiles;
+}
+
+function pickGem() {
+  const total = GEM_TYPES.reduce((sum, gem) => sum + gem.weight, 0);
+  let roll = Math.random() * total;
+  for (const gem of GEM_TYPES) {
+    roll -= gem.weight;
+    if (roll <= 0) return gem;
+  }
+  return GEM_TYPES[0];
+}
+
+function loop(now) {
+  if (!running) return;
+  const dt = Math.min(0.033, (now - lastTime) / 1000 || 0);
+  lastTime = now;
+  timeLeft -= dt;
+  particles.forEach((p) => {
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.life -= dt;
+  });
+  particles = particles.filter((p) => p.life > 0);
+  updateHud();
+  draw();
+  if (score >= CONFIG.clearScore || timeLeft <= 0 || found >= 10) {
+    finishGame(score >= CONFIG.clearScore);
+    return;
+  }
+  requestAnimationFrame(loop);
+}
+
+function move(dx, dy) {
+  if (!running) return;
+  player.x = clamp(player.x + dx, 0, CONFIG.cols - 1);
+  player.y = clamp(player.y + dy, 0, CONFIG.rows - 1);
+  draw();
+}
+
+function dig() {
+  if (!running) return;
+  const tile = board[player.y][player.x];
+  if (tile.open) return;
+  tile.hp -= 1;
+  dirtBurst(player.x, player.y);
+  if (tile.hp <= 0) {
+    tile.open = true;
+    if (tile.gem) {
+      found += 1;
+      score += tile.gem.points;
+      gemBurst(player.x, player.y, tile.gem.color);
+    }
+  }
+  updateHud();
+  draw();
+}
+
+function finishGame(cleared) {
+  running = false;
+  resultLabel.textContent = cleared ? "CLEAR!" : "RESULT";
+  resultTitle.textContent = score;
+  resultMessage.textContent = cleared ? "200てんたっせい！" : "レアなほうせきをねらおう。";
+  finishPanel.classList.remove("hidden");
+  draw();
+}
+
+function updateHud() {
+  timeEl.textContent = Math.max(0, timeLeft).toFixed(1);
+  scoreEl.textContent = score;
+  foundEl.textContent = `${found}/10`;
+}
+
+function draw() {
+  if (!width || !height) return;
+  ctx.clearRect(0, 0, width, height);
+  const skyH = offsetY + cell * 0.55;
+  ctx.fillStyle = "#8ed7ff";
+  ctx.fillRect(0, 0, width, skyH);
+  ctx.fillStyle = "#75c85e";
+  ctx.fillRect(0, skyH - 8, width, 18);
+  for (let y = 0; y < CONFIG.rows; y += 1) {
+    for (let x = 0; x < CONFIG.cols; x += 1) drawTile(x, y);
+  }
+  drawPlayer();
+  for (const p of particles) {
+    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawTile(x, y) {
+  const tile = board[y]?.[x] || { open: false, hp: 1, maxHp: 1 };
+  const px = offsetX + x * cell;
+  const py = offsetY + y * cell;
+  ctx.fillStyle = tile.open ? "#5b3b23" : y % 2 ? "#9b6b3d" : "#8d6238";
+  ctx.fillRect(px, py, cell, cell);
+  ctx.strokeStyle = "rgba(55, 35, 20, 0.22)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(px, py, cell, cell);
+  if (!tile.open) {
+    ctx.fillStyle = "rgba(255,255,255,0.18)";
+    ctx.fillRect(px + 6, py + 6, cell - 12, Math.max(3, (cell - 12) * (tile.hp / tile.maxHp)));
+  }
+  if (tile.open && tile.gem) drawGem(px + cell / 2, py + cell / 2, tile.gem.color, cell * 0.28);
+}
+
+function drawGem(x, y, color, r) {
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "rgba(45,34,24,0.28)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.lineTo(x + r, y);
+  ctx.lineTo(x, y + r);
+  ctx.lineTo(x - r, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawPlayer() {
+  const x = offsetX + player.x * cell + cell / 2;
+  const y = offsetY + player.y * cell + cell / 2;
+  ctx.fillStyle = "#ffcf5b";
+  ctx.beginPath();
+  ctx.arc(x, y - cell * 0.1, cell * 0.22, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#2d2218";
+  ctx.fillRect(x - cell * 0.2, y + cell * 0.06, cell * 0.4, cell * 0.22);
+  ctx.fillStyle = "#7fd9ff";
+  ctx.fillRect(x - cell * 0.18, y - cell * 0.22, cell * 0.36, cell * 0.13);
+}
+
+function dirtBurst(tx, ty) {
+  const x = offsetX + tx * cell + cell / 2;
+  const y = offsetY + ty * cell + cell / 2;
+  for (let i = 0; i < 8; i += 1) {
+    particles.push({ x, y, vx: (Math.random() - 0.5) * 160, vy: (Math.random() - 0.7) * 160, r: 3 + Math.random() * 3, life: 0.32, maxLife: 0.32, color: "#6e4527" });
+  }
+}
+
+function gemBurst(tx, ty, color) {
+  const x = offsetX + tx * cell + cell / 2;
+  const y = offsetY + ty * cell + cell / 2;
+  for (let i = 0; i < 18; i += 1) {
+    particles.push({ x, y, vx: (Math.random() - 0.5) * 220, vy: (Math.random() - 0.8) * 220, r: 3 + Math.random() * 4, life: 0.68, maxLife: 0.68, color });
+  }
+}
+
+function bindButton(button, handler) {
+  let handled = false;
+  button.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    handled = true;
+    handler();
+    window.setTimeout(() => { handled = false; }, 280);
+  });
+  button.addEventListener("click", (event) => {
+    if (handled) {
+      event.preventDefault();
+      return;
+    }
+    handler();
+  });
+}
+
+function shuffle(items) {
+  return items
+    .map((item) => ({ item, order: Math.random() }))
+    .sort((a, b) => a.order - b.order)
+    .map(({ item }) => item);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
+document.addEventListener("touchend", (event) => {
+  const now = Date.now();
+  if (now - lastTouchEnd <= 360) event.preventDefault();
+  lastTouchEnd = now;
+}, { passive: false });
+document.addEventListener("gesturestart", (event) => event.preventDefault());
+document.addEventListener("gesturechange", (event) => event.preventDefault());
+document.addEventListener("gestureend", (event) => event.preventDefault());
+
+bindButton(startButton, startGame);
+bindButton(restartButton, () => { window.location.href = getLearningUrl(); });
+bindButton(upButton, () => move(0, -1));
+bindButton(leftButton, () => move(-1, 0));
+bindButton(rightButton, () => move(1, 0));
+bindButton(downButton, () => move(0, 1));
+bindButton(digButton, dig);
+window.addEventListener("resize", resize);
+resize();

@@ -13,6 +13,8 @@ const KINGFISHER_GAME_ID = "kingfisher";
 const BUTTERFLY_GAME_ID = "butterfly";
 const METEOR_GAME_ID = "meteor";
 const RACE_GAME_ID = "race";
+const GEM_GAME_ID = "gem";
+const PILLBUG_GAME_ID = "pillbug";
 
 const letterGroups = [
   ["が", "ぎ", "ぐ", "げ", "ご"],
@@ -191,6 +193,8 @@ const playKingfisherButton = document.getElementById("playKingfisherButton");
 const playButterflyButton = document.getElementById("playButterflyButton");
 const playMeteorButton = document.getElementById("playMeteorButton");
 const playRaceButton = document.getElementById("playRaceButton");
+const playGemButton = document.getElementById("playGemButton");
+const playPillbugButton = document.getElementById("playPillbugButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -549,6 +553,14 @@ playMeteorButton.addEventListener("click", () => {
 playRaceButton.addEventListener("click", () => {
   grantMiniGameAccess(RACE_GAME_ID);
   window.location.href = "race.html";
+});
+playGemButton.addEventListener("click", () => {
+  grantMiniGameAccess(GEM_GAME_ID);
+  window.location.href = "gem.html";
+});
+playPillbugButton.addEventListener("click", () => {
+  grantMiniGameAccess(PILLBUG_GAME_ID);
+  window.location.href = "pillbug.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

@@ -5,6 +5,8 @@ const TETRIS_GAME_ID = "tetris";
 const BUTTERFLY_GAME_ID = "butterfly";
 const METEOR_GAME_ID = "meteor";
 const RACE_GAME_ID = "race";
+const GEM_GAME_ID = "gem";
+const PILLBUG_GAME_ID = "pillbug";
 const LESSON_CONFIG = {
   requiredCorrect: 3,
   nextDelayMs: 780,
@@ -29,6 +31,8 @@ const playTetrisButton = document.getElementById("playTetrisButton");
 const playButterflyButton = document.getElementById("playButterflyButton");
 const playMeteorButton = document.getElementById("playMeteorButton");
 const playRaceButton = document.getElementById("playRaceButton");
+const playGemButton = document.getElementById("playGemButton");
+const playPillbugButton = document.getElementById("playPillbugButton");
 const againButton = document.getElementById("againButton");
 
 let correct = 0;
@@ -345,6 +349,14 @@ bindAppButton(playMeteorButton, () => {
 bindAppButton(playRaceButton, () => {
   grantMiniGameAccess(RACE_GAME_ID);
   window.location.href = "race.html";
+});
+bindAppButton(playGemButton, () => {
+  grantMiniGameAccess(GEM_GAME_ID);
+  window.location.href = "gem.html";
+});
+bindAppButton(playPillbugButton, () => {
+  grantMiniGameAccess(PILLBUG_GAME_ID);
+  window.location.href = "pillbug.html";
 });
 bindAppButton(againButton, resetLesson);
 

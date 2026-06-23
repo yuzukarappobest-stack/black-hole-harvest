@@ -1,0 +1,152 @@
+:root {
+  color-scheme: light;
+  --soil: #8d6238;
+  --ink: #2d2218;
+  --panel: rgba(255, 248, 224, 0.9);
+  --line: rgba(45, 34, 24, 0.18);
+  --gold: #ffd65e;
+  --green: #58ca78;
+  --red: #ff6f8f;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  touch-action: none;
+}
+
+body {
+  min-height: 100dvh;
+  overflow: hidden;
+  background: linear-gradient(180deg, #8ed7ff 0 30%, #89d36c 30% 38%, #8d6238 38% 100%);
+  color: var(--ink);
+  font-family: ui-rounded, "Hiragino Maru Gothic ProN", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dig-app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  width: 100%;
+  height: 100dvh;
+  padding: max(8px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  gap: 8px;
+}
+
+.hud {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.hud div,
+.panel,
+.controls button {
+  border: 2px solid rgba(255, 255, 255, 0.82);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 28px rgba(45, 34, 24, 0.18);
+}
+
+.hud div {
+  display: grid;
+  place-items: center;
+  min-height: 58px;
+}
+
+.hud span,
+.label {
+  color: #745338;
+  font-size: clamp(0.8rem, 3vw, 1rem);
+  font-weight: 950;
+}
+
+.hud strong {
+  color: var(--ink);
+  font-size: clamp(1.35rem, 5vw, 2.1rem);
+  line-height: 1;
+}
+
+.game-shell {
+  position: relative;
+  min-height: 0;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.74);
+  border-radius: 8px;
+  background: #8d6238;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(88vw, 520px);
+  padding: 20px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+}
+
+.panel.hidden {
+  display: none;
+}
+
+.panel h1,
+.panel h2 {
+  margin: 0 0 10px;
+  color: #b479ff;
+  font-size: clamp(2.6rem, 10vw, 5rem);
+  line-height: 0.98;
+}
+
+.panel p {
+  margin: 8px 0 16px;
+  color: var(--ink);
+  font-size: clamp(1rem, 4vw, 1.3rem);
+  font-weight: 900;
+}
+
+button {
+  border: 0;
+  border-radius: 8px;
+  font: inherit;
+  font-weight: 950;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.panel button {
+  min-height: 60px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, var(--gold), #ff9f5c);
+  color: #493215;
+  font-size: clamp(1.2rem, 5vw, 1.8rem);
+}
+
+.controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.35fr 1fr 1fr;
+  gap: 8px;
+}
+
+.controls button {
+  min-height: 70px;
+  color: var(--ink);
+  font-size: clamp(1.55rem, 6vw, 2.5rem);
+}
+
+.controls .dig-button {
+  background: linear-gradient(135deg, #b479ff, #ff7aa8);
+  color: #ffffff;
+}

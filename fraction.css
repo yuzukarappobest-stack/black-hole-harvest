@@ -294,6 +294,8 @@ button {
 
 .complete-box {
   width: min(92vw, 460px);
+  max-height: 92dvh;
+  overflow: auto;
   padding: 24px 20px;
   text-align: center;
 }

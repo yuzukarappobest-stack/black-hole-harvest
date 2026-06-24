@@ -8,7 +8,6 @@ const finishPanel = document.getElementById("finishPanel");
 const resultTitle = document.getElementById("resultTitle");
 const resultMessage = document.getElementById("resultMessage");
 const startButton = document.getElementById("startButton");
-const restartButton = document.getElementById("restartButton");
 const learnButton = document.getElementById("learnButton");
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
@@ -642,7 +641,6 @@ canvas.addEventListener("pointermove", pointerMove);
 canvas.addEventListener("pointerup", pointerUp);
 canvas.addEventListener("pointercancel", pointerUp);
 startButton.addEventListener("click", resetGame);
-restartButton.addEventListener("click", resetGame);
 learnButton.addEventListener("click", () => {
   window.location.href = getLearningUrl();
 });

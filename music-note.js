@@ -17,13 +17,13 @@ const REWARDS = [
 ];
 
 const NOTES = [
-  { name: "ド", image: "assets/music-notes/do.jpg" },
-  { name: "レ", image: "assets/music-notes/re.jpg" },
-  { name: "ミ", image: "assets/music-notes/mi.jpg" },
-  { name: "ファ", image: "assets/music-notes/fa.jpg" },
-  { name: "ソ", image: "assets/music-notes/so.jpg" },
-  { name: "ラ", image: "assets/music-notes/la.jpg" },
-  { name: "シ", image: "assets/music-notes/si.jpg" },
+  { name: "ド", image: "assets/music-notes/do.jpg", frequency: 261.63 },
+  { name: "レ", image: "assets/music-notes/re.jpg", frequency: 293.66 },
+  { name: "ミ", image: "assets/music-notes/mi.jpg", frequency: 329.63 },
+  { name: "ファ", image: "assets/music-notes/fa.jpg", frequency: 349.23 },
+  { name: "ソ", image: "assets/music-notes/so.jpg", frequency: 392.0 },
+  { name: "ラ", image: "assets/music-notes/la.jpg", frequency: 440.0 },
+  { name: "シ", image: "assets/music-notes/si.jpg", frequency: 493.88 },
 ];
 
 const NOTE_NAMES = NOTES.map((note) => note.name);
@@ -41,6 +41,7 @@ let correct = 0;
 let current = null;
 let queue = [];
 let locked = false;
+let audioContext = null;
 
 goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
 renderRewards();
@@ -88,6 +89,7 @@ function choose(button, name) {
     correctCount.textContent = correct;
     feedback.textContent = "せいかい！";
     feedback.className = "feedback good";
+    playNote(current.frequency);
   } else {
     feedback.textContent = "ざんねん！";
     feedback.className = "feedback bad";
@@ -97,6 +99,26 @@ function choose(button, name) {
     return;
   }
   window.setTimeout(nextQuestion, LESSON_CONFIG.nextDelayMs);
+}
+
+function playNote(frequency) {
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  if (!audioContext) audioContext = new AudioCtx();
+  if (audioContext.state === "suspended") audioContext.resume();
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gain = audioContext.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.setValueAtTime(frequency, now);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.018);
+  gain.gain.setValueAtTime(0.18, now + 0.32);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.58);
+  oscillator.connect(gain);
+  gain.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.62);
 }
 
 function renderRewards() {

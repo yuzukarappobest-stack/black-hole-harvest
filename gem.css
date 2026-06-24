@@ -136,12 +136,14 @@ button {
 
 .controls {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.35fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: min(100%, 430px);
+  justify-self: center;
   gap: 8px;
 }
 
 .controls button {
-  min-height: 70px;
+  min-height: clamp(64px, 15vw, 88px);
   color: var(--ink);
   font-size: clamp(1.55rem, 6vw, 2.5rem);
 }
@@ -149,4 +151,5 @@ button {
 .controls .dig-button {
   background: linear-gradient(135deg, #b479ff, #ff7aa8);
   color: #ffffff;
+  font-size: clamp(1.55rem, 7vw, 2.7rem);
 }

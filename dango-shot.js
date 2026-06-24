@@ -18,8 +18,8 @@ const CONFIG = {
   shots: 8,
   clearScore: 200,
   gravity: 1160,
-  maxPull: 290,
-  power: 8.9,
+  maxPull: 240,
+  power: 10.8,
   settleSeconds: 2.4,
   previewSeconds: 1.15,
   returnCameraSpeed: 7,
@@ -77,8 +77,8 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   groundY = height * 0.82;
   worldWidth = width * 2.75;
-  targetBaseX = width * 2.02;
-  sling = { x: width * 0.18, y: groundY - height * 0.29 };
+  targetBaseX = width * 2.04;
+  sling = { x: width * 0.34, y: groundY - height * 0.29 };
   if (state === "ready") resetScene();
   cameraX = clamp(cameraX, 0, maxCameraX());
   draw();
@@ -111,20 +111,17 @@ function createProjectile(x, y) {
 }
 
 function createTargets() {
-  const unit = Math.min(width, height) * 0.074;
+  const unit = Math.min(width, height) * 0.084;
   const baseX = targetBaseX;
-  const airY = groundY - unit * 4.6;
-  const midAirY = groundY - unit * 3.45;
-  const groundBugY = groundY - unit * 0.72;
   return [
-    target("ちょう", "🦋", baseX - unit * 3.4, airY, unit * 0.54, true),
-    target("はち", "🐝", baseX - unit * 1.2, midAirY, unit * 0.48, true),
-    target("とんぼ", "✦", baseX + unit * 1.2, airY, unit * 0.5, true),
-    target("が", "☾", baseX + unit * 3.35, midAirY, unit * 0.5, true),
-    target("ばった", "🦗", baseX - unit * 3.05, groundBugY, unit * 0.5, false),
-    target("かぶと", "🪲", baseX - unit * 0.95, groundBugY, unit * 0.54, false),
-    target("くわがた", "♆", baseX + unit * 1.25, groundBugY, unit * 0.54, false),
-    target("せみ", "◉", baseX + unit * 3.4, groundBugY, unit * 0.5, false),
+    target("ちょう", "🦋", baseX - unit * 4.75, groundY - unit * 5.55, unit * 0.7, true),
+    target("はち", "🐝", baseX - unit * 2.4, groundY - unit * 3.8, unit * 0.64, true),
+    target("とんぼ", "✦", baseX + unit * 0.65, groundY - unit * 5.05, unit * 0.68, true),
+    target("が", "☾", baseX + unit * 3.95, groundY - unit * 4.25, unit * 0.66, true),
+    target("ばった", "🦗", baseX - unit * 4.2, groundY - unit * 0.88, unit * 0.68, false),
+    target("かぶと", "🪲", baseX - unit * 1.0, groundY - unit * 0.78, unit * 0.72, false),
+    target("くわがた", "♆", baseX + unit * 2.15, groundY - unit * 1.2, unit * 0.72, false),
+    target("せみ", "◉", baseX + unit * 4.75, groundY - unit * 2.1, unit * 0.68, false),
   ];
 }
 
@@ -523,7 +520,7 @@ function pointerMove(event) {
   const dy = p.y - sling.y;
   const dist = Math.hypot(dx, dy);
   const scale = Math.min(CONFIG.maxPull, dist) / Math.max(1, dist);
-  projectile.x = sling.x + dx * scale;
+  projectile.x = clamp(sling.x + dx * scale, projectile.r + 10, width - projectile.r - 10);
   projectile.y = Math.min(sling.y + dy * scale, groundY - projectile.r - 10);
   draw();
   event.preventDefault();

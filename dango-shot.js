@@ -17,21 +17,27 @@ const DEFAULT_LEARNING_URL = "learn.html";
 const CONFIG = {
   shots: 3,
   gravity: 1160,
-  maxPull: 120,
-  power: 8.1,
-  settleSeconds: 2.2,
+  maxPull: 150,
+  power: 8.6,
+  settleSeconds: 2.4,
+  previewSeconds: 1.15,
+  returnCameraSpeed: 7,
 };
 
 let width = 0;
 let height = 0;
 let dpr = 1;
 let groundY = 0;
+let worldWidth = 0;
+let targetBaseX = 0;
+let cameraX = 0;
 let sling = { x: 0, y: 0 };
 let state = "ready";
 let score = 0;
 let best = Number(localStorage.getItem("dangoShotBest") || 0);
 let shotsLeft = CONFIG.shots;
 let lastTime = 0;
+let previewTimer = 0;
 let projectile = null;
 let blocks = [];
 let targets = [];
@@ -69,18 +75,23 @@ function resize() {
   canvas.height = Math.floor(height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   groundY = height * 0.82;
-  sling = { x: width * 0.16, y: groundY - height * 0.16 };
+  worldWidth = width * 2.75;
+  targetBaseX = width * 2.02;
+  sling = { x: width * 0.18, y: groundY - height * 0.29 };
   if (state === "ready") resetScene();
+  cameraX = clamp(cameraX, 0, maxCameraX());
   draw();
 }
 
 function resetGame() {
   score = 0;
   shotsLeft = CONFIG.shots;
-  state = "aim";
+  previewTimer = 0;
+  state = "preview";
   startPanel.classList.add("hidden");
   finishPanel.classList.add("hidden");
   resetScene();
+  cameraX = targetCameraX();
   updateHud();
   lastTime = performance.now();
   requestAnimationFrame(loop);
@@ -96,12 +107,12 @@ function resetScene() {
 }
 
 function createProjectile(x, y) {
-  return { x, y, px: x, py: y, vx: 0, vy: 0, r: Math.max(17, Math.min(width, height) * 0.036), launched: false, asleep: false, spin: 0 };
+  return { x, y, px: x, py: y, vx: 0, vy: 0, r: Math.max(17, Math.min(width, height) * 0.036), launched: false, spin: 0 };
 }
 
 function createBlocks() {
-  const unit = Math.min(width, height) * 0.07;
-  const baseX = width * 0.66;
+  const unit = Math.min(width, height) * 0.072;
+  const baseX = targetBaseX;
   const baseY = groundY;
   return [
     block(baseX - unit * 1.25, baseY - unit, unit * 0.58, unit * 2, "#b9824c"),
@@ -119,8 +130,8 @@ function block(x, y, w, h, color) {
 }
 
 function createTargets() {
-  const unit = Math.min(width, height) * 0.07;
-  const baseX = width * 0.66;
+  const unit = Math.min(width, height) * 0.072;
+  const baseX = targetBaseX;
   return [
     target(baseX, groundY - unit * 2.85, unit * 0.42, 80),
     target(baseX - unit * 1.4, groundY - unit * 0.35, unit * 0.36, 40),
@@ -135,7 +146,7 @@ function target(x, y, r, points) {
 function loop(now) {
   const dt = Math.min(0.033, (now - lastTime) / 1000 || 0);
   lastTime = now;
-  if (state === "aim" || state === "fly" || state === "settle") {
+  if (state === "preview" || state === "aim" || state === "fly" || state === "settle") {
     update(dt);
     draw();
     requestAnimationFrame(loop);
@@ -143,6 +154,7 @@ function loop(now) {
 }
 
 function update(dt) {
+  updateCamera(dt);
   updateProjectile(dt);
   updateBlocks(dt);
   updateTargets(dt);
@@ -154,8 +166,30 @@ function update(dt) {
   }
 }
 
+function updateCamera(dt) {
+  if (state === "preview") {
+    previewTimer += dt;
+    if (previewTimer >= CONFIG.previewSeconds) {
+      cameraX = approach(cameraX, 0, CONFIG.returnCameraSpeed * dt);
+      if (cameraX < 1) {
+        cameraX = 0;
+        state = "aim";
+      }
+    }
+    return;
+  }
+  if (state === "aim") {
+    cameraX = approach(cameraX, 0, CONFIG.returnCameraSpeed * dt);
+    return;
+  }
+  if (state === "fly" || state === "settle") {
+    const target = clamp(projectile.x - width * 0.32, 0, maxCameraX());
+    cameraX = approach(cameraX, target, 5.8 * dt);
+  }
+}
+
 function updateProjectile(dt) {
-  if (!projectile || !projectile.launched || projectile.asleep) return;
+  if (!projectile || !projectile.launched) return;
   projectile.px = projectile.x;
   projectile.py = projectile.y;
   projectile.vy += CONFIG.gravity * dt;
@@ -169,13 +203,13 @@ function updateProjectile(dt) {
     projectile.vx *= 0.72;
     thump(projectile.x, projectile.y, "#7b5d42");
   }
-  if (projectile.x - projectile.r < 0 || projectile.x + projectile.r > width) {
+  if (projectile.x - projectile.r < 0 || projectile.x + projectile.r > worldWidth) {
     projectile.vx *= -0.35;
-    projectile.x = Math.max(projectile.r, Math.min(width - projectile.r, projectile.x));
+    projectile.x = clamp(projectile.x, projectile.r, worldWidth - projectile.r);
   }
   for (const b of blocks) collideCircleBlock(projectile, b);
   for (const t of targets) collideCircleTarget(projectile, t);
-  if (Math.abs(projectile.vx) + Math.abs(projectile.vy) < 55 || projectile.x > width + 80) {
+  if (Math.abs(projectile.vx) + Math.abs(projectile.vy) < 55 || projectile.x > worldWidth - 40) {
     if (state === "fly") {
       state = "settle";
       settleTimer = 0;
@@ -267,7 +301,7 @@ function collideCircleTarget(c, t) {
 
 function scoreFallenObjects() {
   for (const b of blocks) {
-    if (!b.scored && (Math.abs(b.angle) > 0.55 || b.x < width * 0.55 || b.hp <= 0)) {
+    if (!b.scored && (Math.abs(b.angle) > 0.55 || b.x < targetBaseX - width * 0.18 || b.hp <= 0)) {
       b.scored = true;
       addScore(25);
       sparkle(b.x, b.y, "#ffd65e", 10);
@@ -288,6 +322,7 @@ function nextShot() {
     return;
   }
   projectile = createProjectile(sling.x, sling.y);
+  cameraX = 0;
   state = "aim";
 }
 
@@ -313,12 +348,16 @@ function updateHud() {
 function draw() {
   ctx.clearRect(0, 0, width, height);
   drawBackground();
+  ctx.save();
+  ctx.translate(-cameraX, 0);
   drawSling();
   drawBlocks();
   drawTargets();
   drawProjectile();
   drawParticles();
+  ctx.restore();
   if (state === "aim" && !drag) drawHint();
+  if (state === "preview") drawPreviewText();
 }
 
 function drawBackground() {
@@ -327,24 +366,35 @@ function drawBackground() {
   sky.addColorStop(1, "#d9fff4");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, width, groundY);
+
+  ctx.save();
+  ctx.translate(-cameraX * 0.35, 0);
   ctx.fillStyle = "#83cf70";
   ctx.beginPath();
-  ctx.moveTo(0, groundY - height * 0.08);
-  ctx.quadraticCurveTo(width * 0.23, groundY - height * 0.2, width * 0.45, groundY - height * 0.08);
-  ctx.quadraticCurveTo(width * 0.68, groundY + height * 0.02, width, groundY - height * 0.16);
-  ctx.lineTo(width, groundY);
-  ctx.lineTo(0, groundY);
+  ctx.moveTo(-width, groundY - height * 0.08);
+  for (let x = -width; x <= worldWidth + width; x += width * 0.5) {
+    ctx.quadraticCurveTo(x + width * 0.25, groundY - height * 0.22, x + width * 0.5, groundY - height * 0.08);
+  }
+  ctx.lineTo(worldWidth + width, groundY);
+  ctx.lineTo(-width, groundY);
   ctx.closePath();
   ctx.fill();
+
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  for (let i = 0; i < 9; i += 1) {
+    const x = width * (0.15 + i * 0.34);
+    ctx.beginPath();
+    ctx.ellipse(x, height * 0.17 + (i % 2) * 18, 38, 14, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + 34, height * 0.17 + (i % 2) * 18, 28, 11, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+
   ctx.fillStyle = "#93673c";
   ctx.fillRect(0, groundY, width, height - groundY);
-  ctx.fillStyle = "rgba(255,255,255,0.5)";
-  for (let i = 0; i < 5; i += 1) {
-    const x = width * (0.1 + i * 0.22);
-    ctx.beginPath();
-    ctx.ellipse(x, height * 0.18 + (i % 2) * 18, 38, 14, 0, 0, Math.PI * 2);
-    ctx.ellipse(x + 34, height * 0.18 + (i % 2) * 18, 28, 11, 0, 0, Math.PI * 2);
-    ctx.fill();
+  ctx.fillStyle = "rgba(255,255,255,0.12)";
+  for (let x = -(cameraX % 80); x < width; x += 80) {
+    ctx.fillRect(x, groundY + 22, 46, 8);
   }
 }
 
@@ -353,9 +403,9 @@ function drawSling() {
   ctx.strokeStyle = "#6b4124";
   ctx.lineWidth = 9;
   ctx.beginPath();
-  ctx.moveTo(sling.x - 14, sling.y + 52);
+  ctx.moveTo(sling.x - 14, sling.y + 74);
   ctx.lineTo(sling.x - 7, sling.y + 8);
-  ctx.moveTo(sling.x + 18, sling.y + 52);
+  ctx.moveTo(sling.x + 18, sling.y + 74);
   ctx.lineTo(sling.x + 8, sling.y + 8);
   ctx.stroke();
 
@@ -457,7 +507,14 @@ function drawHint() {
   ctx.fillStyle = "rgba(45,38,29,0.74)";
   ctx.font = `900 ${Math.max(18, width * 0.026)}px ui-rounded, sans-serif`;
   ctx.textAlign = "center";
-  ctx.fillText("ひっぱって はなす", sling.x + width * 0.08, sling.y - 55);
+  ctx.fillText("ひっぱって はなす", sling.x - cameraX + width * 0.08, sling.y - 58);
+}
+
+function drawPreviewText() {
+  ctx.fillStyle = "rgba(45,38,29,0.72)";
+  ctx.font = `900 ${Math.max(18, width * 0.026)}px ui-rounded, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.fillText("まとはここ！", targetBaseX - cameraX, groundY - height * 0.45);
 }
 
 function pointerDown(event) {
@@ -478,7 +535,7 @@ function pointerMove(event) {
   const dist = Math.hypot(dx, dy);
   const scale = Math.min(CONFIG.maxPull, dist) / Math.max(1, dist);
   projectile.x = sling.x + dx * scale;
-  projectile.y = sling.y + dy * scale;
+  projectile.y = Math.min(sling.y + dy * scale, groundY - projectile.r - 10);
   draw();
   event.preventDefault();
 }
@@ -498,7 +555,7 @@ function pointerUp(event) {
 function pointerPosition(event) {
   const rect = canvas.getBoundingClientRect();
   const point = event.touches ? event.touches[0] || event.changedTouches[0] : event;
-  return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+  return { x: point.clientX - rect.left + cameraX, y: point.clientY - rect.top };
 }
 
 function thump(x, y, color) {
@@ -520,6 +577,22 @@ function sparkle(x, y, color, count) {
       color,
     });
   }
+}
+
+function targetCameraX() {
+  return clamp(targetBaseX - width * 0.5, 0, maxCameraX());
+}
+
+function maxCameraX() {
+  return Math.max(0, worldWidth - width);
+}
+
+function approach(current, target, amount) {
+  return current + (target - current) * Math.min(1, amount);
+}
+
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
 }
 
 function preventZoom(event) {

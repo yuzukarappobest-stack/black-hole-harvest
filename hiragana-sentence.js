@@ -160,7 +160,7 @@ function nextQuestion() {
   pictureEmoji.textContent = current[1];
   feedback.textContent = " ";
   feedback.className = "feedback";
-  renderChoices(shuffle(current[2]));
+  renderChoices(buildBalancedChoices(current));
   window.setTimeout(speakCurrent, 240);
 }
 
@@ -174,6 +174,32 @@ function renderChoices(choices) {
     button.addEventListener("click", () => choose(button, choice));
     choiceGrid.appendChild(button);
   }
+}
+
+function buildBalancedChoices(question) {
+  const [answer, , originalChoices] = question;
+  const answerLength = kanaLength(answer);
+  const originalDistractors = originalChoices.filter((choice) => choice !== answer);
+  const sameLengthOriginals = originalDistractors.filter((choice) => kanaLength(choice) === answerLength);
+  const sameLengthPool = QUESTIONS
+    .map(([word]) => word)
+    .filter((word) => word !== answer && kanaLength(word) === answerLength);
+  const nearLengthPool = QUESTIONS
+    .map(([word]) => word)
+    .filter((word) => word !== answer && Math.abs(kanaLength(word) - answerLength) <= 2);
+  const distractors = uniqueWords([...sameLengthOriginals, ...shuffle(sameLengthPool)]);
+  if (distractors.length < 2) {
+    distractors.push(...uniqueWords(shuffle(nearLengthPool)).filter((word) => !distractors.includes(word)));
+  }
+  return shuffle([answer, ...distractors.slice(0, 2)]);
+}
+
+function kanaLength(word) {
+  return [...word].length;
+}
+
+function uniqueWords(words) {
+  return [...new Set(words)];
 }
 
 function choose(button, choice) {

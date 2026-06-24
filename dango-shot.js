@@ -76,8 +76,8 @@ function resize() {
   canvas.height = Math.floor(height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   groundY = height * 0.82;
-  worldWidth = width * 2.75;
-  targetBaseX = width * 2.04;
+  worldWidth = width * 5.2;
+  targetBaseX = width * 2.95;
   sling = { x: width * 0.34, y: groundY - height * 0.29 };
   if (state === "ready") resetScene();
   cameraX = clamp(cameraX, 0, maxCameraX());
@@ -111,17 +111,16 @@ function createProjectile(x, y) {
 }
 
 function createTargets() {
-  const unit = Math.min(width, height) * 0.084;
-  const baseX = targetBaseX;
+  const unit = Math.min(width, height) * 0.09;
   return [
-    target("ちょう", "🦋", baseX - unit * 4.75, groundY - unit * 5.55, unit * 0.7, true),
-    target("はち", "🐝", baseX - unit * 2.4, groundY - unit * 3.8, unit * 0.64, true),
-    target("とんぼ", "✦", baseX + unit * 0.65, groundY - unit * 5.05, unit * 0.68, true),
-    target("が", "☾", baseX + unit * 3.95, groundY - unit * 4.25, unit * 0.66, true),
-    target("ばった", "🦗", baseX - unit * 4.2, groundY - unit * 0.88, unit * 0.68, false),
-    target("かぶと", "🪲", baseX - unit * 1.0, groundY - unit * 0.78, unit * 0.72, false),
-    target("くわがた", "♆", baseX + unit * 2.15, groundY - unit * 1.2, unit * 0.72, false),
-    target("せみ", "◉", baseX + unit * 4.75, groundY - unit * 2.1, unit * 0.68, false),
+    target("ちょう", "🦋", width * 1.46, groundY - height * 0.58, unit * 0.78, true),
+    target("ばった", "🦗", width * 1.88, groundY - unit * 0.86, unit * 0.74, false),
+    target("はち", "🐝", width * 2.28, groundY - height * 0.38, unit * 0.72, true),
+    target("くわがた", "♆", width * 2.76, groundY - unit * 1.18, unit * 0.78, false),
+    target("とんぼ", "✦", width * 3.18, groundY - height * 0.64, unit * 0.76, true),
+    target("かぶと", "🪲", width * 3.62, groundY - unit * 0.82, unit * 0.8, false),
+    target("が", "☾", width * 4.04, groundY - height * 0.49, unit * 0.74, true),
+    target("せみ", "◉", width * 4.52, groundY - unit * 2.36, unit * 0.74, false),
   ];
 }
 
@@ -228,8 +227,8 @@ function collideCircleTarget(c, t) {
   addScore(t.points);
   playHitSound(0.9);
   sparkle(t.x, t.y, t.airborne ? "#8ee8ff" : "#ffd65e", 20);
-  c.vx *= 0.72;
-  c.vy *= 0.72;
+  c.vx *= 0.42;
+  c.vy *= 0.42;
   if (impact > 340) sparkle(t.x, t.y, "#ffffff", 8);
   if (targets.every((targetItem) => targetItem.scored)) finishGame();
 }

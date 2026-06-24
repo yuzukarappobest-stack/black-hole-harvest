@@ -39,6 +39,7 @@ const againButton = document.getElementById("againButton");
 let correct = 0;
 let answer = "";
 let currentProblem = null;
+let lastProblemKey = "";
 let drawing = false;
 let dpr = 1;
 let lastTouchEnd = 0;
@@ -64,8 +65,15 @@ function nextProblem() {
 }
 
 function createProblem() {
-  const left = randomInt(1, 8);
-  const right = randomInt(1, 9 - left);
+  let left = 1;
+  let right = 1;
+  let key = "";
+  do {
+    left = randomInt(1, 8);
+    right = randomInt(1, 9 - left);
+    key = `${left}+${right}`;
+  } while (key === lastProblemKey);
+  lastProblemKey = key;
   return {
     text: `${left} + ${right}`,
     answer: left + right,

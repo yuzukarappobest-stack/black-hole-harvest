@@ -17,8 +17,8 @@ const DEFAULT_LEARNING_URL = "learn.html";
 const CONFIG = {
   shots: 3,
   gravity: 1160,
-  maxPull: 150,
-  power: 8.6,
+  maxPull: 290,
+  power: 8.9,
   settleSeconds: 2.4,
   previewSeconds: 1.15,
   returnCameraSpeed: 7,
@@ -45,6 +45,7 @@ let particles = [];
 let drag = null;
 let settleTimer = 0;
 let lastTouchEnd = 0;
+let audioContext = null;
 
 requireMiniGameAccess(GAME_ID);
 bestScoreEl.textContent = best;
@@ -278,6 +279,7 @@ function collideCircleBlock(c, b) {
   b.vy += c.vy * 0.2 + ny * impact * 0.65;
   b.spin += (ny || 0.2) * impact * 0.018;
   b.hp -= 1;
+  playHitSound(Math.min(1, impact / 850));
   thump(closestX, closestY, "#ffe082");
 }
 
@@ -293,6 +295,7 @@ function collideCircleTarget(c, t) {
   t.vy += c.vy * 0.28 - 160;
   t.scored = true;
   addScore(t.points);
+  playHitSound(0.9);
   sparkle(t.x, t.y, "#ff6f91", 16);
   c.vx *= 0.72;
   c.vy *= 0.72;
@@ -549,6 +552,7 @@ function pointerUp(event) {
   projectile.launched = true;
   state = "fly";
   drag = null;
+  playLaunchSound();
   event.preventDefault();
 }
 
@@ -593,6 +597,46 @@ function approach(current, target, amount) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function ensureAudio() {
+  if (!audioContext) audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioContext.state === "suspended") audioContext.resume();
+  return audioContext;
+}
+
+function playLaunchSound() {
+  const audio = ensureAudio();
+  const now = audio.currentTime;
+  const osc = audio.createOscillator();
+  const gain = audio.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(190, now);
+  osc.frequency.exponentialRampToValueAtTime(620, now + 0.12);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+  osc.connect(gain);
+  gain.connect(audio.destination);
+  osc.start(now);
+  osc.stop(now + 0.18);
+}
+
+function playHitSound(strength = 0.7) {
+  const audio = ensureAudio();
+  const now = audio.currentTime;
+  const osc = audio.createOscillator();
+  const gain = audio.createGain();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(130 + Math.random() * 70, now);
+  osc.frequency.exponentialRampToValueAtTime(58, now + 0.11);
+  gain.gain.setValueAtTime(0.0001, now);
+  gain.gain.exponentialRampToValueAtTime(0.2 * strength, now + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
+  osc.connect(gain);
+  gain.connect(audio.destination);
+  osc.start(now);
+  osc.stop(now + 0.14);
 }
 
 function preventZoom(event) {

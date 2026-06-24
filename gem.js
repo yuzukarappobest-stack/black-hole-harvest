@@ -20,12 +20,17 @@ const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "gem";
 const DEFAULT_LEARNING_URL = "learn.html";
 const CONFIG = { seconds: 30, clearScore: 200, cols: 12, rows: 8 };
-const GEM_TYPES = [
-  { name: "すいしょう", points: 8, color: "#d9fbff", weight: 30 },
-  { name: "あめじすと", points: 14, color: "#b479ff", weight: 24 },
-  { name: "えめらるど", points: 22, color: "#43d07c", weight: 18 },
-  { name: "るびー", points: 34, color: "#ff4f7b", weight: 12 },
-  { name: "だいや", points: 55, color: "#ffffff", weight: 7 },
+const GEM_SET = [
+  { name: "すいしょう", points: 10, color: "#d9fbff" },
+  { name: "すいしょう", points: 10, color: "#d9fbff" },
+  { name: "あめじすと", points: 15, color: "#b479ff" },
+  { name: "あめじすと", points: 15, color: "#b479ff" },
+  { name: "えめらるど", points: 20, color: "#43d07c" },
+  { name: "えめらるど", points: 20, color: "#43d07c" },
+  { name: "るびー", points: 25, color: "#ff4f7b" },
+  { name: "るびー", points: 25, color: "#ff4f7b" },
+  { name: "だいや", points: 30, color: "#ffffff" },
+  { name: "だいや", points: 30, color: "#ffffff" },
 ];
 
 let width = 0;
@@ -109,23 +114,14 @@ function createBoard() {
       if (x || y !== CONFIG.rows - 1) spots.push({ x, y });
     }
   }
-  shuffle(spots).slice(0, 10).forEach((spot) => {
-    tiles[spot.y][spot.x].gem = pickGem();
+  const gems = shuffle([...GEM_SET]);
+  shuffle(spots).slice(0, 10).forEach((spot, index) => {
+    tiles[spot.y][spot.x].gem = gems[index];
     tiles[spot.y][spot.x].glowOffset = Math.random() * 5;
     tiles[spot.y][spot.x].hp += 1;
     tiles[spot.y][spot.x].maxHp = tiles[spot.y][spot.x].hp;
   });
   return tiles;
-}
-
-function pickGem() {
-  const total = GEM_TYPES.reduce((sum, gem) => sum + gem.weight, 0);
-  let roll = Math.random() * total;
-  for (const gem of GEM_TYPES) {
-    roll -= gem.weight;
-    if (roll <= 0) return gem;
-  }
-  return GEM_TYPES[0];
 }
 
 function loop(now) {
@@ -142,7 +138,7 @@ function loop(now) {
   particles = particles.filter((p) => p.life > 0);
   updateHud();
   draw();
-  if (score >= CONFIG.clearScore || timeLeft <= 0 || found >= 10) {
+  if (score >= CONFIG.clearScore || timeLeft <= 0 || found >= GEM_SET.length) {
     finishGame(score >= CONFIG.clearScore);
     return;
   }
@@ -186,7 +182,7 @@ function finishGame(cleared) {
 function updateHud() {
   timeEl.textContent = Math.max(0, timeLeft).toFixed(1);
   scoreEl.textContent = score;
-  foundEl.textContent = `${found}/10`;
+  foundEl.textContent = `${found}/${GEM_SET.length}`;
 }
 
 function draw() {

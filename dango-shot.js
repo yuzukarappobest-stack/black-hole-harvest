@@ -15,7 +15,8 @@ const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
 const GAME_ID = "dango-shot";
 const DEFAULT_LEARNING_URL = "learn.html";
 const CONFIG = {
-  shots: 3,
+  shots: 8,
+  clearScore: 200,
   gravity: 1160,
   maxPull: 290,
   power: 8.9,
@@ -39,7 +40,6 @@ let shotsLeft = CONFIG.shots;
 let lastTime = 0;
 let previewTimer = 0;
 let projectile = null;
-let blocks = [];
 let targets = [];
 let particles = [];
 let drag = null;
@@ -100,7 +100,6 @@ function resetGame() {
 
 function resetScene() {
   projectile = createProjectile(sling.x, sling.y);
-  blocks = createBlocks();
   targets = createTargets();
   particles = [];
   drag = null;
@@ -111,37 +110,26 @@ function createProjectile(x, y) {
   return { x, y, px: x, py: y, vx: 0, vy: 0, r: Math.max(17, Math.min(width, height) * 0.036), launched: false, spin: 0 };
 }
 
-function createBlocks() {
-  const unit = Math.min(width, height) * 0.072;
-  const baseX = targetBaseX;
-  const baseY = groundY;
-  return [
-    block(baseX - unit * 1.25, baseY - unit, unit * 0.58, unit * 2, "#b9824c"),
-    block(baseX + unit * 1.25, baseY - unit, unit * 0.58, unit * 2, "#b9824c"),
-    block(baseX, baseY - unit * 2.2, unit * 3.1, unit * 0.55, "#d6a15f"),
-    block(baseX - unit * 2.25, baseY - unit * 0.55, unit * 0.55, unit * 1.1, "#c18a51"),
-    block(baseX + unit * 2.25, baseY - unit * 0.55, unit * 0.55, unit * 1.1, "#c18a51"),
-    block(baseX, baseY - unit * 3.35, unit * 0.66, unit * 1.5, "#b9824c"),
-    block(baseX, baseY - unit * 4.25, unit * 2.2, unit * 0.5, "#d6a15f"),
-  ];
-}
-
-function block(x, y, w, h, color) {
-  return { x, y, w, h, vx: 0, vy: 0, angle: 0, spin: 0, color, hp: 2, scored: false };
-}
-
 function createTargets() {
-  const unit = Math.min(width, height) * 0.072;
+  const unit = Math.min(width, height) * 0.074;
   const baseX = targetBaseX;
+  const airY = groundY - unit * 4.6;
+  const midAirY = groundY - unit * 3.45;
+  const groundBugY = groundY - unit * 0.72;
   return [
-    target(baseX, groundY - unit * 2.85, unit * 0.42, 80),
-    target(baseX - unit * 1.4, groundY - unit * 0.35, unit * 0.36, 40),
-    target(baseX + unit * 1.4, groundY - unit * 0.35, unit * 0.36, 40),
+    target("ちょう", "🦋", baseX - unit * 3.4, airY, unit * 0.54, true),
+    target("はち", "🐝", baseX - unit * 1.2, midAirY, unit * 0.48, true),
+    target("とんぼ", "✦", baseX + unit * 1.2, airY, unit * 0.5, true),
+    target("が", "☾", baseX + unit * 3.35, midAirY, unit * 0.5, true),
+    target("ばった", "🦗", baseX - unit * 3.05, groundBugY, unit * 0.5, false),
+    target("かぶと", "🪲", baseX - unit * 0.95, groundBugY, unit * 0.54, false),
+    target("くわがた", "♆", baseX + unit * 1.25, groundBugY, unit * 0.54, false),
+    target("せみ", "◉", baseX + unit * 3.4, groundBugY, unit * 0.5, false),
   ];
 }
 
-function target(x, y, r, points) {
-  return { x, y, r, vx: 0, vy: 0, points, hit: false, scored: false };
+function target(name, icon, x, y, r, airborne) {
+  return { name, icon, x, y, r, points: 25, hit: false, scored: false, airborne, flap: Math.random() * Math.PI * 2 };
 }
 
 function loop(now) {
@@ -157,10 +145,8 @@ function loop(now) {
 function update(dt) {
   updateCamera(dt);
   updateProjectile(dt);
-  updateBlocks(dt);
   updateTargets(dt);
   updateParticles(dt);
-  scoreFallenObjects();
   if (state === "settle") {
     settleTimer += dt;
     if (settleTimer >= CONFIG.settleSeconds) nextShot();
@@ -208,7 +194,6 @@ function updateProjectile(dt) {
     projectile.vx *= -0.35;
     projectile.x = clamp(projectile.x, projectile.r, worldWidth - projectile.r);
   }
-  for (const b of blocks) collideCircleBlock(projectile, b);
   for (const t of targets) collideCircleTarget(projectile, t);
   if (Math.abs(projectile.vx) + Math.abs(projectile.vy) < 55 || projectile.x > worldWidth - 40) {
     if (state === "fly") {
@@ -218,36 +203,9 @@ function updateProjectile(dt) {
   }
 }
 
-function updateBlocks(dt) {
-  for (const b of blocks) {
-    if (Math.abs(b.vx) + Math.abs(b.vy) + Math.abs(b.spin) < 1) continue;
-    b.vy += CONFIG.gravity * dt;
-    b.x += b.vx * dt;
-    b.y += b.vy * dt;
-    b.angle += b.spin * dt;
-    b.vx *= 0.992;
-    b.spin *= 0.985;
-    if (b.y + b.h / 2 > groundY) {
-      b.y = groundY - b.h / 2;
-      b.vy *= -0.28;
-      b.vx *= 0.78;
-      b.spin *= 0.7;
-    }
-  }
-}
-
 function updateTargets(dt) {
   for (const t of targets) {
-    if (!t.hit) continue;
-    t.vy += CONFIG.gravity * dt;
-    t.x += t.vx * dt;
-    t.y += t.vy * dt;
-    t.vx *= 0.99;
-    if (t.y + t.r > groundY) {
-      t.y = groundY - t.r;
-      t.vy *= -0.34;
-      t.vx *= 0.82;
-    }
+    t.flap += dt * (t.airborne ? 5.2 : 2.2);
   }
 }
 
@@ -261,28 +219,6 @@ function updateParticles(dt) {
   });
 }
 
-function collideCircleBlock(c, b) {
-  const closestX = Math.max(b.x - b.w / 2, Math.min(c.x, b.x + b.w / 2));
-  const closestY = Math.max(b.y - b.h / 2, Math.min(c.y, b.y + b.h / 2));
-  const dx = c.x - closestX;
-  const dy = c.y - closestY;
-  const distSq = dx * dx + dy * dy;
-  if (distSq > c.r * c.r) return;
-  const dist = Math.max(1, Math.sqrt(distSq));
-  const nx = dx / dist;
-  const ny = dy / dist;
-  const impact = Math.hypot(c.vx, c.vy);
-  c.x += nx * (c.r - dist + 1);
-  c.vx = c.vx * 0.58 + nx * impact * 0.26;
-  c.vy = c.vy * 0.58 + ny * impact * 0.26;
-  b.vx += c.vx * 0.42 + nx * impact * 1.2;
-  b.vy += c.vy * 0.2 + ny * impact * 0.65;
-  b.spin += (ny || 0.2) * impact * 0.018;
-  b.hp -= 1;
-  playHitSound(Math.min(1, impact / 850));
-  thump(closestX, closestY, "#ffe082");
-}
-
 function collideCircleTarget(c, t) {
   if (t.scored) return;
   const dx = c.x - t.x;
@@ -291,25 +227,14 @@ function collideCircleTarget(c, t) {
   if (dist > c.r + t.r) return;
   const impact = Math.hypot(c.vx, c.vy);
   t.hit = true;
-  t.vx += c.vx * 0.45;
-  t.vy += c.vy * 0.28 - 160;
   t.scored = true;
   addScore(t.points);
   playHitSound(0.9);
-  sparkle(t.x, t.y, "#ff6f91", 16);
+  sparkle(t.x, t.y, t.airborne ? "#8ee8ff" : "#ffd65e", 20);
   c.vx *= 0.72;
   c.vy *= 0.72;
-  if (impact > 340) addScore(20);
-}
-
-function scoreFallenObjects() {
-  for (const b of blocks) {
-    if (!b.scored && (Math.abs(b.angle) > 0.55 || b.x < targetBaseX - width * 0.18 || b.hp <= 0)) {
-      b.scored = true;
-      addScore(25);
-      sparkle(b.x, b.y, "#ffd65e", 10);
-    }
-  }
+  if (impact > 340) sparkle(t.x, t.y, "#ffffff", 8);
+  if (targets.every((targetItem) => targetItem.scored)) finishGame();
 }
 
 function addScore(points) {
@@ -320,7 +245,7 @@ function addScore(points) {
 function nextShot() {
   shotsLeft -= 1;
   updateHud();
-  if (shotsLeft <= 0) {
+  if (shotsLeft <= 0 || targets.every((targetItem) => targetItem.scored)) {
     finishGame();
     return;
   }
@@ -331,12 +256,13 @@ function nextShot() {
 
 function finishGame() {
   state = "finish";
+  const cleared = targets.every((targetItem) => targetItem.scored) && score >= CONFIG.clearScore;
   if (score > best) {
     best = score;
     localStorage.setItem("dangoShotBest", String(best));
-    resultMessage.textContent = "ベストこうしん！";
+    resultMessage.textContent = cleared ? "ぜんぶあてた！ベストこうしん！" : "ベストこうしん！";
   } else {
-    resultMessage.textContent = "もういちど とばしてみよう。";
+    resultMessage.textContent = cleared ? "ぜんぶあてた！クリア！" : "虫をぜんぶねらおう。";
   }
   resultTitle.textContent = `${score}てん`;
   bestScoreEl.textContent = best;
@@ -354,7 +280,6 @@ function draw() {
   ctx.save();
   ctx.translate(-cameraX, 0);
   drawSling();
-  drawBlocks();
   drawTargets();
   drawProjectile();
   drawParticles();
@@ -453,46 +378,107 @@ function drawPillbug(x, y, r, spin) {
   ctx.restore();
 }
 
-function drawBlocks() {
-  for (const b of blocks) {
+function drawTargets() {
+  for (const t of targets) {
+    if (t.scored) continue;
     ctx.save();
-    ctx.translate(b.x, b.y);
-    ctx.rotate(b.angle);
-    ctx.fillStyle = b.color;
-    ctx.strokeStyle = "#7b512d";
-    ctx.lineWidth = 3;
-    ctx.fillRect(-b.w / 2, -b.h / 2, b.w, b.h);
-    ctx.strokeRect(-b.w / 2, -b.h / 2, b.w, b.h);
-    ctx.fillStyle = "rgba(255,255,255,0.18)";
-    ctx.fillRect(-b.w / 2 + 5, -b.h / 2 + 5, b.w - 10, Math.max(6, b.h * 0.16));
+    ctx.translate(t.x, t.y);
+    drawBug(t);
     ctx.restore();
   }
 }
 
-function drawTargets() {
-  for (const t of targets) {
-    if (t.scored && t.y > groundY + 80) continue;
-    ctx.save();
-    ctx.translate(t.x, t.y);
-    ctx.fillStyle = t.scored ? "#ffb3c4" : "#ff5f88";
-    ctx.strokeStyle = "#9c2f4a";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(0, 0, t.r, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(-t.r * 0.25, -t.r * 0.12, t.r * 0.12, 0, Math.PI * 2);
-    ctx.arc(t.r * 0.23, -t.r * 0.12, t.r * 0.12, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#2b1e25";
-    ctx.beginPath();
-    ctx.arc(-t.r * 0.25, -t.r * 0.1, t.r * 0.05, 0, Math.PI * 2);
-    ctx.arc(t.r * 0.23, -t.r * 0.1, t.r * 0.05, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
+function drawBug(t) {
+  const flap = Math.sin(t.flap) * t.r * 0.16;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  if (t.name === "とんぼ") {
+    drawDragonfly(t.r, flap);
+  } else if (t.name === "が") {
+    drawMoth(t.r, flap);
+  } else if (t.name === "くわがた") {
+    drawStagBeetle(t.r);
+  } else if (t.name === "せみ") {
+    drawCicada(t.r);
+  } else {
+    ctx.font = `${t.r * 1.9}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+    ctx.fillText(t.icon, 0, 0);
   }
+  ctx.fillStyle = "rgba(45,38,29,0.78)";
+  ctx.font = `900 ${Math.max(12, t.r * 0.42)}px ui-rounded, sans-serif`;
+  ctx.fillText(t.name, 0, t.r * 1.42);
+}
+
+function drawDragonfly(r, flap) {
+  ctx.strokeStyle = "#4c8a55";
+  ctx.lineWidth = r * 0.14;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.65, 0);
+  ctx.lineTo(r * 0.7, 0);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(190, 245, 255, 0.78)";
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.16, -r * 0.34 - flap, r * 0.56, r * 0.18, -0.4, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.16, -r * 0.34 + flap, r * 0.56, r * 0.18, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(-r * 0.16, r * 0.34 + flap, r * 0.56, r * 0.18, 0.4, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.16, r * 0.34 - flap, r * 0.56, r * 0.18, -0.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#79c85b";
+  ctx.beginPath();
+  ctx.arc(r * 0.78, 0, r * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawMoth(r, flap) {
+  ctx.fillStyle = "#c9a0dd";
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.34, flap, r * 0.48, r * 0.72, -0.45, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.34, -flap, r * 0.48, r * 0.72, 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#725088";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.18, r * 0.66, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawStagBeetle(r) {
+  ctx.fillStyle = "#4a2d1d";
+  ctx.beginPath();
+  ctx.ellipse(0, r * 0.08, r * 0.46, r * 0.7, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#4a2d1d";
+  ctx.lineWidth = r * 0.12;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.18, -r * 0.52);
+  ctx.quadraticCurveTo(-r * 0.78, -r * 1.05, -r * 0.92, -r * 0.35);
+  ctx.moveTo(r * 0.18, -r * 0.52);
+  ctx.quadraticCurveTo(r * 0.78, -r * 1.05, r * 0.92, -r * 0.35);
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(-r * 0.14, -r * 0.12, r * 0.07, 0, Math.PI * 2);
+  ctx.arc(r * 0.14, -r * 0.12, r * 0.07, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawCicada(r) {
+  ctx.fillStyle = "#c98943";
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.4, r * 0.62, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(245, 218, 166, 0.86)";
+  ctx.beginPath();
+  ctx.ellipse(-r * 0.35, r * 0.12, r * 0.34, r * 0.72, -0.26, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.35, r * 0.12, r * 0.34, r * 0.72, 0.26, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#5d7d45";
+  ctx.lineWidth = r * 0.08;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.22, -r * 0.15);
+  ctx.lineTo(r * 0.22, -r * 0.15);
+  ctx.moveTo(-r * 0.2, r * 0.12);
+  ctx.lineTo(r * 0.2, r * 0.12);
+  ctx.stroke();
 }
 
 function drawParticles() {

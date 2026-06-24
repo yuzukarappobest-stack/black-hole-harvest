@@ -7,6 +7,7 @@ const METEOR_GAME_ID = "meteor";
 const RACE_GAME_ID = "race";
 const GEM_GAME_ID = "gem";
 const PILLBUG_GAME_ID = "pillbug";
+const DANGO_SHOT_GAME_ID = "dango-shot";
 const LESSON_CONFIG = {
   requiredCorrect: 2,
   nextDelayMs: 650,
@@ -32,6 +33,7 @@ const playMeteorButton = document.getElementById("playMeteorButton");
 const playRaceButton = document.getElementById("playRaceButton");
 const playGemButton = document.getElementById("playGemButton");
 const playPillbugButton = document.getElementById("playPillbugButton");
+const playDangoShotButton = document.getElementById("playDangoShotButton");
 const againButton = document.getElementById("againButton");
 
 let correct = 0;
@@ -223,6 +225,10 @@ bindAppButton(playGemButton, () => {
 bindAppButton(playPillbugButton, () => {
   grantMiniGameAccess(PILLBUG_GAME_ID);
   window.location.href = "pillbug.html";
+});
+bindAppButton(playDangoShotButton, () => {
+  grantMiniGameAccess(DANGO_SHOT_GAME_ID);
+  window.location.href = "dango-shot.html";
 });
 bindAppButton(againButton, resetLesson);
 

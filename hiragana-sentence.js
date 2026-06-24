@@ -14,6 +14,7 @@ const REWARDS = [
   ["race", "レース", "race.html"],
   ["gem", "ほうせき", "gem.html"],
   ["pillbug", "ダンゴムシ", "pillbug.html"],
+  ["dango-shot", "ダンゴショット", "dango-shot.html"],
 ];
 
 const QUESTIONS = [

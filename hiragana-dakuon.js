@@ -15,6 +15,7 @@ const METEOR_GAME_ID = "meteor";
 const RACE_GAME_ID = "race";
 const GEM_GAME_ID = "gem";
 const PILLBUG_GAME_ID = "pillbug";
+const DANGO_SHOT_GAME_ID = "dango-shot";
 
 const letterGroups = [
   ["が", "ぎ", "ぐ", "げ", "ご"],
@@ -195,6 +196,7 @@ const playMeteorButton = document.getElementById("playMeteorButton");
 const playRaceButton = document.getElementById("playRaceButton");
 const playGemButton = document.getElementById("playGemButton");
 const playPillbugButton = document.getElementById("playPillbugButton");
+const playDangoShotButton = document.getElementById("playDangoShotButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -561,6 +563,10 @@ playGemButton.addEventListener("click", () => {
 playPillbugButton.addEventListener("click", () => {
   grantMiniGameAccess(PILLBUG_GAME_ID);
   window.location.href = "pillbug.html";
+});
+playDangoShotButton.addEventListener("click", () => {
+  grantMiniGameAccess(DANGO_SHOT_GAME_ID);
+  window.location.href = "dango-shot.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

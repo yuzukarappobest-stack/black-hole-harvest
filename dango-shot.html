@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#9edb77">
+    <title>ダンゴムシショット</title>
+    <link rel="stylesheet" href="dango-shot.css?v=1">
+  </head>
+  <body>
+    <main class="shot-app">
+      <section class="hud" aria-label="ゲーム情報">
+        <div><span>のこり</span><strong id="shotCount">3</strong></div>
+        <div><span>スコア</span><strong id="score">0</strong></div>
+        <div><span>ベスト</span><strong id="bestScore">0</strong></div>
+      </section>
+
+      <section class="game-shell">
+        <canvas id="game" aria-label="丸まったダンゴムシを飛ばして点数を取るゲーム"></canvas>
+        <div id="startPanel" class="panel">
+          <h1>ダンゴムシ<br>ショット</h1>
+          <p>ひっぱって はなして、つみきをたおそう。3かいのごうけいてんをきそうよ。</p>
+          <button id="startButton" type="button">START</button>
+        </div>
+        <div id="finishPanel" class="panel hidden">
+          <p class="label">RESULT</p>
+          <h2 id="resultTitle">0</h2>
+          <p id="resultMessage">いいショット！</p>
+          <button id="restartButton" type="button">もういちど</button>
+          <button id="learnButton" class="secondary" type="button">がくしゅうへ</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="dango-shot.js?v=1"></script>
+  </body>
+</html>

@@ -18,6 +18,7 @@
 - `meteor.html`: いんせきシューティング
 - `race.html`: ミニレース（開発用）
 - `dango-shot.html`: ダンゴムシショット
+- `planet-catch.html`: 惑星キャッチ
 - `tetris.html`: テトリス
 - `tetris-drag.html`: テトリス ドラッグベータ
 
@@ -44,6 +45,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/meteor.html`
 - `http://localhost:8000/race.html`
 - `http://localhost:8000/dango-shot.html`
+- `http://localhost:8000/planet-catch.html`
 - `http://localhost:8000/tetris.html`
 - `http://localhost:8000/tetris-drag.html`
 
@@ -63,6 +65,7 @@ python3 -m http.server 8000
 - いんせきシューティング: https://yuzukarappobest-stack.github.io/black-hole-harvest/meteor.html
 - ミニレース（開発用）: https://yuzukarappobest-stack.github.io/black-hole-harvest/race.html
 - ダンゴムシショット: https://yuzukarappobest-stack.github.io/black-hole-harvest/dango-shot.html
+- 惑星キャッチ: https://yuzukarappobest-stack.github.io/black-hole-harvest/planet-catch.html
 - テトリス: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris.html
 - テトリス ドラッグベータ: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris-drag.html
 

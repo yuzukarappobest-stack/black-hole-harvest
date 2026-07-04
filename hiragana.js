@@ -16,6 +16,7 @@ const RACE_GAME_ID = "race";
 const GEM_GAME_ID = "gem";
 const PILLBUG_GAME_ID = "pillbug";
 const DANGO_SHOT_GAME_ID = "dango-shot";
+const PLANET_CATCH_GAME_ID = "planet-catch";
 
 const letters = [
   "あ", "い", "う", "え", "お",
@@ -226,6 +227,7 @@ const playRaceButton = document.getElementById("playRaceButton");
 const playGemButton = document.getElementById("playGemButton");
 const playPillbugButton = document.getElementById("playPillbugButton");
 const playDangoShotButton = document.getElementById("playDangoShotButton");
+const playPlanetCatchButton = document.getElementById("playPlanetCatchButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -606,6 +608,10 @@ playPillbugButton.addEventListener("click", () => {
 playDangoShotButton.addEventListener("click", () => {
   grantMiniGameAccess(DANGO_SHOT_GAME_ID);
   window.location.href = "dango-shot.html";
+});
+playPlanetCatchButton.addEventListener("click", () => {
+  grantMiniGameAccess(PLANET_CATCH_GAME_ID);
+  window.location.href = "planet-catch.html";
 });
 stayButton.addEventListener("click", resetLesson);
 

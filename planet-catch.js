@@ -186,9 +186,9 @@ function catchBody(body) {
   load += body.type.load;
   storedBodies.push({
     type: body.type,
-    r: Math.max(8, body.r * 0.42),
-    x: -basket.w * 0.36 + Math.random() * basket.w * 0.72,
-    y: -basket.h * 0.15 - Math.random() * Math.min(36, basket.h * 0.75),
+    r: Math.max(7, body.r * 0.3),
+    x: -basket.w * 0.31 + Math.random() * basket.w * 0.62,
+    y: basket.h * 0.28 + Math.random() * basket.h * 0.42,
     spin: body.spin,
   });
   sparkle(body.x, body.y, body.type.color, 14);
@@ -251,9 +251,6 @@ function drawBasket() {
   ctx.save();
   ctx.translate(basket.x, basket.y);
   const loadRatio = Math.min(1, load / CONFIG.capacity);
-  for (const stored of storedBodies.slice(-22)) {
-    drawBody(stored.type, stored.x, stored.y, stored.r, stored.spin);
-  }
   ctx.lineWidth = 5;
   ctx.strokeStyle = load >= CONFIG.capacity ? "#ffef8a" : "#f6d28b";
   ctx.fillStyle = load >= CONFIG.capacity ? "#8f6740" : "#b9854f";
@@ -281,6 +278,16 @@ function drawBasket() {
   fillGradient.addColorStop(1, loadRatio >= 1 ? "#d93232" : "#ff9f43");
   ctx.fillStyle = fillGradient;
   ctx.fillRect(-basket.w * 0.43, fillY, basket.w * 0.86, fillHeight);
+  ctx.restore();
+
+  ctx.save();
+  drawBasketInnerPath();
+  ctx.clip();
+  ctx.globalAlpha = 0.88;
+  for (const stored of storedBodies.slice(-26)) {
+    drawBody(stored.type, stored.x, stored.y, stored.r, stored.spin);
+  }
+  ctx.globalAlpha = 1;
   ctx.restore();
 
   ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
@@ -322,6 +329,15 @@ function drawBasket() {
     ctx.fillText(`${load}/${CONFIG.capacity}`, 0, basket.h * 0.58);
   }
   ctx.restore();
+}
+
+function drawBasketInnerPath() {
+  ctx.beginPath();
+  ctx.moveTo(-basket.w * 0.42, basket.h * 0.14);
+  ctx.lineTo(-basket.w * 0.31, basket.h * 0.84);
+  ctx.lineTo(basket.w * 0.31, basket.h * 0.84);
+  ctx.lineTo(basket.w * 0.42, basket.h * 0.14);
+  ctx.closePath();
 }
 
 function drawBody(type, x, y, r, spin) {

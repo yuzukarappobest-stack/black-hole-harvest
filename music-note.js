@@ -4,6 +4,7 @@ const LESSON_CONFIG = {
 };
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const REWARD_TOKEN_KEY = "miniGameRewardToken";
 const MINI_GAME_RETURN_URL = "miniGameReturnUrl";
 const REWARDS = [
   ["black-hole", "ブラックホール", "index.html"],
@@ -53,6 +54,7 @@ function resetLesson() {
   correct = 0;
   queue = shuffle([...NOTES, ...NOTES, ...NOTES]);
   completePanel.classList.add("hidden");
+  clearRewardToken();
   correctCount.textContent = correct;
   nextQuestion();
 }
@@ -97,10 +99,15 @@ function choose(button, name) {
     feedback.className = "feedback bad";
   }
   if (correct >= LESSON_CONFIG.requiredCorrect) {
-    window.setTimeout(() => completePanel.classList.remove("hidden"), LESSON_CONFIG.nextDelayMs);
+    window.setTimeout(showComplete, LESSON_CONFIG.nextDelayMs);
     return;
   }
   window.setTimeout(nextQuestion, LESSON_CONFIG.nextDelayMs);
+}
+
+function showComplete() {
+  issueRewardToken();
+  completePanel.classList.remove("hidden");
 }
 
 function playNote(frequency) {
@@ -123,6 +130,30 @@ function playNote(frequency) {
   oscillator.stop(now + 0.62);
 }
 
+
+function issueRewardToken() {
+  const token = String(Date.now()) + "-" + String(Math.random());
+  sessionStorage.setItem(REWARD_TOKEN_KEY, token);
+}
+
+function clearRewardToken() {
+  sessionStorage.removeItem(REWARD_TOKEN_KEY);
+}
+
+function consumeRewardToken() {
+  const token = sessionStorage.getItem(REWARD_TOKEN_KEY);
+  if (!token) return false;
+  sessionStorage.removeItem(REWARD_TOKEN_KEY);
+  return true;
+}
+
+function enforceRewardTokenOnRestore() {
+  if (!completePanel || completePanel.classList.contains("hidden")) return;
+  if (!sessionStorage.getItem(REWARD_TOKEN_KEY)) {
+    window.location.replace("learn.html");
+  }
+}
+
 function renderRewards() {
   rewardGrid.innerHTML = "";
   for (const [id, label, href] of REWARDS) {
@@ -131,9 +162,13 @@ function renderRewards() {
     button.type = "button";
     button.textContent = label;
     button.addEventListener("click", () => {
+      if (!consumeRewardToken()) {
+        window.location.replace("learn.html");
+        return;
+      }
       sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${id}`, "1");
       sessionStorage.setItem(MINI_GAME_RETURN_URL, "learn.html");
-      window.location.href = href;
+      window.location.replace(href);
     });
     rewardGrid.appendChild(button);
   }
@@ -147,3 +182,5 @@ function shuffle(items) {
 }
 
 againButton.addEventListener("click", resetLesson);
+
+window.addEventListener("pageshow", enforceRewardTokenOnRestore);

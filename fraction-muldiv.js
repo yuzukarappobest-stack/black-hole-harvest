@@ -1,4 +1,5 @@
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const REWARD_TOKEN_KEY = "miniGameRewardToken";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
 const TETRIS_GAME_ID = "tetris";
@@ -54,6 +55,7 @@ function resetLesson() {
   correct = 0;
   correctCount.textContent = correct;
   completePanel.classList.add("hidden");
+  clearRewardToken();
   problemQueue = createProblemQueue();
   nextProblem();
 }
@@ -214,13 +216,42 @@ function showFeedback(text, type) {
 }
 
 function showComplete() {
+  issueRewardToken();
   completePanel.classList.remove("hidden");
 }
 
 function grantMiniGameAccess(gameId) {
+  if (!consumeRewardToken()) {
+    window.location.replace("learn.html");
+    return false;
+  }
   sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${gameId}`, "1");
   sessionStorage.setItem("miniGameReturnUrl", "learn.html");
+  return true;
 }
+function issueRewardToken() {
+  const token = String(Date.now()) + "-" + String(Math.random());
+  sessionStorage.setItem(REWARD_TOKEN_KEY, token);
+}
+
+function clearRewardToken() {
+  sessionStorage.removeItem(REWARD_TOKEN_KEY);
+}
+
+function consumeRewardToken() {
+  const token = sessionStorage.getItem(REWARD_TOKEN_KEY);
+  if (!token) return false;
+  sessionStorage.removeItem(REWARD_TOKEN_KEY);
+  return true;
+}
+
+function enforceRewardTokenOnRestore() {
+  if (!completePanel || completePanel.classList.contains("hidden")) return;
+  if (!sessionStorage.getItem(REWARD_TOKEN_KEY)) {
+    window.location.replace("learn.html");
+  }
+}
+
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -321,44 +352,54 @@ bindAppButton(clearAnswerButton, clearAnswer);
 bindAppButton(submitButton, submitAnswer);
 bindAppButton(clearScratchButton, clearScratch);
 bindAppButton(playBlackHoleButton, () => {
-  grantMiniGameAccess(BLACK_HOLE_GAME_ID);
-  window.location.href = "index.html";
+  if (grantMiniGameAccess(BLACK_HOLE_GAME_ID)) {
+    window.location.replace("index.html");
+  }
 });
 bindAppButton(playKingfisherButton, () => {
-  grantMiniGameAccess(KINGFISHER_GAME_ID);
-  window.location.href = "kingfisher.html";
+  if (grantMiniGameAccess(KINGFISHER_GAME_ID)) {
+    window.location.replace("kingfisher.html");
+  }
 });
 bindAppButton(playTetrisButton, () => {
-  grantMiniGameAccess(TETRIS_GAME_ID);
-  window.location.href = "tetris.html";
+  if (grantMiniGameAccess(TETRIS_GAME_ID)) {
+    window.location.replace("tetris.html");
+  }
 });
 bindAppButton(playButterflyButton, () => {
-  grantMiniGameAccess(BUTTERFLY_GAME_ID);
-  window.location.href = "butterfly.html";
+  if (grantMiniGameAccess(BUTTERFLY_GAME_ID)) {
+    window.location.replace("butterfly.html");
+  }
 });
 bindAppButton(playMeteorButton, () => {
-  grantMiniGameAccess(METEOR_GAME_ID);
-  window.location.href = "meteor.html";
+  if (grantMiniGameAccess(METEOR_GAME_ID)) {
+    window.location.replace("meteor.html");
+  }
 });
 bindAppButton(playRaceButton, () => {
-  grantMiniGameAccess(RACE_GAME_ID);
-  window.location.href = "race.html";
+  if (grantMiniGameAccess(RACE_GAME_ID)) {
+    window.location.replace("race.html");
+  }
 });
 bindAppButton(playGemButton, () => {
-  grantMiniGameAccess(GEM_GAME_ID);
-  window.location.href = "gem.html";
+  if (grantMiniGameAccess(GEM_GAME_ID)) {
+    window.location.replace("gem.html");
+  }
 });
 bindAppButton(playPillbugButton, () => {
-  grantMiniGameAccess(PILLBUG_GAME_ID);
-  window.location.href = "pillbug.html";
+  if (grantMiniGameAccess(PILLBUG_GAME_ID)) {
+    window.location.replace("pillbug.html");
+  }
 });
 bindAppButton(playDangoShotButton, () => {
-  grantMiniGameAccess(DANGO_SHOT_GAME_ID);
-  window.location.href = "dango-shot.html";
+  if (grantMiniGameAccess(DANGO_SHOT_GAME_ID)) {
+    window.location.replace("dango-shot.html");
+  }
 });
 bindAppButton(playPlanetCatchButton, () => {
-  grantMiniGameAccess(PLANET_CATCH_GAME_ID);
-  window.location.href = "planet-catch.html";
+  if (grantMiniGameAccess(PLANET_CATCH_GAME_ID)) {
+    window.location.replace("planet-catch.html");
+  }
 });
 bindAppButton(againButton, resetLesson);
 
@@ -390,3 +431,5 @@ document.addEventListener("gestureend", (event) => event.preventDefault());
 
 resizeScratch();
 resetLesson();
+
+window.addEventListener("pageshow", enforceRewardTokenOnRestore);

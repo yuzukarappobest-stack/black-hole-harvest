@@ -7,6 +7,7 @@ const LESSON_CONFIG = {
 };
 
 const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const REWARD_TOKEN_KEY = "miniGameRewardToken";
 const MINI_GAME_RETURN_URL = "miniGameReturnUrl";
 const BLACK_HOLE_GAME_ID = "black-hole";
 const KINGFISHER_GAME_ID = "kingfisher";
@@ -519,6 +520,7 @@ function showFeedback(text, type) {
 }
 
 function showComplete() {
+  issueRewardToken();
   completePanel.classList.remove("hidden");
 }
 
@@ -530,6 +532,7 @@ function resetLesson() {
   levelText.textContent = level;
   heardText.textContent = "まだありません";
   completePanel.classList.add("hidden");
+  clearRewardToken();
   pickLetter();
 }
 
@@ -539,46 +542,85 @@ replayButton.addEventListener("click", speakCurrentLetter);
 answerButton.addEventListener("click", startListening);
 nextButton.addEventListener("click", pickLetter);
 playBlackHoleButton.addEventListener("click", () => {
-  grantMiniGameAccess(BLACK_HOLE_GAME_ID);
-  window.location.href = "index.html";
+  if (grantMiniGameAccess(BLACK_HOLE_GAME_ID)) {
+    window.location.replace("index.html");
+  }
 });
 playKingfisherButton.addEventListener("click", () => {
-  grantMiniGameAccess(KINGFISHER_GAME_ID);
-  window.location.href = "kingfisher.html";
+  if (grantMiniGameAccess(KINGFISHER_GAME_ID)) {
+    window.location.replace("kingfisher.html");
+  }
 });
 playButterflyButton.addEventListener("click", () => {
-  grantMiniGameAccess(BUTTERFLY_GAME_ID);
-  window.location.href = "butterfly.html";
+  if (grantMiniGameAccess(BUTTERFLY_GAME_ID)) {
+    window.location.replace("butterfly.html");
+  }
 });
 playMeteorButton.addEventListener("click", () => {
-  grantMiniGameAccess(METEOR_GAME_ID);
-  window.location.href = "meteor.html";
+  if (grantMiniGameAccess(METEOR_GAME_ID)) {
+    window.location.replace("meteor.html");
+  }
 });
 playRaceButton.addEventListener("click", () => {
-  grantMiniGameAccess(RACE_GAME_ID);
-  window.location.href = "race.html";
+  if (grantMiniGameAccess(RACE_GAME_ID)) {
+    window.location.replace("race.html");
+  }
 });
 playGemButton.addEventListener("click", () => {
-  grantMiniGameAccess(GEM_GAME_ID);
-  window.location.href = "gem.html";
+  if (grantMiniGameAccess(GEM_GAME_ID)) {
+    window.location.replace("gem.html");
+  }
 });
 playPillbugButton.addEventListener("click", () => {
-  grantMiniGameAccess(PILLBUG_GAME_ID);
-  window.location.href = "pillbug.html";
+  if (grantMiniGameAccess(PILLBUG_GAME_ID)) {
+    window.location.replace("pillbug.html");
+  }
 });
 playDangoShotButton.addEventListener("click", () => {
-  grantMiniGameAccess(DANGO_SHOT_GAME_ID);
-  window.location.href = "dango-shot.html";
+  if (grantMiniGameAccess(DANGO_SHOT_GAME_ID)) {
+    window.location.replace("dango-shot.html");
+  }
 });
 playPlanetCatchButton.addEventListener("click", () => {
-  grantMiniGameAccess(PLANET_CATCH_GAME_ID);
-  window.location.href = "planet-catch.html";
+  if (grantMiniGameAccess(PLANET_CATCH_GAME_ID)) {
+    window.location.replace("planet-catch.html");
+  }
 });
 stayButton.addEventListener("click", resetLesson);
 
 function grantMiniGameAccess(gameId) {
+  if (!consumeRewardToken()) {
+    window.location.replace("learn.html");
+    return false;
+  }
   sessionStorage.setItem(`${MINI_GAME_ACCESS_PREFIX}${gameId}`, "1");
-  sessionStorage.setItem(MINI_GAME_RETURN_URL, "hiragana-dakuon.html");
+  sessionStorage.setItem(MINI_GAME_RETURN_URL, "learn.html");
+  return true;
+}
+function issueRewardToken() {
+  const token = String(Date.now()) + "-" + String(Math.random());
+  sessionStorage.setItem(REWARD_TOKEN_KEY, token);
 }
 
+function clearRewardToken() {
+  sessionStorage.removeItem(REWARD_TOKEN_KEY);
+}
+
+function consumeRewardToken() {
+  const token = sessionStorage.getItem(REWARD_TOKEN_KEY);
+  if (!token) return false;
+  sessionStorage.removeItem(REWARD_TOKEN_KEY);
+  return true;
+}
+
+function enforceRewardTokenOnRestore() {
+  if (!completePanel || completePanel.classList.contains("hidden")) return;
+  if (!sessionStorage.getItem(REWARD_TOKEN_KEY)) {
+    window.location.replace("learn.html");
+  }
+}
+
+
 setMode(LESSON_CONFIG.defaultMode);
+
+window.addEventListener("pageshow", enforceRewardTokenOnRestore);

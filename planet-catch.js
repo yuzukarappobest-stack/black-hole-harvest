@@ -218,7 +218,7 @@ function finishGame() {
 function updateHud() {
   timeEl.textContent = Math.max(0, timeLeft).toFixed(1);
   scoreEl.textContent = score;
-  basketLoadEl.textContent = `${load}/${CONFIG.capacity}`;
+  basketLoadEl.textContent = load >= CONFIG.capacity ? "FULL" : `${load}/${CONFIG.capacity}`;
 }
 
 function draw() {
@@ -250,11 +250,12 @@ function drawSpace() {
 function drawBasket() {
   ctx.save();
   ctx.translate(basket.x, basket.y);
+  const loadRatio = Math.min(1, load / CONFIG.capacity);
   for (const stored of storedBodies.slice(-22)) {
     drawBody(stored.type, stored.x, stored.y, stored.r, stored.spin);
   }
   ctx.lineWidth = 5;
-  ctx.strokeStyle = "#f6d28b";
+  ctx.strokeStyle = load >= CONFIG.capacity ? "#ffef8a" : "#f6d28b";
   ctx.fillStyle = load >= CONFIG.capacity ? "#8f6740" : "#b9854f";
   ctx.beginPath();
   ctx.moveTo(-basket.w * 0.5, 0);
@@ -264,6 +265,34 @@ function drawBasket() {
   ctx.closePath();
   ctx.fill();
   ctx.stroke();
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(-basket.w * 0.43, basket.h * 0.18);
+  ctx.lineTo(-basket.w * 0.33, basket.h * 0.86);
+  ctx.lineTo(basket.w * 0.33, basket.h * 0.86);
+  ctx.lineTo(basket.w * 0.43, basket.h * 0.18);
+  ctx.closePath();
+  ctx.clip();
+  const fillHeight = basket.h * 0.68 * loadRatio;
+  const fillY = basket.h * 0.86 - fillHeight;
+  const fillGradient = ctx.createLinearGradient(0, fillY, 0, basket.h * 0.86);
+  fillGradient.addColorStop(0, loadRatio >= 1 ? "#ff6767" : "#ffe66b");
+  fillGradient.addColorStop(1, loadRatio >= 1 ? "#d93232" : "#ff9f43");
+  ctx.fillStyle = fillGradient;
+  ctx.fillRect(-basket.w * 0.43, fillY, basket.w * 0.86, fillHeight);
+  ctx.restore();
+
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 4; i += 1) {
+    const y = basket.h * (0.86 - i * 0.17);
+    ctx.beginPath();
+    ctx.moveTo(-basket.w * 0.36, y);
+    ctx.lineTo(basket.w * 0.36, y);
+    ctx.stroke();
+  }
+
   ctx.strokeStyle = "#ffe0a6";
   ctx.lineWidth = 6;
   ctx.beginPath();
@@ -271,10 +300,26 @@ function drawBasket() {
   ctx.lineTo(basket.w * 0.55, 0);
   ctx.stroke();
   if (load >= CONFIG.capacity) {
+    ctx.shadowColor = "#ffdf5a";
+    ctx.shadowBlur = 18;
+    ctx.strokeStyle = "#ff5a5a";
+    ctx.lineWidth = 8;
+    ctx.beginPath();
+    ctx.moveTo(-basket.w * 0.56, -3);
+    ctx.lineTo(basket.w * 0.56, -3);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
     ctx.fillStyle = "#fff0bd";
-    ctx.font = `900 ${Math.max(16, basket.h * 0.38)}px ui-rounded, sans-serif`;
+    ctx.font = `900 ${Math.max(24, basket.h * 0.54)}px ui-rounded, sans-serif`;
     ctx.textAlign = "center";
-    ctx.fillText("FULL", 0, basket.h * 0.62);
+    ctx.textBaseline = "middle";
+    ctx.fillText("FULL", 0, basket.h * 0.58);
+  } else {
+    ctx.fillStyle = "#fff0bd";
+    ctx.font = `900 ${Math.max(13, basket.h * 0.26)}px ui-rounded, sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(`${load}/${CONFIG.capacity}`, 0, basket.h * 0.58);
   }
   ctx.restore();
 }

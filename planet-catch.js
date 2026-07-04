@@ -17,21 +17,21 @@ const DEFAULT_LEARNING_URL = "learn.html";
 const CONFIG = {
   seconds: 30,
   clearScore: 200,
-  capacity: 24,
+  capacity: 36,
   spawnStart: 0.78,
   spawnMin: 0.34,
 };
 
 const BODY_TYPES = [
-  { name: "水星", points: 4, load: 1, radius: 12, color: "#b5aaa0", weight: 15 },
-  { name: "火星", points: 5, load: 1, radius: 13, color: "#df7452", weight: 14 },
-  { name: "金星", points: 7, load: 1, radius: 15, color: "#e6bf70", weight: 13 },
-  { name: "地球", points: 8, load: 1, radius: 15, color: "#4da2ff", weight: 13 },
-  { name: "天王星", points: 16, load: 2, radius: 21, color: "#7ae5e5", weight: 9 },
-  { name: "海王星", points: 16, load: 2, radius: 21, color: "#426dff", weight: 9 },
-  { name: "土星", points: 24, load: 3, radius: 26, color: "#d9bd7a", weight: 7, ring: true },
-  { name: "木星", points: 30, load: 4, radius: 30, color: "#d18b62", weight: 6 },
-  { name: "太陽", points: 70, load: 6, radius: 34, color: "#ffd24d", weight: 3, sun: true },
+  { name: "水星", points: 2, load: 1, radius: 12, color: "#b5aaa0", weight: 15 },
+  { name: "火星", points: 3, load: 1, radius: 13, color: "#df7452", weight: 14 },
+  { name: "金星", points: 4, load: 1, radius: 15, color: "#e6bf70", weight: 13 },
+  { name: "地球", points: 4, load: 1, radius: 15, color: "#4da2ff", weight: 13 },
+  { name: "天王星", points: 8, load: 2, radius: 21, color: "#7ae5e5", weight: 9 },
+  { name: "海王星", points: 8, load: 2, radius: 21, color: "#426dff", weight: 9 },
+  { name: "土星", points: 12, load: 3, radius: 26, color: "#d9bd7a", weight: 7, ring: true },
+  { name: "木星", points: 15, load: 4, radius: 30, color: "#d18b62", weight: 6 },
+  { name: "太陽", points: 35, load: 6, radius: 34, color: "#ffd24d", weight: 3, sun: true },
 ];
 
 let width = 0;
@@ -284,7 +284,7 @@ function drawBasket() {
   drawBasketInnerPath();
   ctx.clip();
   ctx.globalAlpha = 0.88;
-  for (const stored of storedBodies.slice(-26)) {
+  for (const stored of storedBodies.slice(-40)) {
     drawBody(stored.type, stored.x, stored.y, stored.r, stored.spin);
   }
   ctx.globalAlpha = 1;

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#f7fbff">
+    <title>分数 かけ算 わり算</title>
+    <link rel="stylesheet" href="fraction.css?v=6">
+  </head>
+  <body>
+    <main class="fraction-app">
+      <header class="topbar">
+        <a href="learn.html" aria-label="学習メニューへ">←</a>
+        <div>
+          <span>せいかい</span>
+          <strong id="correctCount">0</strong><span id="goalCount">/4</span>
+        </div>
+      </header>
+
+      <section class="work-panel">
+        <section class="problem-card" aria-live="polite">
+          <p class="section-title">もんだい</p>
+          <div id="problemText" class="fraction-problem"></div>
+        </section>
+
+        <section class="answer-card">
+          <p class="section-title">こたえ</p>
+          <div class="answer-fraction" aria-label="分数の答え">
+            <button id="numeratorInput" class="fraction-input active" type="button" aria-label="分子">入力</button>
+            <div class="fraction-line"></div>
+            <button id="denominatorInput" class="fraction-input" type="button" aria-label="分母">入力</button>
+          </div>
+
+          <div class="keyboard" aria-label="ソフトウェアキーボード">
+            <button class="key" data-key="1" type="button">1</button>
+            <button class="key" data-key="2" type="button">2</button>
+            <button class="key" data-key="3" type="button">3</button>
+            <button class="key" data-key="4" type="button">4</button>
+            <button class="key" data-key="5" type="button">5</button>
+            <button class="key" data-key="6" type="button">6</button>
+            <button class="key" data-key="7" type="button">7</button>
+            <button class="key" data-key="8" type="button">8</button>
+            <button class="key" data-key="9" type="button">9</button>
+            <button class="key" data-key="0" type="button">0</button>
+            <button id="backspaceButton" class="key utility" type="button">⌫</button>
+            <button id="clearAnswerButton" class="key utility" type="button">C</button>
+          </div>
+
+          <button id="submitButton" class="submit-button" type="button">こたえる</button>
+          <p id="feedback" class="feedback"> </p>
+        </section>
+      </section>
+
+      <section class="scratch-panel">
+        <div class="scratch-header">
+          <p class="section-title">フリー入力らん</p>
+          <button id="clearScratchButton" class="clear-scratch" type="button">消す</button>
+        </div>
+        <canvas id="scratchCanvas" aria-label="途中式を書く手書き欄"></canvas>
+      </section>
+
+      <section id="completePanel" class="complete-panel hidden" aria-live="assertive">
+        <div class="complete-box">
+          <h1>おめでとう！</h1>
+          <p>どれであそぶ？</p>
+          <div class="choice-row">
+            <button id="playBlackHoleButton" class="primary small" type="button">ブラックホール</button>
+            <button id="playKingfisherButton" class="primary small" type="button">カワセミ</button>
+            <button id="playTetrisButton" class="primary small" type="button">テトリス</button>
+            <button id="playButterflyButton" class="primary small" type="button">ちょうちょ</button>
+            <button id="playMeteorButton" class="primary small" type="button">いんせき</button>
+            <button id="playRaceButton" class="primary small" type="button">レース</button>
+            <button id="playGemButton" class="primary small" type="button">ほうせき</button>
+            <button id="playPillbugButton" class="primary small" type="button">ダンゴムシ</button>
+            <button id="playDangoShotButton" class="primary small" type="button">ダンゴショット</button>
+            <button id="againButton" class="ghost small" type="button">もういちど</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="fraction-muldiv.js?v=1"></script>
+  </body>
+</html>

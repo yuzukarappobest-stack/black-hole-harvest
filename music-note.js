@@ -20,13 +20,13 @@ const REWARDS = [
 ];
 
 const NOTES = [
-  { name: "ド", image: "assets/music-notes/do.jpg", frequency: 261.63 },
-  { name: "レ", image: "assets/music-notes/re.jpg", frequency: 293.66 },
-  { name: "ミ", image: "assets/music-notes/mi.jpg", frequency: 329.63 },
-  { name: "ファ", image: "assets/music-notes/fa.jpg", frequency: 349.23 },
-  { name: "ソ", image: "assets/music-notes/so.jpg", frequency: 392.0 },
-  { name: "ラ", image: "assets/music-notes/la.jpg", frequency: 440.0 },
-  { name: "シ", image: "assets/music-notes/si.jpg", frequency: 493.88 },
+  { name: "ド", image: "assets/music-notes/do.jpg?v=2", frequency: 261.63 },
+  { name: "レ", image: "assets/music-notes/re.jpg?v=2", frequency: 293.66 },
+  { name: "ミ", image: "assets/music-notes/mi.jpg?v=2", frequency: 329.63 },
+  { name: "ファ", image: "assets/music-notes/fa.jpg?v=2", frequency: 349.23 },
+  { name: "ソ", image: "assets/music-notes/so.jpg?v=2", frequency: 392.0 },
+  { name: "ラ", image: "assets/music-notes/la.jpg?v=2", frequency: 440.0 },
+  { name: "シ", image: "assets/music-notes/si.jpg?v=2", frequency: 493.88 },
 ];
 
 const NOTE_NAMES = NOTES.map((note) => note.name);

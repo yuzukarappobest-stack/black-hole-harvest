@@ -11,7 +11,7 @@ const PILLBUG_GAME_ID = "pillbug";
 const DANGO_SHOT_GAME_ID = "dango-shot";
 const PLANET_CATCH_GAME_ID = "planet-catch";
 const LESSON_CONFIG = {
-  requiredCorrect: 8,
+  requiredCorrect: 5,
   nextDelayMs: 650,
 };
 

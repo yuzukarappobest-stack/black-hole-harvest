@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#75d7ff">
+    <title>カエルジャンプ</title>
+    <link rel="stylesheet" href="frog-jump.css?v=1">
+  </head>
+  <body>
+    <main class="app">
+      <header class="hud" aria-label="ゲーム情報">
+        <div class="status-card"><span>のこり</span><strong id="time">30.0</strong><b>びょう</b></div>
+        <div class="title-card"><span>ゲージがたかいと</span><strong>とおくへ ジャンプ！</strong></div>
+        <div class="status-card"><span>すすんだ はっぱ</span><strong id="progress">0</strong><b>まい</b></div>
+      </header>
+
+      <section class="game-shell">
+        <canvas id="game" aria-label="カエルを葉っぱから葉っぱへジャンプさせるゲーム"></canvas>
+
+        <section id="startPanel" class="panel">
+          <div class="frog-mark">🐸</div>
+          <h1>カエル<br>ジャンプ</h1>
+          <p>ゲージをみて タップ！<br>ちょうどいい つよさで<br>はっぱに とびうつろう</p>
+          <button id="startButton" type="button">はじめる</button>
+        </section>
+
+        <section id="finishPanel" class="panel hidden">
+          <p class="result-label" id="resultLabel">CLEAR</p>
+          <h2 id="resultTitle">ゴール！</h2>
+          <p id="resultMessage">はっぱの はしを わたれたね！</p>
+          <button id="restartButton" type="button">もういちど</button>
+        </section>
+
+        <div id="jumpHint" class="jump-hint">いまだ！</div>
+      </section>
+
+      <section class="controls" aria-label="ジャンプ操作">
+        <div class="gauge-wrap">
+          <span>ジャンプ ゲージ</span>
+          <div class="gauge"><i id="gaugeFill"></i><b id="gaugeMark"></b></div>
+          <small>まんなかの きらきらを ねらおう</small>
+        </div>
+        <button id="jumpButton" class="jump-button" type="button">ジャンプ！</button>
+      </section>
+    </main>
+    <script src="frog-jump.js?v=1"></script>
+  </body>
+</html>

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <meta name="theme-color" content="#081834">
     <title>ながれぼしタップ</title>
-    <link rel="stylesheet" href="shooting-star.css?v=1">
+    <link rel="stylesheet" href="shooting-star.css?v=2">
   </head>
   <body>
     <main class="app">
@@ -31,6 +31,14 @@
           <div class="panel-star">★</div>
           <h1>ながれぼし<br>タップ</h1>
           <p>ながれぼしを みつけたら<br>すぐに タップしてね！</p>
+          <div class="difficulty" role="group" aria-label="むずかしさ">
+            <span>はやさを えらんでね</span>
+            <div class="difficulty-buttons">
+              <button class="difficulty-button" type="button" data-difficulty="normal">ふつう</button>
+              <button class="difficulty-button selected" type="button" data-difficulty="fast">はやい</button>
+              <button class="difficulty-button" type="button" data-difficulty="super">ちょうはやい</button>
+            </div>
+          </div>
           <button id="startButton" type="button">はじめる</button>
         </section>
 
@@ -44,6 +52,6 @@
 
       <footer class="tip">ミスしても へいきだよ</footer>
     </main>
-    <script src="shooting-star.js?v=1"></script>
+    <script src="shooting-star.js?v=2"></script>
   </body>
 </html>

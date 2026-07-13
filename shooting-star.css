@@ -147,6 +147,42 @@ canvas {
   line-height: 1.5;
 }
 
+.difficulty {
+  margin: 0 0 14px;
+}
+
+.difficulty > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: clamp(.78rem, 3vw, 1rem);
+  font-weight: 950;
+}
+
+.difficulty-buttons {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+button.difficulty-button {
+  min-width: 0;
+  min-height: 43px;
+  padding: 5px 3px;
+  border: 2px solid #b5d8f1;
+  background: #f5fbff;
+  box-shadow: none;
+  color: #396e99;
+  font-size: clamp(.76rem, 3vw, 1rem);
+}
+
+button.difficulty-button.selected {
+  border-color: #ff9abb;
+  background: #ffe4ed;
+  color: #a93c65;
+  box-shadow: inset 0 -3px 0 rgba(255, 125, 169, .28);
+}
+
 .result-label {
   margin: 0 !important;
   color: var(--pink);

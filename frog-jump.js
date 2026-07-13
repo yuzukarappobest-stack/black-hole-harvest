@@ -20,6 +20,8 @@ const GAME_CONFIG = {
   jumpSeconds: .57,
   respawnSeconds: .48,
   leafRadius: 49,
+  minJumpDistance: .105,
+  maxJumpDistance: .405,
 };
 
 let width = 0;
@@ -53,7 +55,7 @@ function makeCourse() {
   leaves = [{ x: 120, y: height * .69, radius: GAME_CONFIG.leafRadius }];
   for (let index = 1; index <= GAME_CONFIG.goalLeaves; index += 1) {
     const previous = leaves[index - 1];
-    const distance = width * (.205 + Math.random() * .065);
+    const distance = width * (.15 + Math.random() * .21);
     const y = Math.max(height * .38, Math.min(height * .76, previous.y + (-62 + Math.random() * 124)));
     leaves.push({ x: previous.x + distance, y, radius: GAME_CONFIG.leafRadius * (.91 + Math.random() * .16) });
   }
@@ -130,14 +132,15 @@ function doJump() {
   const source = leaves[currentLeaf];
   const target = leaves[currentLeaf + 1];
   const required = target.x - source.x;
-  const strength = .42 + gaugeValue * 1.22;
-  const distance = required * strength;
+  const strength = GAME_CONFIG.minJumpDistance + gaugeValue * (GAME_CONFIG.maxJumpDistance - GAME_CONFIG.minJumpDistance);
+  const distance = width * strength;
   const endX = source.x + distance;
-  const endY = source.y + (target.y - source.y) * Math.min(1.08, Math.max(.25, strength));
+  const progressToTarget = Math.min(1.15, Math.max(.2, distance / required));
+  const endY = source.y + (target.y - source.y) * progressToTarget;
   frog.state = "jumping";
   frog.jump = { startX: frog.x, startY: frog.y, endX, endY, elapsed: 0, duration: GAME_CONFIG.jumpSeconds, strength };
   jumpHint.classList.remove("show");
-  playJumpSound(strength);
+  playJumpSound(gaugeValue);
 }
 
 function updateJump(dt) {

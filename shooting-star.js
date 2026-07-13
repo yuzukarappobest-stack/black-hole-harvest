@@ -8,13 +8,18 @@ const startPanel = document.getElementById("startPanel");
 const finishPanel = document.getElementById("finishPanel");
 const startButton = document.getElementById("startButton");
 const restartButton = document.getElementById("restartButton");
+const difficultyButtons = [...document.querySelectorAll(".difficulty-button")];
 
 const GAME_CONFIG = {
   roundSeconds: 30,
   firstStarDelay: 0.85,
-  spawnMinSeconds: 0.72,
-  spawnMaxSeconds: 1.42,
   maxStars: 3,
+};
+
+const DIFFICULTIES = {
+  normal: { spawnMinSeconds: 1.05, spawnMaxSeconds: 1.8, speedScale: .68 },
+  fast: { spawnMinSeconds: .72, spawnMaxSeconds: 1.42, speedScale: 1 },
+  super: { spawnMinSeconds: .48, spawnMaxSeconds: .92, speedScale: 1.38 },
 };
 
 let width = 0;
@@ -29,6 +34,7 @@ let stars = [];
 let skyDots = [];
 let sparks = [];
 let audioContext = null;
+let difficulty = "fast";
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -78,7 +84,8 @@ function update(dt) {
   spawnTimer -= dt;
   if (spawnTimer <= 0 && stars.length < GAME_CONFIG.maxStars) {
     spawnShootingStar();
-    spawnTimer = GAME_CONFIG.spawnMinSeconds + Math.random() * (GAME_CONFIG.spawnMaxSeconds - GAME_CONFIG.spawnMinSeconds);
+    const settings = DIFFICULTIES[difficulty];
+    spawnTimer = settings.spawnMinSeconds + Math.random() * (settings.spawnMaxSeconds - settings.spawnMinSeconds);
   }
 
   for (const star of stars) {
@@ -104,7 +111,7 @@ function spawnShootingStar() {
   const direction = Math.random() < .5 ? 1 : -1;
   const startX = direction === 1 ? -55 : width + 55;
   const startY = height * (.08 + Math.random() * .64);
-  const speed = Math.max(360, width * (1.02 + Math.random() * .48));
+  const speed = Math.max(280, width * (1.02 + Math.random() * .48)) * DIFFICULTIES[difficulty].speedScale;
   const angle = direction === 1 ? .23 + Math.random() * .22 : Math.PI - (.23 + Math.random() * .22);
   stars.push({
     x: startX,
@@ -313,6 +320,12 @@ canvas.addEventListener("pointerdown", (event) => {
 
 startButton.addEventListener("click", startGame);
 restartButton.addEventListener("click", startGame);
+difficultyButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    difficulty = button.dataset.difficulty;
+    difficultyButtons.forEach((item) => item.classList.toggle("selected", item === button));
+  });
+});
 window.addEventListener("resize", resize);
 document.addEventListener("dblclick", (event) => event.preventDefault(), { passive: false });
 

@@ -193,6 +193,8 @@ button {
 .gauge-wrap { min-width: 0; text-align: center; }
 .gauge-wrap > span { display: block; color: var(--muted); font-size: clamp(.72rem, 2.8vw, .98rem); font-weight: 950; }
 .gauge-wrap small { display: block; color: #38835d; font-size: clamp(.64rem, 2.4vw, .84rem); font-weight: 850; }
+.gauge-wrap small b { color: #2582b4; }
+.gauge-wrap small strong { color: #d95475; }
 
 .gauge {
   position: relative;
@@ -201,7 +203,7 @@ button {
   overflow: hidden;
   border: 2px solid #b3d1d6;
   border-radius: 999px;
-  background: linear-gradient(90deg, #79d7fa 0%, #79d7fa 42%, #ffe76d 45%, #ffe76d 58%, #ff91ac 61%, #ff91ac 100%);
+  background: linear-gradient(90deg, #74d1f6 0%, #a9e7b4 38%, #ffe76d 66%, #ff91ac 100%);
 }
 
 .gauge i {

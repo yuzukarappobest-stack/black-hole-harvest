@@ -22,6 +22,7 @@ const GAME_CONFIG = {
 };
 
 const DIFFICULTIES = {
+  slow: { spawnMinSeconds: 1.5, spawnMaxSeconds: 2.35, speedScale: .45 },
   normal: { spawnMinSeconds: 1.05, spawnMaxSeconds: 1.8, speedScale: .68 },
   fast: { spawnMinSeconds: .72, spawnMaxSeconds: 1.42, speedScale: 1 },
   super: { spawnMinSeconds: .48, spawnMaxSeconds: .92, speedScale: 1.38 },

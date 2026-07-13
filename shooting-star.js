@@ -4,14 +4,19 @@ const timeEl = document.getElementById("time");
 const scoreEl = document.getElementById("score");
 const resultScoreEl = document.getElementById("resultScore");
 const resultMessageEl = document.getElementById("resultMessage");
+const resultLabelEl = document.getElementById("resultLabel");
 const startPanel = document.getElementById("startPanel");
 const finishPanel = document.getElementById("finishPanel");
 const startButton = document.getElementById("startButton");
-const restartButton = document.getElementById("restartButton");
+const returnButton = document.getElementById("returnButton");
 const difficultyButtons = [...document.querySelectorAll(".difficulty-button")];
 
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const GAME_ID = "shooting-star";
+const DEFAULT_LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
+  clearScore: 25,
   firstStarDelay: 0.85,
   maxStars: 3,
 };
@@ -35,6 +40,25 @@ let skyDots = [];
 let sparks = [];
 let audioContext = null;
 let difficulty = "fast";
+
+requireMiniGameAccess(GAME_ID);
+
+function requireMiniGameAccess(gameId) {
+  const key = `${MINI_GAME_ACCESS_PREFIX}${gameId}`;
+  if (sessionStorage.getItem(key) === "1") {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  window.location.replace(getLearningUrl());
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) requireMiniGameAccess(GAME_ID);
+});
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -147,6 +171,7 @@ function tapStar(clientX, clientY) {
   scoreEl.textContent = score;
   createSparkles(hit.x, hit.y, hit.color);
   playTapSound();
+  if (score >= GAME_CONFIG.clearScore) finishGame(true);
 }
 
 function createSparkles(x, y, color) {
@@ -165,10 +190,12 @@ function createSparkles(x, y, color) {
   }
 }
 
-function finishGame() {
+function finishGame(cleared = score >= GAME_CONFIG.clearScore) {
+  if (!running) return;
   running = false;
+  resultLabelEl.textContent = cleared ? "CLEAR" : "RESULT";
   resultScoreEl.textContent = score;
-  resultMessageEl.textContent = score >= 18 ? "すごい！ おほしさまハンターだね！" : score >= 10 ? "たくさん みつけたね！" : "つぎは もっとみつけよう！";
+  resultMessageEl.textContent = cleared ? "25こ みつけたよ！ すごい！" : `25こまで あと ${GAME_CONFIG.clearScore - score}こ！`;
   finishPanel.classList.remove("hidden");
   playFinishSound();
   draw(performance.now() / 1000);
@@ -376,7 +403,7 @@ canvas.addEventListener("pointerdown", (event) => {
 });
 
 startButton.addEventListener("click", startGame);
-restartButton.addEventListener("click", startGame);
+returnButton.addEventListener("click", () => window.location.replace(getLearningUrl()));
 difficultyButtons.forEach((button) => {
   button.addEventListener("click", () => {
     difficulty = button.dataset.difficulty;

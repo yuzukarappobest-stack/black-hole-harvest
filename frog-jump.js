@@ -11,9 +11,12 @@ const resultTitleEl = document.getElementById("resultTitle");
 const resultMessageEl = document.getElementById("resultMessage");
 const jumpHint = document.getElementById("jumpHint");
 const startButton = document.getElementById("startButton");
-const restartButton = document.getElementById("restartButton");
+const returnButton = document.getElementById("returnButton");
 const jumpButton = document.getElementById("jumpButton");
 
+const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+const GAME_ID = "frog-jump";
+const DEFAULT_LEARNING_URL = "learn.html";
 const GAME_CONFIG = {
   roundSeconds: 30,
   goalLeaves: 12,
@@ -39,6 +42,25 @@ let cameraX = 0;
 let ripples = [];
 let bubbles = [];
 let audioContext = null;
+
+requireMiniGameAccess(GAME_ID);
+
+function requireMiniGameAccess(gameId) {
+  const key = `${MINI_GAME_ACCESS_PREFIX}${gameId}`;
+  if (sessionStorage.getItem(key) === "1") {
+    sessionStorage.removeItem(key);
+    return;
+  }
+  window.location.replace(getLearningUrl());
+}
+
+function getLearningUrl() {
+  return sessionStorage.getItem("miniGameReturnUrl") || DEFAULT_LEARNING_URL;
+}
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) requireMiniGameAccess(GAME_ID);
+});
 
 function resize() {
   const rect = canvas.getBoundingClientRect();
@@ -373,7 +395,7 @@ canvas.addEventListener("pointerdown", (event) => {
   doJump();
 });
 startButton.addEventListener("click", startGame);
-restartButton.addEventListener("click", startGame);
+returnButton.addEventListener("click", () => window.location.replace(getLearningUrl()));
 window.addEventListener("resize", resize);
 document.addEventListener("dblclick", (event) => event.preventDefault(), { passive: false });
 

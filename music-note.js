@@ -17,6 +17,8 @@ const REWARDS = [
   ["pillbug", "ダンゴムシ", "pillbug.html"],
   ["dango-shot", "ダンゴショット", "dango-shot.html"],
   ["planet-catch", "惑星", "planet-catch.html"],
+  ["shooting-star", "流れ星", "shooting-star.html"],
+  ["frog-jump", "カエルジャンプ", "frog-jump.html"],
 ];
 
 const NOTES = [

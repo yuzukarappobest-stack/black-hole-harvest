@@ -10,6 +10,8 @@ const GEM_GAME_ID = "gem";
 const PILLBUG_GAME_ID = "pillbug";
 const DANGO_SHOT_GAME_ID = "dango-shot";
 const PLANET_CATCH_GAME_ID = "planet-catch";
+const SHOOTING_STAR_GAME_ID = "shooting-star";
+const FROG_JUMP_GAME_ID = "frog-jump";
 const LESSON_CONFIG = {
   requiredCorrect: 4,
   nextDelayMs: 780,
@@ -38,6 +40,8 @@ const playGemButton = document.getElementById("playGemButton");
 const playPillbugButton = document.getElementById("playPillbugButton");
 const playDangoShotButton = document.getElementById("playDangoShotButton");
 const playPlanetCatchButton = document.getElementById("playPlanetCatchButton");
+const playShootingStarButton = document.getElementById("playShootingStarButton");
+const playFrogJumpButton = document.getElementById("playFrogJumpButton");
 const againButton = document.getElementById("againButton");
 
 let correct = 0;
@@ -400,6 +404,12 @@ bindAppButton(playPlanetCatchButton, () => {
   if (grantMiniGameAccess(PLANET_CATCH_GAME_ID)) {
     window.location.replace("planet-catch.html");
   }
+});
+bindAppButton(playShootingStarButton, () => {
+  if (grantMiniGameAccess(SHOOTING_STAR_GAME_ID)) window.location.replace("shooting-star.html");
+});
+bindAppButton(playFrogJumpButton, () => {
+  if (grantMiniGameAccess(FROG_JUMP_GAME_ID)) window.location.replace("frog-jump.html");
 });
 bindAppButton(againButton, resetLesson);
 

@@ -16,7 +16,7 @@ const jumpButton = document.getElementById("jumpButton");
 
 const GAME_CONFIG = {
   roundSeconds: 30,
-  goalLeaves: 8,
+  goalLeaves: 12,
   jumpSeconds: .57,
   respawnSeconds: .48,
   leafRadius: 49,
@@ -55,7 +55,7 @@ function makeCourse() {
   leaves = [{ x: 120, y: height * .69, radius: GAME_CONFIG.leafRadius }];
   for (let index = 1; index <= GAME_CONFIG.goalLeaves; index += 1) {
     const previous = leaves[index - 1];
-    const distance = width * (.15 + Math.random() * .21);
+    const distance = width * (.135 + Math.random() * .25);
     const y = Math.max(height * .38, Math.min(height * .76, previous.y + (-62 + Math.random() * 124)));
     leaves.push({ x: previous.x + distance, y, radius: GAME_CONFIG.leafRadius * (.91 + Math.random() * .16) });
   }

@@ -263,15 +263,72 @@ function drawStarShape(x, y, outer, inner, points) {
 }
 
 function drawHills() {
-  ctx.fillStyle = "#071a35";
+  const horizon = height * .76;
+  ctx.fillStyle = "#183e4d";
   ctx.beginPath();
   ctx.moveTo(0, height);
-  ctx.lineTo(0, height * .83);
-  ctx.quadraticCurveTo(width * .15, height * .68, width * .34, height * .84);
-  ctx.quadraticCurveTo(width * .52, height * .61, width * .72, height * .84);
-  ctx.quadraticCurveTo(width * .86, height * .69, width, height * .8);
+  ctx.lineTo(0, horizon);
+  ctx.quadraticCurveTo(width * .13, height * .62, width * .31, height * .78);
+  ctx.quadraticCurveTo(width * .52, height * .58, width * .7, height * .79);
+  ctx.quadraticCurveTo(width * .88, height * .65, width, height * .74);
   ctx.lineTo(width, height);
   ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#0d5b52";
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+  ctx.lineTo(0, height * .84);
+  ctx.quadraticCurveTo(width * .16, height * .77, width * .34, height * .86);
+  ctx.quadraticCurveTo(width * .55, height * .74, width * .74, height * .85);
+  ctx.quadraticCurveTo(width * .9, height * .77, width, height * .83);
+  ctx.lineTo(width, height);
+  ctx.closePath();
+  ctx.fill();
+
+  drawHouse(width * .17, height * .8, .72);
+  drawHouse(width * .72, height * .82, .58);
+  drawTree(width * .42, height * .84, .9);
+  drawTree(width * .57, height * .87, .67);
+  drawTree(width * .91, height * .86, .8);
+
+  ctx.fillStyle = "#123d3a";
+  ctx.fillRect(0, height * .91, width, height * .09);
+  ctx.strokeStyle = "rgba(119, 240, 166, .2)";
+  ctx.lineWidth = 2;
+  for (let x = 6; x < width; x += 17) {
+    ctx.beginPath();
+    ctx.moveTo(x, height * .94);
+    ctx.lineTo(x + 3, height * .91 - (x % 4));
+    ctx.stroke();
+  }
+}
+
+function drawHouse(x, y, scale) {
+  const houseWidth = 55 * scale;
+  const houseHeight = 37 * scale;
+  ctx.fillStyle = "#174b54";
+  ctx.fillRect(x, y, houseWidth, houseHeight);
+  ctx.fillStyle = "#2a263e";
+  ctx.beginPath();
+  ctx.moveTo(x - 7 * scale, y + 3 * scale);
+  ctx.lineTo(x + houseWidth * .5, y - 24 * scale);
+  ctx.lineTo(x + houseWidth + 7 * scale, y + 3 * scale);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffe788";
+  ctx.fillRect(x + houseWidth * .18, y + houseHeight * .35, 8 * scale, 9 * scale);
+  ctx.fillRect(x + houseWidth * .66, y + houseHeight * .35, 8 * scale, 9 * scale);
+}
+
+function drawTree(x, y, scale) {
+  ctx.fillStyle = "#3e3540";
+  ctx.fillRect(x - 3 * scale, y - 18 * scale, 6 * scale, 24 * scale);
+  ctx.fillStyle = "#18714f";
+  ctx.beginPath();
+  ctx.arc(x, y - 26 * scale, 17 * scale, 0, Math.PI * 2);
+  ctx.arc(x - 11 * scale, y - 15 * scale, 13 * scale, 0, Math.PI * 2);
+  ctx.arc(x + 11 * scale, y - 14 * scale, 14 * scale, 0, Math.PI * 2);
   ctx.fill();
 }
 

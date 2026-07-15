@@ -6,6 +6,7 @@
 
 - `hiragana.html`: ひらがな学習
 - `hiragana-dakuon.html`: ひらがな第二弾（濁音・半濁音・拗音）
+- `hiragana-yoon.html`: ひらがな第三弾（小さいゃ・ゅ・ょ）
 - `katakana.html`: カタカナ学習
 - `math.html`: 算数学習
 - `addition.html`: 一桁の足し算
@@ -56,6 +57,7 @@ python3 -m http.server 8000
 - 学習メニュー: https://yuzukarappobest-stack.github.io/black-hole-harvest/learn.html
 - ひらがな学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana.html
 - ひらがな第二弾（濁音・半濁音・拗音）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-dakuon.html
+- ひらがな第三弾（小さいゃ・ゅ・ょ）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-yoon.html
 - カタカナ学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana.html
 - 算数学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/math.html
 - 一桁の足し算: https://yuzukarappobest-stack.github.io/black-hole-harvest/addition.html

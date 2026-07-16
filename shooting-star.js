@@ -137,7 +137,7 @@ function spawnShootingStar() {
   const startX = direction === 1 ? -55 : width + 55;
   // Keep every shooting star above the foreground so it remains visible long
   // enough to tap before it reaches the landscape.
-  const startY = height * (.07 + Math.random() * .46);
+  const startY = height * (.07 + Math.random() * .38);
   const speed = Math.max(280, width * (1.02 + Math.random() * .48)) * DIFFICULTIES[difficulty].speedScale;
   const angle = direction === 1 ? .23 + Math.random() * .22 : Math.PI - (.23 + Math.random() * .22);
   stars.push({
@@ -162,7 +162,7 @@ function tapStar(clientX, clientY) {
 
   for (const star of stars) {
     const distance = Math.hypot(x - star.x, y - star.y);
-    if (distance < star.size * 2.4 && distance < closest) {
+    if (distance < star.size * 2.64 && distance < closest) {
       hit = star;
       closest = distance;
     }

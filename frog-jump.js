@@ -175,7 +175,7 @@ function updateJump(dt) {
 
   const target = leaves[currentLeaf + 1];
   const horizontal = Math.abs(frog.x - target.x);
-  const successful = horizontal <= target.radius * .86;
+  const successful = horizontal <= target.radius * .96;
   if (successful) {
     currentLeaf += 1;
     frog.x = target.x;

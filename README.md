@@ -8,6 +8,7 @@
 - `hiragana-dakuon.html`: ひらがな第二弾（濁音・半濁音・拗音）
 - `hiragana-yoon.html`: ひらがな第三弾（小さいゃ・ゅ・ょ）
 - `katakana.html`: カタカナ学習
+- `katakana-bey.html`: カタカナベイ
 - `math.html`: 算数学習
 - `addition.html`: 一桁の足し算
 - `fraction.html`: 分数の足し算・引き算
@@ -38,6 +39,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/learn.html`
 - `http://localhost:8000/hiragana-dakuon.html`
 - `http://localhost:8000/katakana.html`
+- `http://localhost:8000/katakana-bey.html`
 - `http://localhost:8000/math.html`
 - `http://localhost:8000/addition.html`
 - `http://localhost:8000/fraction.html`
@@ -59,6 +61,7 @@ python3 -m http.server 8000
 - ひらがな第二弾（濁音・半濁音・拗音）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-dakuon.html
 - ひらがな第三弾（小さいゃ・ゅ・ょ）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-yoon.html
 - カタカナ学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana.html
+- カタカナベイ: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana-bey.html
 - 算数学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/math.html
 - 一桁の足し算: https://yuzukarappobest-stack.github.io/black-hole-harvest/addition.html
 - 分数の足し算・引き算: https://yuzukarappobest-stack.github.io/black-hole-harvest/fraction.html

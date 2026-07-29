@@ -29,28 +29,32 @@ const PRODUCT_IMAGES = {
   "シャークエッジ": { src: "assets/bey/bx-lineup-1.jpg", x: 435, y: 499, size: 126 },
   "レオンクロー": { src: "assets/bey/bx-lineup-1.jpg", x: 28, y: 736, size: 126 },
   "ヴァイパーテイル": { src: "assets/bey/bx-lineup-1.jpg", x: 164, y: 736, size: 126 },
+  "ライノホーン": { src: "assets/bey/bx-lineup-1.jpg", x: 299, y: 736, size: 126 },
   "フェニックスウイング": { src: "assets/bey/bx-lineup-1.jpg", x: 164, y: 973, size: 126 },
   "ワイバーンゲイル": { src: "assets/bey/bx-lineup-1.jpg", x: 299, y: 973, size: 126 },
   "ユニコーンスティング": { src: "assets/bey/bx-lineup-1.jpg", x: 435, y: 973, size: 126 },
   "スフィンクスカウル": { src: "assets/bey/bx-lineup-2.jpg", x: 28, y: 179, size: 126 },
+  "ヴァイスタイガー": { src: "assets/bey/bx-lineup-2.jpg", x: 299, y: 179, size: 126 },
   "ティラノビート": { src: "assets/bey/bx-lineup-2.jpg", x: 164, y: 179, size: 126 },
   "コバルトドラグーン": { src: "assets/bey/bx-lineup-2.jpg", x: 435, y: 179, size: 126 },
   "ブラックシェル": { src: "assets/bey/bx-lineup-2.jpg", x: 28, y: 414, size: 126 },
+  "ホエールウェーブ": { src: "assets/bey/bx-lineup-2.jpg", x: 164, y: 414, size: 126 },
   "ベアスクラッチ": { src: "assets/bey/bx-lineup-2.jpg", x: 299, y: 414, size: 126 },
   "クリムゾンガルーダ": { src: "assets/bey/bx-lineup-2.jpg", x: 435, y: 414, size: 126 },
   "ヘルズハンマー": { src: "assets/bey/ux-lineup-1.jpg", x: 164, y: 243, size: 126 },
   "サムライセイバー": { src: "assets/bey/ux-lineup-1.jpg", x: 435, y: 477, size: 126 },
   "メテオドラグーン": { src: "assets/bey/ux-lineup-2.jpg", x: 28, y: 243, size: 126 },
+  "マミーカース": { src: "assets/bey/ux-lineup-2.jpg", x: 164, y: 243, size: 126 },
 };
 
 const QUESTIONS = [
   ["ア", "ウィザードアロー"], ["イ", "ナイトシールド"], ["ウ", "ウィザードアロー"], ["エ", "シャークエッジ"], ["オ", "レオンクロー"],
-  ["カ", "スフィンクスカウル"], ["キ", "フェニックスウイング"], ["ク", "レオンクロー"], ["コ", "コバルトドラグーン"],
-  ["サ", "ヘルズサイズ"], ["シ", "ナイトシールド"], ["ス", "ヘルズサイズ"], ["セ", "サムライセイバー"], ["ソ", "ドランソード"],
-  ["タ", "ティラノビート"], ["チ", "ベアスクラッチ"], ["テ", "ティラノビート"], ["ト", "ナイトシールド"],
-  ["ナ", "ナイトシールド"], ["ニ", "ユニコーンスティング"], ["ノ", "レオンクロー"],
-  ["ハ", "ヘルズハンマー"], ["フ", "フェニックスウイング"], ["ヘ", "ヘルズサイズ"], ["ホ", "レオンクロー"],
-  ["マ", "サムライセイバー"], ["ミ", "クリムゾンガルーダ"], ["ム", "サムライセイバー"], ["メ", "メテオドラグーン"],
+  ["カ", "スフィンクスカウル"], ["ク", "レオンクロー"], ["コ", "コバルトドラグーン"],
+  ["サ", "ヘルズサイズ"], ["シ", "ナイトシールド"], ["ス", "スフィンクスカウル"], ["セ", "サムライセイバー"], ["ソ", "ドランソード"],
+  ["タ", "ヴァイスタイガー"], ["チ", "ベアスクラッチ"], ["テ", "ティラノビート"], ["ト", "ナイトシールド"],
+  ["ナ", "ナイトシールド"], ["ニ", "ユニコーンスティング"], ["ノ", "ライノホーン"],
+  ["ハ", "ヘルズハンマー"], ["フ", "フェニックスウイング"], ["ヘ", "ヘルズサイズ"], ["ホ", "ホエールウェーブ"],
+  ["マ", "マミーカース"], ["ミ", "マミーカース"], ["ム", "サムライセイバー"], ["メ", "メテオドラグーン"],
   ["ユ", "ユニコーンスティング"], ["ラ", "ドランソード"], ["リ", "クリムゾンガルーダ"], ["ル", "ヘルズサイズ"], ["レ", "レオンクロー"], ["ロ", "ウィザードアロー"],
   ["ワ", "ワイバーンゲイル"], ["ン", "ドランソード"],
 ].map(([letter, word]) => ({ letter, word, image: PRODUCT_IMAGES[word] }));
@@ -253,7 +257,12 @@ function updatePictureHint() {
 
 function maskedProductName(letter) {
   const word = questionByLetter.get(letter)?.word || letter;
-  return word.replace(letter, "◯");
+  const targetIndex = word.indexOf(letter);
+  if (targetIndex < 0) {
+    console.error("Katakana Bey question has no target character", { letter, word });
+    return "◯";
+  }
+  return `${word.slice(0, targetIndex)}◯${word.slice(targetIndex + letter.length)}`;
 }
 
 function renderChoices() {

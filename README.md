@@ -7,6 +7,8 @@
 - `hiragana.html`: ひらがな学習
 - `hiragana-dakuon.html`: ひらがな第二弾（濁音・半濁音・拗音）
 - `hiragana-yoon.html`: ひらがな第三弾（小さいゃ・ゅ・ょ）
+- `hiragana-yoon-35.html`: ひらがな3.5（拗音のことば）
+- `hiragana-sentence-2.html`: ひらがな文2（一文字違いのことば）
 - `katakana.html`: カタカナ学習
 - `katakana-bey.html`: カタカナベイ
 - `math.html`: 算数学習
@@ -38,6 +40,8 @@ python3 -m http.server 8000
 
 - `http://localhost:8000/learn.html`
 - `http://localhost:8000/hiragana-dakuon.html`
+- `http://localhost:8000/hiragana-yoon-35.html`
+- `http://localhost:8000/hiragana-sentence-2.html`
 - `http://localhost:8000/katakana.html`
 - `http://localhost:8000/katakana-bey.html`
 - `http://localhost:8000/math.html`
@@ -60,6 +64,8 @@ python3 -m http.server 8000
 - ひらがな学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana.html
 - ひらがな第二弾（濁音・半濁音・拗音）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-dakuon.html
 - ひらがな第三弾（小さいゃ・ゅ・ょ）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-yoon.html
+- ひらがな3.5（拗音のことば）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-yoon-35.html
+- ひらがな文2（一文字違いのことば）: https://yuzukarappobest-stack.github.io/black-hole-harvest/hiragana-sentence-2.html
 - カタカナ学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana.html
 - カタカナベイ: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana-bey.html
 - 算数学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/math.html

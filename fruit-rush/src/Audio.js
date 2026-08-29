@@ -8,13 +8,13 @@ export class AudioManager {
   }
   unlock() {
     const context=this.getContext();
-    if (!context) return false;
+    if (!context) return Promise.resolve(false);
     // iOS Safari needs an actual node started from the tap that begins the game.
     const osc=context.createOscillator(); const gain=context.createGain();
     gain.gain.setValueAtTime(.00001,context.currentTime);
     osc.connect(gain).connect(context.destination); osc.start(context.currentTime); osc.stop(context.currentTime+.012);
-    if (context.state!=="running") context.resume();
-    return true;
+    if (context.state==="running") return Promise.resolve(true);
+    return context.resume().then(() => true).catch(() => false);
   }
   tone(freq, duration, type="sine", offset=0, volume=.16) {
     const context=this.getContext(); if(!context || context.state!=="running")return;

@@ -5,7 +5,7 @@ import { Player } from "./Player.js?v=2";
 import { Course } from "./Course.js?v=2";
 import { InputManager } from "./InputManager.js?v=1";
 import { UI } from "./UI.js?v=2";
-import { AudioManager } from "./Audio.js?v=3";
+import { AudioManager } from "./Audio.js?v=4";
 
 export class Game {
   constructor(root) {
@@ -33,9 +33,10 @@ export class Game {
   }
   resize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }
   start() {
-    this.audio.unlock();
+    const audioReady=this.audio.unlock();
     this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.state = "running";
-    this.spawnFruits(); this.addGates(); this.clock.start(); this.audio.startBgm(); this.ui.showGame(); this.updateUI();
+    this.spawnFruits(); this.addGates(); this.clock.start(); this.ui.showGame(); this.updateUI();
+    audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
   }
   spawnFruits() {
     const guaranteed = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];

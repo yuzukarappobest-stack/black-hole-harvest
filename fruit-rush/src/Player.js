@@ -1,5 +1,5 @@
-import { Fruit, fruitData } from "./Fruit.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js";
+import { Fruit, fruitData } from "./Fruit.js?v=1";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=1";
 
 export class Player extends Fruit {
   constructor() { super(1, 0, 4.5, true); this.targetX = 0; this.lastX = 0; }

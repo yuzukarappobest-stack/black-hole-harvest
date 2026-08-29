@@ -1,11 +1,11 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js";
-import { Fruit, fruitData } from "./Fruit.js";
-import { Player } from "./Player.js";
-import { Course } from "./Course.js";
-import { InputManager } from "./InputManager.js";
-import { UI } from "./UI.js";
-import { AudioManager } from "./Audio.js";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=1";
+import { Fruit, fruitData } from "./Fruit.js?v=1";
+import { Player } from "./Player.js?v=1";
+import { Course } from "./Course.js?v=1";
+import { InputManager } from "./InputManager.js?v=1";
+import { UI } from "./UI.js?v=2";
+import { AudioManager } from "./Audio.js?v=2";
 
 export class Game {
   constructor(root) {

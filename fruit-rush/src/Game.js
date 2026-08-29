@@ -22,7 +22,7 @@ export class Game {
     root.prepend(this.renderer.domElement);
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
-    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = [];
+    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0;
     this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
@@ -33,8 +33,8 @@ export class Game {
   }
   resize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }
   start() {
-    this.clearFruits(); this.clearParticles(); this.player.reset(); this.score = 0; this.state = "running";
-    this.spawnFruits(); this.clock.start(); this.ui.showGame(); this.updateUI();
+    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.state = "running";
+    this.spawnFruits(); this.addGates(); this.clock.start(); this.audio.startBgm(); this.ui.showGame(); this.updateUI();
   }
   spawnFruits() {
     const guaranteed = [1, 2, 3, 4, 5, 6, 7];
@@ -49,6 +49,19 @@ export class Game {
     }
   }
   addFruit(level, x, z) { const fruit = new Fruit(level, x, z); this.fruits.push(fruit); this.scene.add(fruit.mesh); }
+  addGates() {
+    [[-78, ["upgrade", "magnet"]], [-154, ["magnet", "score"]], [-221, ["upgrade", "score"]]].forEach(([z, kinds]) => kinds.forEach((kind, index) => this.addGate(kind, index ? 2.15 : -2.15, z)));
+  }
+  addGate(kind, x, z) {
+    const colors={upgrade:0x56a7ff,magnet:0xa761ff,score:0xffae45}; const labels={upgrade:"+1 LV",magnet:"MAGNET",score:"+100"};
+    const group=new THREE.Group(); const material=new THREE.MeshStandardMaterial({color:colors[kind],roughness:.4});
+    for(const offset of [-1.42,1.42]) { const post=new THREE.Mesh(new THREE.BoxGeometry(.16,2.1,.2),material); post.position.set(offset,1.05,0); group.add(post); }
+    const top=new THREE.Mesh(new THREE.BoxGeometry(3,.42,.25),material); top.position.y=2.05; group.add(top);
+    const canvas=document.createElement("canvas"); canvas.width=256; canvas.height=72; const ctx=canvas.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.font="900 32px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(labels[kind],128,38);
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.65,.74),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(canvas),transparent:true})); sign.position.set(0,1.48,.14); group.add(sign);
+    group.position.set(x,0,z); this.scene.add(group); this.gates.push({kind,x,z,group,used:false});
+  }
+  clearGates() { this.gates.forEach((gate)=>gate.group.removeFromParent()); this.gates.length=0; }
   clearFruits() { this.fruits.forEach((fruit) => fruit.dispose()); this.fruits.length = 0; }
   clearParticles() { this.particles.forEach((item) => item.mesh.removeFromParent()); this.particles.length = 0; }
   update(delta) {
@@ -56,7 +69,8 @@ export class Game {
     const p = this.player.mesh.position;
     this.camera.position.lerp(new THREE.Vector3(p.x * .34, CONFIG.cameraHeight, p.z + CONFIG.cameraDistance), Math.min(1, delta * 5));
     this.camera.lookAt(p.x * .2, .6, p.z - 8);
-    this.checkCollisions(); this.updateParticles(delta);
+    this.comboTimer=Math.max(0,this.comboTimer-delta); if(this.comboTimer===0)this.combo=0;
+    this.magneticTime=Math.max(0,this.magneticTime-delta); this.checkGates(); this.applyMagnet(delta); this.checkCollisions(); this.updateParticles(delta);
     if (Math.abs(p.x) > CONFIG.courseWidth / 2 + this.player.radius + .25) this.end("over");
     if (p.z <= -CONFIG.courseLength + CONFIG.finishPadding) this.end("finish");
     this.updateUI();
@@ -69,10 +83,32 @@ export class Game {
       else { const push = Math.sign(fruit.mesh.position.x - playerPosition.x) || 1; fruit.mesh.position.x += push * .14; }
     }
   }
+  checkGates() {
+    const p=this.player.mesh.position;
+    for(const gate of this.gates) {
+      if(gate.used || Math.abs(p.z-gate.z)>.72 || Math.abs(p.x-gate.x)>1.65) continue;
+      gate.used=true; gate.group.removeFromParent();
+      if(gate.kind==="upgrade") { const before=this.player.level; const data=this.player.evolve(); if(before!==this.player.level) { this.ui.merge("LEVEL UP!",this.combo||1); this.audio.merge(); } this.updateUI(data); }
+      if(gate.kind==="magnet") { this.magnetCharges=Math.min(3,this.magnetCharges+1); this.ui.merge("MAGNET +1",this.combo||1); this.audio.tone(960,.16,"triangle"); }
+      if(gate.kind==="score") { this.score+=100; this.ui.merge("+100",this.combo||1); this.audio.tone(720,.14,"triangle"); }
+    }
+  }
+  applyMagnet(delta) {
+    if(this.magneticTime<=0)return;
+    const p=this.player.mesh.position;
+    for(const fruit of this.fruits) {
+      if(!fruit.alive || fruit.level!==this.player.level || fruit.mesh.position.distanceTo(p)>6.5)continue;
+      fruit.mesh.position.x+=(p.x-fruit.mesh.position.x)*Math.min(1,delta*4.8);
+      fruit.mesh.position.z+=(p.z-fruit.mesh.position.z)*Math.min(1,delta*4.8);
+    }
+  }
+  activateMagnet() { if(this.state!=="running" || this.magnetCharges<=0 || this.magneticTime>0)return; this.magnetCharges-=1; this.magneticTime=5; this.ui.merge("MAGNET!",this.combo||1); this.audio.tone(880,.2,"sine"); this.audio.tone(1175,.26,"sine",.1); }
   merge(fruit) {
     fruit.alive = false; fruit.dispose(); this.fruits = this.fruits.filter((item) => item !== fruit);
-    const gained = fruitData(this.player.level).score; this.score += gained; const data = this.player.evolve();
-    this.spawnBurst(); this.ui.merge(gained); this.audio.merge();
+    this.combo=this.comboTimer>0?this.combo+1:1; this.comboTimer=2.5;
+    if(this.combo>0 && this.combo%3===0)this.magnetCharges=Math.min(3,this.magnetCharges+1);
+    const multiplier=1+Math.floor((this.combo-1)/3); const gained = fruitData(this.player.level).score*multiplier; this.score += gained; const data = this.player.evolve();
+    this.spawnBurst(); this.ui.merge(gained,this.combo); this.audio.merge();
     this.player.mesh.scale.setScalar(1.18); setTimeout(() => { if (this.state === "running") this.player.mesh.scale.setScalar(1); }, 150);
     this.updateUI(data);
   }
@@ -85,7 +121,7 @@ export class Game {
     }
   }
   updateParticles(delta) { this.particles = this.particles.filter((item) => { item.life -= delta; item.mesh.position.addScaledVector(item.velocity, delta); item.velocity.y -= 5 * delta; item.mesh.material.opacity = Math.max(0, item.life * 2); item.mesh.material.transparent = true; if (item.life <= 0) { item.mesh.material.dispose(); item.mesh.removeFromParent(); return false; } return true; }); }
-  updateUI() { const data = fruitData(this.player.level); const percent = Math.max(0, Math.min(100, (-this.player.mesh.position.z + 4.5) / CONFIG.courseLength * 100)); this.ui.update(this.score, data, percent); }
-  end(kind) { if (this.state !== "running") return; this.state = kind; this.clock.stop(); const data = fruitData(this.player.level); this.ui.endGame(kind, this.score, data); kind === "finish" ? this.audio.finish() : this.audio.over(); }
+  updateUI() { const data = fruitData(this.player.level); const percent = Math.max(0, Math.min(100, (-this.player.mesh.position.z + 4.5) / CONFIG.courseLength * 100)); this.ui.update(this.score, data, percent,Math.max(1,this.combo),this.magnetCharges,this.magneticTime); }
+  end(kind) { if (this.state !== "running") return; this.state = kind; this.clock.stop(); this.audio.stopBgm(); const data = fruitData(this.player.level); this.ui.endGame(kind, this.score, data); kind === "finish" ? this.audio.finish() : this.audio.over(); }
   loop() { const delta = Math.min(this.clock.getDelta(), .05); if (this.state === "running") this.update(delta); this.renderer.render(this.scene, this.camera); requestAnimationFrame(this.loop); }
 }

@@ -22,3 +22,8 @@ button:active { transform: translateY(5px); box-shadow: 0 4px 0 #dc4d66; }
 small { display:block; margin-top: 16px; color:#6480a8; font-weight:800; }
 .merge-pop { position: fixed; z-index:3; left:50%; top:48%; opacity:0; color:#fff; font-size:2.2rem; font-weight:950; pointer-events:none; text-shadow:0 3px 0 #ee4a62,0 7px 12px rgba(0,0,0,.25); transform:translate(-50%,-50%) scale(.6); transition: opacity .12s, transform .32s cubic-bezier(.12,.8,.2,1.5); }
 .merge-pop.show { opacity:1; transform:translate(-50%,-100%) scale(1); }
+.combo-box { position:fixed; z-index:2; top:126px; left:12px; padding:7px 10px; border:2px solid rgba(255,255,255,.88); border-radius:8px; background:rgba(255,99,99,.86); box-shadow:0 5px 12px rgba(115,27,35,.22); color:#fff; font-weight:950; font-size:.85rem; pointer-events:none; }
+.combo-box span { font-size:1.25rem; }
+.magnet-button { position:fixed; z-index:3; right:14px; bottom:max(18px,env(safe-area-inset-bottom)); width:auto; min-width:126px; min-height:55px; padding:8px 14px; border:2px solid rgba(255,255,255,.92); border-radius:999px; background:linear-gradient(135deg,#8064ff,#dc5ce8); box-shadow:0 7px 0 #5943cc,0 11px 20px rgba(56,36,141,.24); font-size:1rem; }
+.magnet-button small { display:inline; margin:0 0 0 4px; color:#fff4a6; font-size:1.2em; }.magnet-button:disabled { opacity:.45; box-shadow:0 5px 0 #5943cc; }.magnet-button.active { background:linear-gradient(135deg,#ff4ed2,#7f58ff); animation:magnetPulse .7s infinite alternate; }.magnet-button:active { transform:translateY(4px); }
+@keyframes magnetPulse { to { filter:brightness(1.2); transform:scale(1.04); } }

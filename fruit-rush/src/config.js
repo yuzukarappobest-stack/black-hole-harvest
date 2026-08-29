@@ -1,0 +1,22 @@
+export const CONFIG = {
+  courseWidth: 8.6,
+  courseLength: 260,
+  forwardSpeed: 8.2,
+  lateralSpeed: 12,
+  lateralSmoothing: 12,
+  cameraHeight: 7.8,
+  cameraDistance: 10,
+  spawnCount: 31,
+  finishPadding: 8,
+};
+
+export const FRUIT_LEVELS = [
+  { level: 1, name: "CHERRY", label: "さくらんぼ", radius: .48, color: 0xe74d62, score: 10 },
+  { level: 2, name: "STRAWBERRY", label: "いちご", radius: .62, color: 0xf0445e, score: 25 },
+  { level: 3, name: "GRAPE", label: "ぶどう", radius: .78, color: 0x7b52c7, score: 45 },
+  { level: 4, name: "ORANGE", label: "みかん", radius: .94, color: 0xffa52e, score: 70 },
+  { level: 5, name: "APPLE", label: "りんご", radius: 1.10, color: 0xea3f43, score: 105 },
+  { level: 6, name: "PEACH", label: "もも", radius: 1.26, color: 0xffa2aa, score: 150 },
+  { level: 7, name: "MELON", label: "メロン", radius: 1.43, color: 0x9bcf4b, score: 210 },
+  { level: 8, name: "WATERMELON", label: "スイカ", radius: 1.62, color: 0x38a95a, score: 300 },
+];

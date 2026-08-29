@@ -1,0 +1,7 @@
+export class UI {
+  constructor() { this.hud=document.querySelector("#hud"); this.score=document.querySelector("#scoreValue"); this.name=document.querySelector("#fruitName"); this.level=document.querySelector("#levelValue"); this.fill=document.querySelector("#progressFill"); this.progress=document.querySelector("#progressValue"); this.start=document.querySelector("#startScreen"); this.end=document.querySelector("#endScreen"); this.title=document.querySelector("#endTitle"); this.kicker=document.querySelector("#endKicker"); this.endScore=document.querySelector("#endScore"); this.endFruit=document.querySelector("#endFruit"); this.pop=document.querySelector("#mergePop"); }
+  showGame() { this.start.classList.add("hidden"); this.end.classList.add("hidden"); this.hud.classList.remove("hidden"); }
+  update(score, fruit, percent) { this.score.textContent=score; this.name.textContent=fruit.name; this.level.textContent=`Lv.${fruit.level}`; this.fill.style.width=`${percent}%`; this.progress.textContent=`${Math.floor(percent)}%`; }
+  merge(score) { this.pop.textContent=`+${score}`; this.pop.classList.add("show"); clearTimeout(this.timer); this.timer=setTimeout(()=>this.pop.classList.remove("show"),400); }
+  endGame(kind, score, fruit) { this.hud.classList.add("hidden"); this.end.classList.remove("hidden"); this.kicker.textContent=kind === "finish" ? "FINISH" : "GAME OVER"; this.title.textContent=kind === "finish" ? "FINISH!" : "GAME OVER"; this.endScore.textContent=`SCORE ${score}`; this.endFruit.textContent=`${fruit.name} Lv.${fruit.level}`; }
+}

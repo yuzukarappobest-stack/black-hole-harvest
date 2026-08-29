@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+    <meta name="theme-color" content="#64c9ff">
+    <title>Fruit Rush</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <main id="gameRoot">
+      <div id="hud" class="hud hidden" aria-live="polite">
+        <section><span>SCORE</span><strong id="scoreValue">0</strong></section>
+        <section><span id="fruitName">CHERRY</span><strong id="levelValue">Lv.1</strong></section>
+        <section class="progress-panel"><span>GOAL</span><div class="progress-track"><i id="progressFill"></i></div><strong id="progressValue">0%</strong></section>
+      </div>
+      <div id="mergePop" class="merge-pop">+10</div>
+      <section id="startScreen" class="screen">
+        <div class="panel">
+          <p class="eyebrow">3D FRUIT RUNNER</p>
+          <h1>FRUIT RUSH</h1>
+          <p>スワイプで よこに うごかそう</p>
+          <button id="startButton" type="button">START</button>
+          <small>PC: ← → / A D</small>
+        </div>
+      </section>
+      <section id="endScreen" class="screen hidden" aria-live="assertive">
+        <div class="panel">
+          <p id="endKicker" class="eyebrow">FINISH</p>
+          <h1 id="endTitle">FINISH!</h1>
+          <p id="endScore">SCORE 0</p>
+          <p id="endFruit">CHERRY Lv.1</p>
+          <button id="restartButton" type="button">RESTART</button>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="src/main.js"></script>
+  </body>
+</html>

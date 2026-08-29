@@ -1,9 +1,9 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 import { CONFIG, FRUIT_LEVELS } from "./config.js?v=2";
-import { Fruit, fruitData } from "./Fruit.js?v=2";
-import { Player } from "./Player.js?v=2";
+import { Fruit, fruitData } from "./Fruit.js?v=3";
+import { Player } from "./Player.js?v=3";
 import { Course } from "./Course.js?v=2";
-import { InputManager } from "./InputManager.js?v=1";
+import { InputManager } from "./InputManager.js?v=2";
 import { UI } from "./UI.js?v=2";
 import { AudioManager } from "./Audio.js?v=4";
 
@@ -32,6 +32,7 @@ export class Game {
     const sun = new THREE.DirectionalLight(0xfff3d0, 2.2); sun.position.set(-5, 12, 6); this.scene.add(sun);
   }
   resize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }
+  enableTilt() { return this.input.enableTilt(); }
   start() {
     const audioReady=this.audio.unlock();
     this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.state = "running";

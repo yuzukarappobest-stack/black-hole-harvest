@@ -1,4 +1,4 @@
-import { Fruit, fruitData } from "./Fruit.js?v=2";
+import { Fruit, fruitData } from "./Fruit.js?v=3";
 import { CONFIG, FRUIT_LEVELS } from "./config.js?v=2";
 
 export class Player extends Fruit {

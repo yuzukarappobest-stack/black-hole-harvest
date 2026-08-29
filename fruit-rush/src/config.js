@@ -1,12 +1,14 @@
 export const CONFIG = {
   courseWidth: 8.6,
-  courseLength: 260,
+  courseLength: 420,
   forwardSpeed: 8.2,
   lateralSpeed: 12,
   lateralSmoothing: 12,
   cameraHeight: 7.8,
   cameraDistance: 10,
-  spawnCount: 31,
+  spawnCount: 54,
+  smallFruitScoreFactor: .4,
+  smallFruitMagnetEvery: 5,
   finishPadding: 8,
 };
 

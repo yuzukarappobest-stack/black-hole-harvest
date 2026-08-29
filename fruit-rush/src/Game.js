@@ -1,8 +1,8 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=1";
-import { Fruit, fruitData } from "./Fruit.js?v=1";
-import { Player } from "./Player.js?v=1";
-import { Course } from "./Course.js?v=1";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=2";
+import { Fruit, fruitData } from "./Fruit.js?v=2";
+import { Player } from "./Player.js?v=2";
+import { Course } from "./Course.js?v=2";
 import { InputManager } from "./InputManager.js?v=1";
 import { UI } from "./UI.js?v=2";
 import { AudioManager } from "./Audio.js?v=2";
@@ -22,7 +22,7 @@ export class Game {
     root.prepend(this.renderer.domElement);
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
-    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0;
+    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0;
     this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
@@ -33,12 +33,12 @@ export class Game {
   }
   resize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }
   start() {
-    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.state = "running";
+    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.state = "running";
     this.spawnFruits(); this.addGates(); this.clock.start(); this.audio.startBgm(); this.ui.showGame(); this.updateUI();
   }
   spawnFruits() {
-    const guaranteed = [1, 2, 3, 4, 5, 6, 7];
-    guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -19 - index * 29));
+    const guaranteed = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
+    guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -20 - index * 25));
     for (let index = 0; index < CONFIG.spawnCount; index += 1) {
       const z = -12 - index * 7.4 - Math.random() * 4;
       const x = (Math.random() - .5) * (CONFIG.courseWidth - 1.7);
@@ -50,7 +50,7 @@ export class Game {
   }
   addFruit(level, x, z) { const fruit = new Fruit(level, x, z); this.fruits.push(fruit); this.scene.add(fruit.mesh); }
   addGates() {
-    [[-78, ["upgrade", "magnet"]], [-154, ["magnet", "score"]], [-221, ["upgrade", "score"]]].forEach(([z, kinds]) => kinds.forEach((kind, index) => this.addGate(kind, index ? 2.15 : -2.15, z)));
+    [[-110, ["upgrade", "magnet"]], [-235, ["magnet", "score"]], [-350, ["upgrade", "score"]]].forEach(([z, kinds]) => kinds.forEach((kind, index) => this.addGate(kind, index ? 2.15 : -2.15, z)));
   }
   addGate(kind, x, z) {
     const colors={upgrade:0x56a7ff,magnet:0xa761ff,score:0xffae45}; const labels={upgrade:"+1 LV",magnet:"MAGNET",score:"+100"};
@@ -65,7 +65,7 @@ export class Game {
   clearFruits() { this.fruits.forEach((fruit) => fruit.dispose()); this.fruits.length = 0; }
   clearParticles() { this.particles.forEach((item) => item.mesh.removeFromParent()); this.particles.length = 0; }
   update(delta) {
-    this.player.move(delta, this.input.direction);
+    this.slowTime=Math.max(0,this.slowTime-delta); this.player.move(delta, this.input.direction, this.slowTime>0?.46:1);
     const p = this.player.mesh.position;
     this.camera.position.lerp(new THREE.Vector3(p.x * .34, CONFIG.cameraHeight, p.z + CONFIG.cameraDistance), Math.min(1, delta * 5));
     this.camera.lookAt(p.x * .2, .6, p.z - 8);
@@ -80,8 +80,16 @@ export class Game {
     for (const fruit of this.fruits) {
       if (!fruit.alive || fruit.mesh.position.distanceToSquared(playerPosition) > (fruit.radius + this.player.radius) ** 2) continue;
       if (fruit.level === this.player.level) this.merge(fruit);
-      else { const push = Math.sign(fruit.mesh.position.x - playerPosition.x) || 1; fruit.mesh.position.x += push * .14; }
+      else if (fruit.level < this.player.level) this.collectSmallFruit(fruit);
+      else { const push = Math.sign(fruit.mesh.position.x - playerPosition.x) || 1; fruit.mesh.position.x += push * .22; this.slowTime=Math.max(this.slowTime,.38); }
     }
+  }
+  removeFruit(fruit) { fruit.alive=false; fruit.dispose(); this.fruits=this.fruits.filter((item)=>item!==fruit); }
+  collectSmallFruit(fruit) {
+    const gained=Math.max(4,Math.round(fruitData(fruit.level).score*CONFIG.smallFruitScoreFactor));
+    this.removeFruit(fruit); this.score+=gained; this.smallCollects+=1;
+    if(this.smallCollects%CONFIG.smallFruitMagnetEvery===0)this.magnetCharges=Math.min(3,this.magnetCharges+1);
+    this.spawnBurst(0xffe36a,7); this.ui.merge(`JUICY +${gained}`,Math.max(1,this.combo)); this.audio.tone(680,.08,"triangle");
   }
   checkGates() {
     const p=this.player.mesh.position;
@@ -104,7 +112,7 @@ export class Game {
   }
   activateMagnet() { if(this.state!=="running" || this.magnetCharges<=0 || this.magneticTime>0)return; this.magnetCharges-=1; this.magneticTime=5; this.ui.merge("MAGNET!",this.combo||1); this.audio.tone(880,.2,"sine"); this.audio.tone(1175,.26,"sine",.1); }
   merge(fruit) {
-    fruit.alive = false; fruit.dispose(); this.fruits = this.fruits.filter((item) => item !== fruit);
+    this.removeFruit(fruit);
     this.combo=this.comboTimer>0?this.combo+1:1; this.comboTimer=2.5;
     if(this.combo>0 && this.combo%3===0)this.magnetCharges=Math.min(3,this.magnetCharges+1);
     const multiplier=1+Math.floor((this.combo-1)/3); const gained = fruitData(this.player.level).score*multiplier; this.score += gained; const data = this.player.evolve();
@@ -112,11 +120,11 @@ export class Game {
     this.player.mesh.scale.setScalar(1.18); setTimeout(() => { if (this.state === "running") this.player.mesh.scale.setScalar(1); }, 150);
     this.updateUI(data);
   }
-  spawnBurst() {
-    const material = new THREE.MeshBasicMaterial({ color: 0xfff4a6 });
-    for (let index = 0; index < 12; index += 1) {
+  spawnBurst(color = 0xfff4a6, count = 12) {
+    const material = new THREE.MeshBasicMaterial({ color });
+    for (let index = 0; index < count; index += 1) {
       const mesh = new THREE.Mesh(new THREE.SphereGeometry(.09, 5, 4), material.clone());
-      mesh.position.copy(this.player.mesh.position); const angle = index / 12 * Math.PI * 2; this.scene.add(mesh);
+      mesh.position.copy(this.player.mesh.position); const angle = index / count * Math.PI * 2; this.scene.add(mesh);
       this.particles.push({ mesh, velocity: new THREE.Vector3(Math.cos(angle) * (1.8 + Math.random()), .9 + Math.random() * 1.8, Math.sin(angle) * 1.5), life: .46 });
     }
   }

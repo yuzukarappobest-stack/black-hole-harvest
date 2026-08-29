@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { FRUIT_LEVELS } from "./config.js?v=1";
+import { FRUIT_LEVELS } from "./config.js?v=2";
 
 const sharedGeometry = new THREE.SphereGeometry(1, 18, 14);
 

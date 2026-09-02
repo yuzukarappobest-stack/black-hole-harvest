@@ -20,6 +20,7 @@ const DANGO_SHOT_GAME_ID = "dango-shot";
 const PLANET_CATCH_GAME_ID = "planet-catch";
 const SHOOTING_STAR_GAME_ID = "shooting-star";
 const FROG_JUMP_GAME_ID = "frog-jump";
+const FRUIT_RUSH_GAME_ID = "fruit-rush";
 
 const letters = [
   "あ", "い", "う", "え", "お",
@@ -233,6 +234,7 @@ const playDangoShotButton = document.getElementById("playDangoShotButton");
 const playPlanetCatchButton = document.getElementById("playPlanetCatchButton");
 const playShootingStarButton = document.getElementById("playShootingStarButton");
 const playFrogJumpButton = document.getElementById("playFrogJumpButton");
+const playFruitRushButton = document.getElementById("playFruitRushButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -635,6 +637,9 @@ playShootingStarButton.addEventListener("click", () => {
 });
 playFrogJumpButton.addEventListener("click", () => {
   if (grantMiniGameAccess(FROG_JUMP_GAME_ID)) window.location.replace("frog-jump.html");
+});
+playFruitRushButton.addEventListener("click", () => {
+  if (grantMiniGameAccess(FRUIT_RUSH_GAME_ID)) window.location.replace("fruit-rush/");
 });
 stayButton.addEventListener("click", resetLesson);
 

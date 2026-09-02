@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=3";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=4";
 import { Fruit, fruitData } from "./Fruit.js?v=3";
 import { Player } from "./Player.js?v=5";
 import { Course } from "./Course.js?v=3";
@@ -33,8 +33,8 @@ export class Game {
   }
   resize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }
   enableTilt() { return this.input.enableTilt(); }
-  start() {
-    const audioReady=this.audio.unlock();
+  unlockAudio() { return this.audio.unlock(); }
+  start(audioReady = this.unlockAudio()) {
     this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.state = "running";
     this.spawnFruits(); this.addGates(); this.clock.start(); this.ui.showGame(); this.updateUI();
     audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
@@ -83,7 +83,8 @@ export class Game {
     const p = this.player.mesh.position;
     this.state = "recovering"; this.respawnTimer = CONFIG.respawnDelay;
     this.respawnZ = Math.min(4.5, p.z + CONFIG.respawnBacktrack);
-    this.ui.showRecovery(Math.ceil(this.respawnTimer)); this.audio.rescue();
+    this.score = Math.max(0, this.score - CONFIG.courseOutPenalty);
+    this.ui.merge(`−${CONFIG.courseOutPenalty}`, Math.max(1, this.combo)); this.ui.showRecovery(Math.ceil(this.respawnTimer)); this.audio.rescue(); this.updateUI();
   }
   updateRecovery(delta) {
     this.respawnTimer = Math.max(0, this.respawnTimer - delta);

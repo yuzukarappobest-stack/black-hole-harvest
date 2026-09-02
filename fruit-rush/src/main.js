@@ -1,12 +1,10 @@
-import { Game } from "./Game.js?v=11";
+import { Game } from "./Game.js?v=12";
 
 const game = new Game(document.querySelector("#gameRoot"));
-document.querySelector("#startButton").addEventListener("click", () => game.start());
+document.querySelector("#startButton").addEventListener("click", async () => {
+  const audioReady = game.unlockAudio();
+  await game.enableTilt();
+  game.start(audioReady);
+});
 document.querySelector("#restartButton").addEventListener("click", () => game.start());
 document.querySelector("#magnetButton").addEventListener("click", () => game.activateMagnet());
-const tiltButton = document.querySelector("#tiltButton");
-tiltButton.addEventListener("click", async () => {
-  const enabled = await game.enableTilt();
-  tiltButton.textContent = enabled ? "かたむきそうさ OK" : "スワイプで そうさしてね";
-  tiltButton.disabled = true;
-});

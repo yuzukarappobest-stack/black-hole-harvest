@@ -19,9 +19,6 @@ h1 { margin: 0; color: #ff5270; font-size: clamp(2.6rem, 13vw, 4.7rem); letter-s
 .panel > p:not(.eyebrow) { font-weight: 900; font-size: 1.15rem; }
 button { width: 100%; min-height: 64px; border: 0; border-radius: 9px; background: linear-gradient(135deg,#ff6f83,#ff9f59); box-shadow: 0 9px 0 #dc4d66, 0 12px 22px rgba(173,54,78,.3); color: #fff; font: inherit; font-size: 1.5rem; font-weight: 950; cursor: pointer; }
 button:active { transform: translateY(5px); box-shadow: 0 4px 0 #dc4d66; }
-.tilt-button { min-height: 47px; margin: 0 0 14px; background: linear-gradient(135deg,#5b9cf6,#62d2e7); box-shadow: 0 6px 0 #3d78ca, 0 10px 18px rgba(48,108,177,.24); font-size: 1rem; }
-.tilt-button:active { box-shadow: 0 3px 0 #3d78ca; }
-.tilt-button:disabled { opacity: .78; }
 small { display:block; margin-top: 16px; color:#6480a8; font-weight:800; }
 .merge-pop { position: fixed; z-index:3; left:50%; top:48%; opacity:0; color:#fff; font-size:2.2rem; font-weight:950; pointer-events:none; text-shadow:0 3px 0 #ee4a62,0 7px 12px rgba(0,0,0,.25); transform:translate(-50%,-50%) scale(.6); transition: opacity .12s, transform .32s cubic-bezier(.12,.8,.2,1.5); }
 .merge-pop.show { opacity:1; transform:translate(-50%,-100%) scale(1); }

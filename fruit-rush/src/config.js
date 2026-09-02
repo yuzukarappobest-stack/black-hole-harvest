@@ -11,6 +11,7 @@ export const CONFIG = {
   smallFruitMagnetEvery: 5,
   respawnDelay: 3,
   respawnBacktrack: 16,
+  courseOutPenalty: 200,
   finishPadding: 8,
 };
 

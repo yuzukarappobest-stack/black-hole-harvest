@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#64c9ff">
     <title>Fruit Rush</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
   </head>
   <body>
     <main id="gameRoot">
@@ -15,6 +15,7 @@
         <section class="progress-panel"><span>GOAL</span><div class="progress-track"><i id="progressFill"></i></div><strong id="progressValue">0%</strong></section>
       </div>
       <div id="mergePop" class="merge-pop">+10</div>
+      <div id="recoveryNotice" class="recovery-notice hidden" aria-live="assertive">コースにもどるよ 3</div>
       <div id="comboBox" class="combo-box hidden">COMBO x<span id="comboValue">1</span></div>
       <button id="magnetButton" class="magnet-button hidden" type="button" disabled>MAGNET <small id="magnetCount">0</small></button>
       <section id="startScreen" class="screen">
@@ -37,6 +38,6 @@
         </div>
       </section>
     </main>
-    <script type="module" src="src/main.js?v=9"></script>
+    <script type="module" src="src/main.js?v=10"></script>
   </body>
 </html>

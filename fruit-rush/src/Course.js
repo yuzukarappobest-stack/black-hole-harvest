@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG } from "./config.js?v=2";
+import { CONFIG } from "./config.js?v=3";
 
 export class Course {
   constructor(scene) {

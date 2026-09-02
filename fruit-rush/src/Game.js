@@ -1,11 +1,11 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=2";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=3";
 import { Fruit, fruitData } from "./Fruit.js?v=3";
-import { Player } from "./Player.js?v=3";
-import { Course } from "./Course.js?v=2";
+import { Player } from "./Player.js?v=4";
+import { Course } from "./Course.js?v=3";
 import { InputManager } from "./InputManager.js?v=2";
-import { UI } from "./UI.js?v=2";
-import { AudioManager } from "./Audio.js?v=4";
+import { UI } from "./UI.js?v=3";
+import { AudioManager } from "./Audio.js?v=5";
 
 export class Game {
   constructor(root) {
@@ -22,7 +22,7 @@ export class Game {
     root.prepend(this.renderer.domElement);
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
-    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0;
+    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.respawnZ = 4.5;
     this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
@@ -35,7 +35,7 @@ export class Game {
   enableTilt() { return this.input.enableTilt(); }
   start() {
     const audioReady=this.audio.unlock();
-    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.state = "running";
+    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.state = "running";
     this.spawnFruits(); this.addGates(); this.clock.start(); this.ui.showGame(); this.updateUI();
     audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
   }
@@ -74,9 +74,27 @@ export class Game {
     this.camera.lookAt(p.x * .2, .6, p.z - 8);
     this.comboTimer=Math.max(0,this.comboTimer-delta); if(this.comboTimer===0)this.combo=0;
     this.magneticTime=Math.max(0,this.magneticTime-delta); this.checkGates(); this.applyMagnet(delta); this.checkCollisions(); this.updateParticles(delta);
-    if (Math.abs(p.x) > CONFIG.courseWidth / 2 + this.player.radius + .25) this.end("over");
+    if (Math.abs(p.x) > CONFIG.courseWidth / 2 + this.player.radius + .25) this.startRecovery();
     if (p.z <= -CONFIG.courseLength + CONFIG.finishPadding) this.end("finish");
     this.updateUI();
+  }
+  startRecovery() {
+    if (this.state !== "running") return;
+    const p = this.player.mesh.position;
+    this.state = "recovering"; this.respawnTimer = CONFIG.respawnDelay;
+    this.respawnZ = Math.min(4.5, p.z + CONFIG.respawnBacktrack);
+    this.ui.showRecovery(Math.ceil(this.respawnTimer)); this.audio.rescue();
+  }
+  updateRecovery(delta) {
+    this.respawnTimer = Math.max(0, this.respawnTimer - delta);
+    this.player.mesh.position.y -= delta * 2.8;
+    this.player.mesh.rotation.z += delta * 2.4;
+    const p = this.player.mesh.position;
+    this.camera.position.lerp(new THREE.Vector3(p.x * .26, CONFIG.cameraHeight, p.z + CONFIG.cameraDistance), Math.min(1, delta * 4));
+    this.camera.lookAt(p.x * .15, .3, p.z - 8);
+    this.ui.showRecovery(Math.max(1, Math.ceil(this.respawnTimer)));
+    if (this.respawnTimer > 0) return;
+    this.player.respawn(this.respawnZ); this.state = "running"; this.ui.hideRecovery(); this.updateUI();
   }
   checkCollisions() {
     const playerPosition = this.player.mesh.position;
@@ -134,5 +152,5 @@ export class Game {
   updateParticles(delta) { this.particles = this.particles.filter((item) => { item.life -= delta; item.mesh.position.addScaledVector(item.velocity, delta); item.velocity.y -= 5 * delta; item.mesh.material.opacity = Math.max(0, item.life * 2); item.mesh.material.transparent = true; if (item.life <= 0) { item.mesh.material.dispose(); item.mesh.removeFromParent(); return false; } return true; }); }
   updateUI() { const data = fruitData(this.player.level); const percent = Math.max(0, Math.min(100, (-this.player.mesh.position.z + 4.5) / CONFIG.courseLength * 100)); this.ui.update(this.score, data, percent,Math.max(1,this.combo),this.magnetCharges,this.magneticTime); }
   end(kind) { if (this.state !== "running") return; this.state = kind; this.clock.stop(); this.audio.stopBgm(); const data = fruitData(this.player.level); this.ui.endGame(kind, this.score, data); kind === "finish" ? this.audio.finish() : this.audio.over(); }
-  loop() { const delta = Math.min(this.clock.getDelta(), .05); if (this.state === "running") this.update(delta); this.renderer.render(this.scene, this.camera); requestAnimationFrame(this.loop); }
+  loop() { const delta = Math.min(this.clock.getDelta(), .05); if (this.state === "running") this.update(delta); else if (this.state === "recovering") this.updateRecovery(delta); this.renderer.render(this.scene, this.camera); requestAnimationFrame(this.loop); }
 }

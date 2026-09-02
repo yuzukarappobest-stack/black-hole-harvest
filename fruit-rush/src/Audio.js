@@ -26,6 +26,7 @@ export class AudioManager {
   merge() { this.tone(540,.11,"triangle",0,.18); this.tone(790,.18,"sine",.09,.2); }
   finish() { [523,659,784,1046].forEach((n,i)=>this.tone(n,.2,"sine",i*.11,.2)); }
   over() { this.tone(180,.32,"sawtooth",0,.16); this.tone(110,.38,"sawtooth",.18,.14); }
+  rescue() { this.tone(260,.16,"triangle",0,.12); this.tone(390,.2,"sine",.12,.14); }
   startBgm() { this.stopBgm(); const melody=[523,659,784,659,587,659,880,784,659,784,988,784,587,659,784,659]; const bass=[131,0,0,0,147,0,0,0,165,0,0,0,147,0,0,0]; const beat=160; const play=()=>{ const step=this.bgmStep++%melody.length; this.tone(melody[step],.12,"triangle",0,.075); if(bass[step])this.tone(bass[step],.16,"sine",0,.095); if(step%4===2)this.tone(120,.035,"square",0,.032); }; play(); this.bgmTimer=setInterval(play,beat); }
   stopBgm() { if(this.bgmTimer){ clearInterval(this.bgmTimer); this.bgmTimer=null; } }
 }

@@ -9,6 +9,8 @@ export const CONFIG = {
   spawnCount: 54,
   smallFruitScoreFactor: .4,
   smallFruitMagnetEvery: 5,
+  respawnDelay: 3,
+  respawnBacktrack: 16,
   finishPadding: 8,
 };
 

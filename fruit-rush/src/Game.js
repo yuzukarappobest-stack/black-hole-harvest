@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=5";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=6";
 import { Fruit, fruitData } from "./Fruit.js?v=3";
 import { Player } from "./Player.js?v=6";
 import { Course } from "./Course.js?v=4";
@@ -134,7 +134,7 @@ export class Game {
       fruit.mesh.position.z+=(p.z-fruit.mesh.position.z)*Math.min(1,delta*4.8);
     }
   }
-  activateMagnet() { if(this.state!=="running" || this.magnetCharges<=0 || this.magneticTime>0)return; this.magnetCharges-=1; this.magneticTime=5; this.ui.merge("MAGNET!",this.combo||1); this.audio.tone(880,.2,"sine"); this.audio.tone(1175,.26,"sine",.1); }
+  activateMagnet() { if(this.state!=="running" || this.magnetCharges<=0 || this.magneticTime>0)return; this.magnetCharges-=1; this.magneticTime=CONFIG.magnetDuration; this.ui.merge("MAGNET!",this.combo||1); this.audio.tone(880,.2,"sine"); this.audio.tone(1175,.26,"sine",.1); }
   merge(fruit) {
     this.removeFruit(fruit);
     this.combo=this.comboTimer>0?this.combo+1:1; this.comboTimer=2.5;

@@ -17,7 +17,6 @@ export const CONFIG = {
   cameraDistance: 10,
   spawnCount: 54,
   smallFruitScoreFactor: .4,
-  smallFruitMagnetEvery: 5,
   magnetDuration: 2,
   respawnDelay: 3,
   respawnBacktrack: 16,

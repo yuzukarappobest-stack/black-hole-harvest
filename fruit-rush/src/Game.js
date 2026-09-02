@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=6";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=7";
 import { Fruit, fruitData } from "./Fruit.js?v=3";
 import { Player } from "./Player.js?v=6";
 import { Course } from "./Course.js?v=4";
@@ -23,7 +23,7 @@ export class Game {
     root.prepend(this.renderer.domElement);
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
-    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.respawnZ = CONFIG.courseStartZ;
+    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.respawnTimer = 0; this.respawnZ = CONFIG.courseStartZ;
     this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
@@ -36,7 +36,7 @@ export class Game {
   enableTilt() { return this.input.enableTilt(); }
   unlockAudio() { return this.audio.unlock(); }
   start(audioReady = this.unlockAudio()) {
-    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.state = "running";
+    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.respawnTimer = 0; this.state = "running";
     this.spawnFruits(); this.addGates(); this.clock.start(); this.ui.showGame(); this.updateUI();
     audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
   }
@@ -111,8 +111,7 @@ export class Game {
   removeFruit(fruit) { fruit.alive=false; fruit.dispose(); this.fruits=this.fruits.filter((item)=>item!==fruit); }
   collectSmallFruit(fruit) {
     const gained=Math.max(4,Math.round(fruitData(fruit.level).score*CONFIG.smallFruitScoreFactor));
-    this.removeFruit(fruit); this.score+=gained; this.smallCollects+=1;
-    if(this.smallCollects%CONFIG.smallFruitMagnetEvery===0)this.magnetCharges=Math.min(3,this.magnetCharges+1);
+    this.removeFruit(fruit); this.score+=gained;
     this.spawnBurst(0xffe36a,7); this.ui.merge(`JUICY +${gained}`,Math.max(1,this.combo)); this.audio.tone(680,.08,"triangle");
   }
   checkGates() {
@@ -138,7 +137,6 @@ export class Game {
   merge(fruit) {
     this.removeFruit(fruit);
     this.combo=this.comboTimer>0?this.combo+1:1; this.comboTimer=2.5;
-    if(this.combo>0 && this.combo%3===0)this.magnetCharges=Math.min(3,this.magnetCharges+1);
     const multiplier=1+Math.floor((this.combo-1)/3); const gained = fruitData(this.player.level).score*multiplier; this.score += gained; const data = this.player.evolve();
     this.spawnBurst(); this.ui.merge(gained,this.combo); this.audio.merge();
     this.player.mesh.scale.setScalar(1.18); setTimeout(() => { if (this.state === "running") this.player.mesh.scale.setScalar(1); }, 150);

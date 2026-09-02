@@ -31,6 +31,10 @@ export const FRUIT_LEVELS = [
   { level: 4, name: "ORANGE", label: "みかん", radius: .94, color: 0xffa52e, score: 70 },
   { level: 5, name: "APPLE", label: "りんご", radius: 1.10, color: 0xea3f43, score: 105 },
   { level: 6, name: "PEACH", label: "もも", radius: 1.26, color: 0xffa2aa, score: 150 },
-  { level: 7, name: "MELON", label: "メロン", radius: 1.43, color: 0x9bcf4b, score: 210 },
-  { level: 8, name: "WATERMELON", label: "スイカ", radius: 1.62, color: 0x38a95a, score: 300 },
+  { level: 7, name: "DURIAN", label: "ドリアン", radius: 1.40, color: 0x8e9d40, score: 205 },
+  { level: 8, name: "PINEAPPLE", label: "パイナップル", radius: 1.55, color: 0xf3bd39, score: 270 },
+  { level: 9, name: "MELON", label: "メロン", radius: 1.70, color: 0x9bcf4b, score: 350 },
+  { level: 10, name: "WATERMELON", label: "スイカ", radius: 1.88, color: 0x38a95a, score: 450 },
+  { level: 11, name: "JACKFRUIT", label: "ジャックフルーツ", radius: 2.08, color: 0x86b53f, score: 580 },
+  { level: 12, name: "RAINBOW", label: "にじいろフルーツ", radius: 2.30, color: 0xff72a9, score: 750 },
 ];

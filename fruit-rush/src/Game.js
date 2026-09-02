@@ -1,7 +1,7 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=7";
-import { Fruit, fruitData } from "./Fruit.js?v=3";
-import { Player } from "./Player.js?v=6";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=8";
+import { Fruit, fruitData } from "./Fruit.js?v=4";
+import { Player } from "./Player.js?v=7";
 import { Course } from "./Course.js?v=4";
 import { courseCenterX } from "./coursePath.js?v=1";
 import { InputManager } from "./InputManager.js?v=2";
@@ -41,13 +41,13 @@ export class Game {
     audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
   }
   spawnFruits() {
-    const guaranteed = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
-    guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -20 - index * 25));
+    const guaranteed = Array.from({ length: FRUIT_LEVELS.length - 1 }, (_, index) => index + 1).flatMap((level) => [level, level]);
+    guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -20 - index * 17));
     for (let index = 0; index < CONFIG.spawnCount; index += 1) {
       const z = -12 - index * 7.4 - Math.random() * 4;
       const x = (Math.random() - .5) * (CONFIG.courseWidth - 1.7);
       const progress = Math.min(1, -z / CONFIG.courseLength);
-      const maxLevel = Math.min(5, 1 + Math.floor(progress * 6));
+      const maxLevel = Math.min(FRUIT_LEVELS.length - 2, 1 + Math.floor(progress * (FRUIT_LEVELS.length - 1)));
       const level = 1 + Math.floor(Math.random() * maxLevel);
       this.addFruit(level, x, z);
     }

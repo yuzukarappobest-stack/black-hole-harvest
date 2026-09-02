@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { FRUIT_LEVELS } from "./config.js?v=2";
+import { FRUIT_LEVELS } from "./config.js?v=8";
 
 const sharedGeometry = new THREE.SphereGeometry(1, 18, 14);
 
@@ -77,11 +77,27 @@ export class Fruit {
       this.addRing(new THREE.Euler(Math.PI / 2, 0, 0), r * .48, r * .024, 0xe97e98);
       this.addDot(-r * .28, r * .33, r * .77, r * .15, 0xffd9d6);
     } else if (this.level === 7) {
+      const spikeMaterial = this.decorationMaterial(0x5f6e2f, .7);
+      for (let index = 0; index < 14; index += 1) {
+        const angle = index / 14 * Math.PI * 2; const spike = new THREE.Mesh(new THREE.ConeGeometry(r * .11, r * .30, 5), spikeMaterial);
+        spike.position.set(Math.cos(angle) * r * .76, Math.sin(angle) * r * .54, r * .42); spike.rotation.x = Math.PI / 2; this.decoration.add(spike);
+      }
+    } else if (this.level === 8) {
+      for (let index = 0; index < 5; index += 1) this.addRing(new THREE.Euler(Math.PI / 2, 0, 0), r * (.33 + index * .12), r * .022, 0xc47c25);
+      for (let index = 0; index < 5; index += 1) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(r * .13, r * .85, 5), this.decorationMaterial(0x418b4d, .7));
+        leaf.position.set((index - 2) * r * .13, r * 1.04 + Math.abs(index - 2) * r * .07, 0); leaf.rotation.z = (index - 2) * .24; this.decoration.add(leaf);
+      }
+    } else if (this.level === 9) {
       [-.55, 0, .55].forEach((offset) => this.addRing(new THREE.Euler(Math.PI / 2, 0, 0), r * Math.sqrt(1 - offset * offset), r * .025, 0x5b9c43));
       [-.6, 0, .6].forEach((offset) => this.addRing(new THREE.Euler(0, Math.PI / 2, 0), r * Math.sqrt(1 - offset * offset), r * .025, 0x5b9c43));
-    } else {
+    } else if (this.level === 10) {
       [-.62, -.3, 0, .3, .62].forEach((offset) => this.addRing(new THREE.Euler(Math.PI / 2, 0, 0), r * Math.sqrt(1 - offset * offset), r * .05, 0x17693d));
       this.addDot(-r * .27, r * .36, r * .77, r * .13, 0xb8efb0);
+    } else if (this.level === 11) {
+      for (let index = 0; index < 16; index += 1) { const angle = index / 16 * Math.PI * 2; this.addDot(Math.cos(angle) * r * .72, Math.sin(angle) * r * .66, r * .42, r * .09, 0x5f842d); }
+    } else {
+      [0xff5c72, 0xffb43f, 0xffed57, 0x64d98d, 0x55a8ff, 0x9b6bde].forEach((color, index) => this.addRing(new THREE.Euler(Math.PI / 2, 0, 0), r * (.28 + index * .105), r * .055, color));
     }
   }
   updateRoll(distance, lateral) {

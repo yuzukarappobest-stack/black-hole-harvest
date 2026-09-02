@@ -1,7 +1,7 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 import { CONFIG, FRUIT_LEVELS } from "./config.js?v=3";
 import { Fruit, fruitData } from "./Fruit.js?v=3";
-import { Player } from "./Player.js?v=4";
+import { Player } from "./Player.js?v=5";
 import { Course } from "./Course.js?v=3";
 import { InputManager } from "./InputManager.js?v=2";
 import { UI } from "./UI.js?v=3";

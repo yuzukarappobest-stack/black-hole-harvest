@@ -7,7 +7,7 @@ export class Player extends Fruit {
   respawn(z) { this.targetX = 0; this.lastX = 0; this.mesh.position.set(0, this.radius, z); this.mesh.rotation.set(0, 0, 0); }
   move(delta, input, speedScale = 1) {
     this.targetX += input * CONFIG.lateralSpeed * delta;
-    const boundary = CONFIG.courseWidth / 2 + 1.15;
+    const boundary = CONFIG.courseWidth / 2 + this.radius + .9;
     this.targetX = Math.max(-boundary, Math.min(boundary, this.targetX));
     const oldX = this.mesh.position.x;
     this.mesh.position.x += (this.targetX - oldX) * Math.min(1, CONFIG.lateralSmoothing * delta);

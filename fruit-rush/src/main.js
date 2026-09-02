@@ -1,4 +1,4 @@
-import { Game } from "./Game.js?v=12";
+import { Game } from "./Game.js?v=13";
 
 const game = new Game(document.querySelector("#gameRoot"));
 document.querySelector("#startButton").addEventListener("click", async () => {

@@ -1,6 +1,15 @@
 export const CONFIG = {
   courseWidth: 8.6,
   courseLength: 420,
+  courseStartZ: 4.5,
+  courseSegments: [
+    { length: 60, curve: 0 },
+    { length: 75, curve: .035 },
+    { length: 70, curve: -.04 },
+    { length: 85, curve: .04 },
+    { length: 70, curve: -.035 },
+    { length: 60, curve: 0 },
+  ],
   forwardSpeed: 8.2,
   lateralSpeed: 12,
   lateralSmoothing: 12,

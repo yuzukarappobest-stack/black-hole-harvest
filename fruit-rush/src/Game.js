@@ -1,8 +1,9 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=4";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=5";
 import { Fruit, fruitData } from "./Fruit.js?v=3";
-import { Player } from "./Player.js?v=5";
-import { Course } from "./Course.js?v=3";
+import { Player } from "./Player.js?v=6";
+import { Course } from "./Course.js?v=4";
+import { courseCenterX } from "./coursePath.js?v=1";
 import { InputManager } from "./InputManager.js?v=2";
 import { UI } from "./UI.js?v=3";
 import { AudioManager } from "./Audio.js?v=5";
@@ -22,7 +23,7 @@ export class Game {
     root.prepend(this.renderer.domElement);
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
-    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.respawnZ = 4.5;
+    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 0; this.magneticTime = 0; this.smallCollects = 0; this.slowTime = 0; this.respawnTimer = 0; this.respawnZ = CONFIG.courseStartZ;
     this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
@@ -51,18 +52,18 @@ export class Game {
       this.addFruit(level, x, z);
     }
   }
-  addFruit(level, x, z) { const fruit = new Fruit(level, x, z); this.fruits.push(fruit); this.scene.add(fruit.mesh); }
+  addFruit(level, lane, z) { const fruit = new Fruit(level, courseCenterX(z) + lane, z); this.fruits.push(fruit); this.scene.add(fruit.mesh); }
   addGates() {
     [[-110, ["upgrade", "magnet"]], [-235, ["magnet", "score"]], [-350, ["upgrade", "score"]]].forEach(([z, kinds]) => kinds.forEach((kind, index) => this.addGate(kind, index ? 2.15 : -2.15, z)));
   }
-  addGate(kind, x, z) {
+  addGate(kind, lane, z) {
     const colors={upgrade:0x56a7ff,magnet:0xa761ff,score:0xffae45}; const labels={upgrade:"+1 LV",magnet:"MAGNET",score:"+100"};
     const group=new THREE.Group(); const material=new THREE.MeshStandardMaterial({color:colors[kind],roughness:.4});
     for(const offset of [-1.42,1.42]) { const post=new THREE.Mesh(new THREE.BoxGeometry(.16,2.1,.2),material); post.position.set(offset,1.05,0); group.add(post); }
     const top=new THREE.Mesh(new THREE.BoxGeometry(3,.42,.25),material); top.position.y=2.05; group.add(top);
     const canvas=document.createElement("canvas"); canvas.width=256; canvas.height=72; const ctx=canvas.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.font="900 32px system-ui"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(labels[kind],128,38);
     const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.65,.74),new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(canvas),transparent:true})); sign.position.set(0,1.48,.14); group.add(sign);
-    group.position.set(x,0,z); this.scene.add(group); this.gates.push({kind,x,z,group,used:false});
+    group.position.set(courseCenterX(z) + lane,0,z); this.scene.add(group); this.gates.push({kind,lane,z,group,used:false});
   }
   clearGates() { this.gates.forEach((gate)=>gate.group.removeFromParent()); this.gates.length=0; }
   clearFruits() { this.fruits.forEach((fruit) => fruit.dispose()); this.fruits.length = 0; }
@@ -74,7 +75,7 @@ export class Game {
     this.camera.lookAt(p.x * .2, .6, p.z - 8);
     this.comboTimer=Math.max(0,this.comboTimer-delta); if(this.comboTimer===0)this.combo=0;
     this.magneticTime=Math.max(0,this.magneticTime-delta); this.checkGates(); this.applyMagnet(delta); this.checkCollisions(); this.updateParticles(delta);
-    if (Math.abs(p.x) > CONFIG.courseWidth / 2 + this.player.radius + .25) this.startRecovery();
+    if (Math.abs(p.x - courseCenterX(p.z)) > CONFIG.courseWidth / 2 + this.player.radius + .25) this.startRecovery();
     if (p.z <= -CONFIG.courseLength + CONFIG.finishPadding) this.end("finish");
     this.updateUI();
   }
@@ -82,9 +83,10 @@ export class Game {
     if (this.state !== "running") return;
     const p = this.player.mesh.position;
     this.state = "recovering"; this.respawnTimer = CONFIG.respawnDelay;
-    this.respawnZ = Math.min(4.5, p.z + CONFIG.respawnBacktrack);
+    this.respawnZ = Math.min(CONFIG.courseStartZ, p.z + CONFIG.respawnBacktrack);
+    const previousLevel = this.player.level; this.player.devolve();
     this.score = Math.max(0, this.score - CONFIG.courseOutPenalty);
-    this.ui.merge(`−${CONFIG.courseOutPenalty}`, Math.max(1, this.combo)); this.ui.showRecovery(Math.ceil(this.respawnTimer)); this.audio.rescue(); this.updateUI();
+    this.ui.merge(previousLevel === this.player.level ? `−${CONFIG.courseOutPenalty}` : `−${CONFIG.courseOutPenalty} / LEVEL DOWN`, Math.max(1, this.combo)); this.ui.showRecovery(Math.ceil(this.respawnTimer)); this.audio.rescue(); this.updateUI();
   }
   updateRecovery(delta) {
     this.respawnTimer = Math.max(0, this.respawnTimer - delta);
@@ -116,7 +118,7 @@ export class Game {
   checkGates() {
     const p=this.player.mesh.position;
     for(const gate of this.gates) {
-      if(gate.used || Math.abs(p.z-gate.z)>.72 || Math.abs(p.x-gate.x)>1.65) continue;
+      if(gate.used || Math.abs(p.z-gate.z)>.72 || Math.abs((p.x-courseCenterX(p.z))-gate.lane)>1.65) continue;
       gate.used=true; gate.group.removeFromParent();
       if(gate.kind==="upgrade") { const before=this.player.level; const data=this.player.evolve(); if(before!==this.player.level) { this.ui.merge("LEVEL UP!",this.combo||1); this.audio.merge(); } this.updateUI(data); }
       if(gate.kind==="magnet") { this.magnetCharges=Math.min(3,this.magnetCharges+1); this.ui.merge("MAGNET +1",this.combo||1); this.audio.tone(960,.16,"triangle"); }
@@ -127,7 +129,7 @@ export class Game {
     if(this.magneticTime<=0)return;
     const p=this.player.mesh.position;
     for(const fruit of this.fruits) {
-      if(!fruit.alive || fruit.level!==this.player.level || fruit.mesh.position.distanceTo(p)>6.5)continue;
+      if(!fruit.alive || fruit.mesh.position.distanceTo(p)>6.5)continue;
       fruit.mesh.position.x+=(p.x-fruit.mesh.position.x)*Math.min(1,delta*4.8);
       fruit.mesh.position.z+=(p.z-fruit.mesh.position.z)*Math.min(1,delta*4.8);
     }

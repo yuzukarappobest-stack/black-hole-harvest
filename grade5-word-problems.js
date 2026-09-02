@@ -1,4 +1,4 @@
-const CONFIG = { total: 100, nextDelayMs: 800, maxAnswerLength: 8 };
+const CONFIG = { problemBankSize: 100, requiredCorrect: 5, nextDelayMs: 800, maxAnswerLength: 8 };
 const $ = (id) => document.getElementById(id);
 const problemText = $("problemText"), categoryLabel = $("categoryLabel"), answerDisplay = $("answerDisplay"), correctCount = $("correctCount"), feedback = $("feedback"), submitButton = $("submitButton"), decimalButton = $("decimalButton"), backspaceButton = $("backspaceButton"), clearAnswerButton = $("clearAnswerButton"), clearScratchButton = $("clearScratchButton"), scratchCanvas = $("scratchCanvas"), completePanel = $("completePanel"), againButton = $("againButton");
 const scratchCtx = scratchCanvas.getContext("2d");
@@ -23,11 +23,11 @@ const buildProblems = () => {
 const PROBLEMS = buildProblems();
 
 function shuffle(items) { return [...items].sort(() => Math.random() - .5); }
-function resetLesson() { queue = shuffle(PROBLEMS); correct = 0; correctCount.textContent = "0"; completePanel.classList.add("hidden"); nextProblem(); }
+function resetLesson() { queue = shuffle(PROBLEMS).slice(0, CONFIG.requiredCorrect); correct = 0; correctCount.textContent = "0"; completePanel.classList.add("hidden"); nextProblem(); }
 function nextProblem() { answer = ""; currentProblem = queue[correct]; problemText.textContent = currentProblem.text; categoryLabel.textContent = currentProblem.category; feedback.textContent = " "; feedback.className = "feedback"; updateAnswer(); clearScratch(); }
 function updateAnswer() { answerDisplay.textContent = answer || "数字を入力"; answerDisplay.classList.toggle("filled", Boolean(answer)); }
 function append(value) { if (answer.length >= CONFIG.maxAnswerLength) return; if (value === "." && answer.includes(".")) return; if (value === "." && !answer) answer = "0."; else answer += value; updateAnswer(); }
-function submit() { if (!answer) return; const correctAnswer = Number(currentProblem.answer), entered = Number(answer); if (Number.isFinite(entered) && Math.abs(entered - correctAnswer) < .00001) { correct += 1; correctCount.textContent = correct; feedback.textContent = "せいかい！"; feedback.className = "feedback good"; if (correct >= CONFIG.total) { window.setTimeout(() => completePanel.classList.remove("hidden"), CONFIG.nextDelayMs); return; } } else { feedback.textContent = `ざんねん！ こたえは ${currentProblem.answer}`; feedback.className = "feedback bad"; } window.setTimeout(nextProblem, CONFIG.nextDelayMs); }
+function submit() { if (!answer) return; const correctAnswer = Number(currentProblem.answer), entered = Number(answer); if (Number.isFinite(entered) && Math.abs(entered - correctAnswer) < .00001) { correct += 1; correctCount.textContent = correct; feedback.textContent = "せいかい！"; feedback.className = "feedback good"; if (correct >= CONFIG.requiredCorrect) { window.setTimeout(() => completePanel.classList.remove("hidden"), CONFIG.nextDelayMs); return; } } else { feedback.textContent = `ざんねん！ こたえは ${currentProblem.answer}`; feedback.className = "feedback bad"; } window.setTimeout(nextProblem, CONFIG.nextDelayMs); }
 
 function resizeScratch() { const rect = scratchCanvas.getBoundingClientRect(); dpr = Math.min(window.devicePixelRatio || 1, 2); scratchCanvas.width = Math.max(1, Math.floor(rect.width * dpr)); scratchCanvas.height = Math.max(1, Math.floor(rect.height * dpr)); scratchCtx.setTransform(dpr, 0, 0, dpr, 0, 0); scratchCtx.lineCap = "round"; scratchCtx.lineJoin = "round"; scratchCtx.lineWidth = 5; scratchCtx.strokeStyle = "#071b35"; }
 function clearScratch() { scratchCtx.clearRect(0, 0, scratchCanvas.width, scratchCanvas.height); }
@@ -37,7 +37,8 @@ function draw(event) { if (!drawing) return; event.preventDefault(); const p = p
 function stopDrawing(event) { if (!drawing) return; drawing = false; scratchCanvas.releasePointerCapture(event.pointerId); }
 function bind(button, handler) { let pointerHandled = false; button.addEventListener("pointerdown", (event) => { if (event.pointerType === "mouse") return; event.preventDefault(); pointerHandled = true; handler(); setTimeout(() => { pointerHandled = false; }, 450); }); button.addEventListener("click", (event) => { if (pointerHandled) { event.preventDefault(); return; } handler(); }); }
 
-$("goalCount").textContent = `/${CONFIG.total}`;
+if (PROBLEMS.length !== CONFIG.problemBankSize) throw new Error("Problem bank size is invalid.");
+$("goalCount").textContent = `/${CONFIG.requiredCorrect}`;
 document.querySelectorAll(".key[data-key]").forEach((button) => bind(button, () => append(button.dataset.key)));
 bind(decimalButton, () => append(".")); bind(backspaceButton, () => { answer = answer.slice(0, -1); updateAnswer(); }); bind(clearAnswerButton, () => { answer = ""; updateAnswer(); }); bind(submitButton, submit); bind(clearScratchButton, clearScratch); bind(againButton, resetLesson);
 scratchCanvas.addEventListener("pointerdown", startDrawing); scratchCanvas.addEventListener("pointermove", draw); scratchCanvas.addEventListener("pointerup", stopDrawing); scratchCanvas.addEventListener("pointercancel", stopDrawing); window.addEventListener("resize", resizeScratch);

@@ -18,6 +18,7 @@ export const CONFIG = {
   spawnCount: 54,
   smallFruitScoreFactor: .4,
   magnetDuration: 2,
+  rainbowScoreRequirement: 5000,
   respawnDelay: 3,
   respawnBacktrack: 16,
   courseOutPenalty: 200,

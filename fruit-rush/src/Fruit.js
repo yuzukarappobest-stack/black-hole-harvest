@@ -2,6 +2,13 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.m
 import { FRUIT_LEVELS } from "./config.js?v=8";
 
 const sharedGeometry = new THREE.SphereGeometry(1, 18, 14);
+const rainbowCanvas = document.createElement("canvas");
+rainbowCanvas.width = 256; rainbowCanvas.height = 128;
+const rainbowContext = rainbowCanvas.getContext("2d");
+const rainbowGradient = rainbowContext.createLinearGradient(0, 0, rainbowCanvas.width, 0);
+[[0, "#ff4d66"], [.17, "#ff9d35"], [.34, "#ffe85a"], [.5, "#55d98b"], [.67, "#4ba9ff"], [.84, "#8561dd"], [1, "#f064bb"]].forEach(([stop, color]) => rainbowGradient.addColorStop(stop, color));
+rainbowContext.fillStyle = rainbowGradient; rainbowContext.fillRect(0, 0, rainbowCanvas.width, rainbowCanvas.height);
+const rainbowTexture = new THREE.CanvasTexture(rainbowCanvas); rainbowTexture.colorSpace = THREE.SRGBColorSpace;
 
 export function fruitData(level) { return FRUIT_LEVELS[Math.min(level - 1, FRUIT_LEVELS.length - 1)]; }
 
@@ -32,7 +39,12 @@ export class Fruit {
     this.level = Math.min(level, FRUIT_LEVELS.length);
     const data = fruitData(this.level);
     this.radius = data.radius;
-    this.material.color.setHex(data.color);
+    const isRainbow = this.level === FRUIT_LEVELS.length;
+    this.material.map = isRainbow ? rainbowTexture : null;
+    this.material.color.setHex(isRainbow ? 0xffffff : data.color);
+    this.material.emissive.setHex(isRainbow ? 0x5d214f : 0x000000);
+    this.material.emissiveIntensity = isRainbow ? .45 : 0;
+    this.material.needsUpdate = true;
     this.body.scale.setScalar(this.radius);
     this.stem.position.y = this.radius + .09;
     this.leaf.position.y = this.radius + .16;
@@ -97,7 +109,7 @@ export class Fruit {
     } else if (this.level === 11) {
       for (let index = 0; index < 16; index += 1) { const angle = index / 16 * Math.PI * 2; this.addDot(Math.cos(angle) * r * .72, Math.sin(angle) * r * .66, r * .42, r * .09, 0x5f842d); }
     } else {
-      [0xff5c72, 0xffb43f, 0xffed57, 0x64d98d, 0x55a8ff, 0x9b6bde].forEach((color, index) => this.addRing(new THREE.Euler(Math.PI / 2, 0, 0), r * (.28 + index * .105), r * .055, color));
+      [0xff5c72, 0xffb43f, 0xffed57, 0x64d98d, 0x55a8ff, 0x9b6bde].forEach((color, index) => this.addDot(Math.cos(index / 6 * Math.PI * 2) * r * .64, Math.sin(index / 6 * Math.PI * 2) * r * .59, r * .54, r * .11, color));
     }
   }
   updateRoll(distance, lateral) {

@@ -1,5 +1,5 @@
-import { Fruit, fruitData } from "./Fruit.js?v=4";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=8";
+import { Fruit, fruitData } from "./Fruit.js?v=5";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=9";
 import { courseCenterX } from "./coursePath.js?v=1";
 
 export class Player extends Fruit {

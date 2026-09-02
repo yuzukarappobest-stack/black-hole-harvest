@@ -1,7 +1,7 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=8";
-import { Fruit, fruitData } from "./Fruit.js?v=4";
-import { Player } from "./Player.js?v=7";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=9";
+import { Fruit, fruitData } from "./Fruit.js?v=5";
+import { Player } from "./Player.js?v=8";
 import { Course } from "./Course.js?v=4";
 import { courseCenterX } from "./coursePath.js?v=1";
 import { InputManager } from "./InputManager.js?v=2";
@@ -23,7 +23,7 @@ export class Game {
     root.prepend(this.renderer.domElement);
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
-    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.respawnTimer = 0; this.respawnZ = CONFIG.courseStartZ;
+    this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.perfectRun = true; this.respawnTimer = 0; this.respawnZ = CONFIG.courseStartZ;
     this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
@@ -36,13 +36,13 @@ export class Game {
   enableTilt() { return this.input.enableTilt(); }
   unlockAudio() { return this.audio.unlock(); }
   start(audioReady = this.unlockAudio()) {
-    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.respawnTimer = 0; this.state = "running";
+    this.clearFruits(); this.clearParticles(); this.clearGates(); this.player.reset(); this.score = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.perfectRun = true; this.respawnTimer = 0; this.state = "running";
     this.spawnFruits(); this.addGates(); this.clock.start(); this.ui.showGame(); this.updateUI();
     audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
   }
   spawnFruits() {
-    const guaranteed = Array.from({ length: FRUIT_LEVELS.length - 1 }, (_, index) => index + 1).flatMap((level) => [level, level]);
-    guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -20 - index * 17));
+    const guaranteed = Array.from({ length: FRUIT_LEVELS.length - 1 }, (_, index) => index + 1).flatMap((level) => [level, level]).concat([11, 11, 11, 11, 11, 11]);
+    guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -20 - index * 14.3));
     for (let index = 0; index < CONFIG.spawnCount; index += 1) {
       const z = -12 - index * 7.4 - Math.random() * 4;
       const x = (Math.random() - .5) * (CONFIG.courseWidth - 1.7);
@@ -82,7 +82,7 @@ export class Game {
   startRecovery() {
     if (this.state !== "running") return;
     const p = this.player.mesh.position;
-    this.state = "recovering"; this.respawnTimer = CONFIG.respawnDelay;
+    this.state = "recovering"; this.perfectRun = false; this.respawnTimer = CONFIG.respawnDelay;
     this.respawnZ = Math.min(CONFIG.courseStartZ, p.z + CONFIG.respawnBacktrack);
     const previousLevel = this.player.level; this.player.devolve();
     this.score = Math.max(0, this.score - CONFIG.courseOutPenalty);
@@ -137,8 +137,12 @@ export class Game {
   merge(fruit) {
     this.removeFruit(fruit);
     this.combo=this.comboTimer>0?this.combo+1:1; this.comboTimer=2.5;
-    const multiplier=1+Math.floor((this.combo-1)/3); const gained = fruitData(this.player.level).score*multiplier; this.score += gained; const data = this.player.evolve();
-    this.spawnBurst(); this.ui.merge(gained,this.combo); this.audio.merge();
+    const multiplier=1+Math.floor((this.combo-1)/3); const gained = fruitData(this.player.level).score*multiplier; this.score += gained;
+    const needsRainbowCheck = this.player.level === FRUIT_LEVELS.length - 1;
+    const canBecomeRainbow = !needsRainbowCheck || (this.perfectRun && this.score >= CONFIG.rainbowScoreRequirement);
+    const data = canBecomeRainbow ? this.player.evolve() : fruitData(this.player.level);
+    const rainbowLock = this.perfectRun ? `${this.score}/${CONFIG.rainbowScoreRequirement}` : "NO COURSE OUT";
+    this.spawnBurst(canBecomeRainbow ? 0xfff4a6 : 0xff9e45); this.ui.merge(canBecomeRainbow ? gained : `RAINBOW LOCK ${rainbowLock}`, this.combo); this.audio.merge();
     this.player.mesh.scale.setScalar(1.18); setTimeout(() => { if (this.state === "running") this.player.mesh.scale.setScalar(1); }, 150);
     this.updateUI(data);
   }

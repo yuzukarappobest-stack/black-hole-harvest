@@ -18,7 +18,6 @@ if (!consumeAccess()) {
     await game.enableTilt();
     game.start(audioReady);
   });
-  document.querySelector("#restartButton").addEventListener("click", () => game.start());
   document.querySelector("#returnButton").addEventListener("click", () => window.location.replace(learningUrl()));
   document.querySelector("#magnetButton").addEventListener("click", () => game.activateMagnet());
   window.addEventListener("pageshow", (event) => { if (event.persisted) window.location.replace(learningUrl()); });

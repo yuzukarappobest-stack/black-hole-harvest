@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=10";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=11";
 import { Fruit, fruitData } from "./Fruit.js?v=5";
 import { Player } from "./Player.js?v=8";
 import { Course } from "./Course.js?v=4";
@@ -128,7 +128,7 @@ export class Game {
     for(const gate of this.gates) {
       if(gate.used || Math.abs(p.z-gate.z)>.72 || Math.abs((p.x-courseCenterX(p.z))-gate.lane)>1.65) continue;
       gate.used=true; gate.group.removeFromParent();
-      if(gate.kind==="upgrade") { const before=this.player.level; const data=this.player.evolve(); if(before!==this.player.level) { this.ui.merge("LEVEL UP!",this.combo||1); this.audio.merge(); } this.updateUI(data); }
+      if(gate.kind==="upgrade") { const data=this.tryEvolve(); if(data.evolved) { this.ui.merge("LEVEL UP!",this.combo||1); this.audio.merge(); } this.updateUI(data.fruit); }
       if(gate.kind==="magnet") { this.magnetCharges=Math.min(3,this.magnetCharges+1); this.ui.merge("MAGNET +1",this.combo||1); this.audio.tone(960,.16,"triangle"); }
       if(gate.kind==="score") { this.score+=100; this.ui.merge("+100",this.combo||1); this.audio.tone(720,.14,"triangle"); }
     }
@@ -150,17 +150,22 @@ export class Game {
       shard.collected = true; shard.group.removeFromParent(); this.rainbowShardCount += 1; this.spawnBurst(0x83c9ff, 8); this.ui.merge("???", Math.max(1, this.combo)); this.audio.tone(1047, .12, "sine");
     }
   }
+  tryEvolve() {
+    const needsRainbowCheck = this.player.level === FRUIT_LEVELS.length - 1;
+    const canBecomeRainbow = !needsRainbowCheck || (this.perfectRun && this.rainbowShardCount === CONFIG.rainbowShardCount && this.score >= CONFIG.rainbowScoreRequirement);
+    if (!canBecomeRainbow) return { evolved: false, fruit: fruitData(this.player.level) };
+    const before = this.player.level; const fruit = this.player.evolve();
+    return { evolved: before !== this.player.level, fruit };
+  }
   activateMagnet() { if(this.state!=="running" || this.magnetCharges<=0 || this.magneticTime>0)return; this.magnetCharges-=1; this.magneticTime=CONFIG.magnetDuration; this.ui.merge("MAGNET!",this.combo||1); this.audio.tone(880,.2,"sine"); this.audio.tone(1175,.26,"sine",.1); }
   merge(fruit) {
     this.removeFruit(fruit);
     this.combo=this.comboTimer>0?this.combo+1:1; this.comboTimer=2.5;
     const multiplier=1+Math.floor((this.combo-1)/3); const gained = fruitData(this.player.level).score*multiplier; this.score += gained;
-    const needsRainbowCheck = this.player.level === FRUIT_LEVELS.length - 1;
-    const canBecomeRainbow = !needsRainbowCheck || (this.perfectRun && this.rainbowShardCount === CONFIG.rainbowShardCount && this.score >= CONFIG.rainbowScoreRequirement);
-    const data = canBecomeRainbow ? this.player.evolve() : fruitData(this.player.level);
-    this.spawnBurst(canBecomeRainbow ? 0xfff4a6 : 0xff9e45); this.ui.merge(gained, this.combo); this.audio.merge();
+    const evolution = this.tryEvolve();
+    this.spawnBurst(evolution.evolved ? 0xfff4a6 : 0xff9e45); this.ui.merge(gained, this.combo); this.audio.merge();
     this.player.mesh.scale.setScalar(1.18); setTimeout(() => { if (this.state === "running") this.player.mesh.scale.setScalar(1); }, 150);
-    this.updateUI(data);
+    this.updateUI(evolution.fruit);
   }
   spawnBurst(color = 0xfff4a6, count = 12) {
     const material = new THREE.MeshBasicMaterial({ color });

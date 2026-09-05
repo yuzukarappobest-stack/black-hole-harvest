@@ -1,5 +1,15 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
+const GAME_ID = "space-blaster";
+const ACCESS_KEY = `miniGameAccess:${GAME_ID}`;
+const learningUrl = () => `../${sessionStorage.getItem("miniGameReturnUrl") || "learn.html"}`;
+
+if (sessionStorage.getItem(ACCESS_KEY) !== "1") {
+  window.location.replace(learningUrl());
+} else {
+  sessionStorage.removeItem(ACCESS_KEY);
+}
+
 const CONFIG = { bossScore: 1100, fireInterval: .085, enemyInterval: 1.05, bossHealth: 70, shipBoundX: 5.2, shipBoundY: 3.7, bestKey: "spaceBlasterBestTime" };
 const root = document.querySelector("#gameRoot");
 const hud = document.querySelector("#hud"), scoreEl = document.querySelector("#scoreValue"), timeEl = document.querySelector("#timeValue"), bossHud = document.querySelector("#bossHud"), bossHealthEl = document.querySelector("#bossHealth"), notice = document.querySelector("#notice"), startScreen = document.querySelector("#startScreen"), finishScreen = document.querySelector("#finishScreen"), resultKicker = document.querySelector("#resultKicker"), resultTitle = document.querySelector("#resultTitle"), resultTime = document.querySelector("#resultTime"), bestTime = document.querySelector("#bestTime");
@@ -53,4 +63,6 @@ function resize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMa
 function unlockAudio(){if(audio)return;audio=new (window.AudioContext||window.webkitAudioContext)();}
 function tone(freq,length,type="sine",volume=.05){if(!audio)return;const osc=audio.createOscillator(),gain=audio.createGain(),now=audio.currentTime;osc.type=type;osc.frequency.setValueAtTime(freq,now);gain.gain.setValueAtTime(volume,now);gain.gain.exponentialRampToValueAtTime(.001,now+length);osc.connect(gain).connect(audio.destination);osc.start(now);osc.stop(now+length);}
 function showNotice(text,ms){notice.textContent=text;notice.classList.remove("hidden");clearTimeout(showNotice.timer);showNotice.timer=setTimeout(()=>notice.classList.add("hidden"),ms);}
-document.querySelector("#startButton").addEventListener("click",start);document.querySelector("#restartButton").addEventListener("click",start);
+document.querySelector("#startButton").addEventListener("click",start);
+document.querySelector("#returnButton").addEventListener("click",()=>window.location.replace(learningUrl()));
+window.addEventListener("pageshow",event=>{if(event.persisted)window.location.replace(learningUrl());});

@@ -20,6 +20,7 @@ const REWARDS = [
   ["shooting-star", "流れ星", "shooting-star.html"],
   ["frog-jump", "カエルジャンプ", "frog-jump.html"],
   ["fruit-rush", "フルーツラッシュ", "fruit-rush/"],
+  ["space-blaster", "スペースブラスター", "space-blaster/"],
 ];
 
 const NOTES = [

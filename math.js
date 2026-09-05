@@ -14,6 +14,7 @@ const SHOOTING_STAR_GAME_ID = "shooting-star";
 const FROG_JUMP_GAME_ID = "frog-jump";
 const FRUIT_RUSH_GAME_ID = "fruit-rush";
 const SPACE_BLASTER_GAME_ID = "space-blaster";
+const KAIJU_DEFENSE_GAME_ID = "kaiju-defense";
 const LESSON_CONFIG = {
   requiredCorrect: 2,
   nextDelayMs: 650,
@@ -45,6 +46,7 @@ const playShootingStarButton = document.getElementById("playShootingStarButton")
 const playFrogJumpButton = document.getElementById("playFrogJumpButton");
 const playFruitRushButton = document.getElementById("playFruitRushButton");
 const playSpaceBlasterButton = document.getElementById("playSpaceBlasterButton");
+const playKaijuDefenseButton = document.getElementById("playKaijuDefenseButton");
 const againButton = document.getElementById("againButton");
 
 let correct = 0;
@@ -296,6 +298,9 @@ bindAppButton(playFruitRushButton, () => {
 });
 bindAppButton(playSpaceBlasterButton, () => {
   if (grantMiniGameAccess(SPACE_BLASTER_GAME_ID)) window.location.replace("space-blaster/");
+});
+bindAppButton(playKaijuDefenseButton, () => {
+  if (grantMiniGameAccess(KAIJU_DEFENSE_GAME_ID)) window.location.replace("kaiju-defense/");
 });
 bindAppButton(againButton, resetLesson);
 

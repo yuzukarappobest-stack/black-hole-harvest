@@ -22,6 +22,7 @@ const SHOOTING_STAR_GAME_ID = "shooting-star";
 const FROG_JUMP_GAME_ID = "frog-jump";
 const FRUIT_RUSH_GAME_ID = "fruit-rush";
 const SPACE_BLASTER_GAME_ID = "space-blaster";
+const KAIJU_DEFENSE_GAME_ID = "kaiju-defense";
 
 function toKatakana(text) {
   return text.replace(/[\u3041-\u3096]/g, (char) => String.fromCharCode(char.charCodeAt(0) + 0x60));
@@ -245,6 +246,7 @@ const playShootingStarButton = document.getElementById("playShootingStarButton")
 const playFrogJumpButton = document.getElementById("playFrogJumpButton");
 const playFruitRushButton = document.getElementById("playFruitRushButton");
 const playSpaceBlasterButton = document.getElementById("playSpaceBlasterButton");
+const playKaijuDefenseButton = document.getElementById("playKaijuDefenseButton");
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");
@@ -653,6 +655,9 @@ playFruitRushButton.addEventListener("click", () => {
 });
 playSpaceBlasterButton.addEventListener("click", () => {
   if (grantMiniGameAccess(SPACE_BLASTER_GAME_ID)) window.location.replace("space-blaster/");
+});
+playKaijuDefenseButton.addEventListener("click", () => {
+  if (grantMiniGameAccess(KAIJU_DEFENSE_GAME_ID)) window.location.replace("kaiju-defense/");
 });
 stayButton.addEventListener("click", resetLesson);
 

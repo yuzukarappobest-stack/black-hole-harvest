@@ -4,6 +4,7 @@ import { soldier, monster } from "./actors.js";
 import { Input } from "./input.js?v=2";
 import { Sound } from "./audio.js";
 import { CONFIG, formatTime } from "./config.js";
+import { consumeAccess, learningUrl } from "./access.js?v=1";
 
 const $ = id => document.getElementById(id);
 class Game {
@@ -29,7 +30,9 @@ class Game {
     this.player.root.position.set(0, 0, 42); this.kaiju.root.position.set(0, 0, -26); this.kaiju.root.rotation.y = Math.PI;
     this.resize(); this.camera.position.set(12, 11, 55); this.camera.lookAt(0, 9, -26);
     $("start").disabled = false; $("start").textContent = "出撃する"; $("loadStatus").textContent = "";
-    $("start").onclick = () => this.start(); $("retry").onclick = () => this.start();
+    $("start").onclick = () => this.start();
+    $("returnLink").href = learningUrl;
+    $("returnLink").onclick = event => { event.preventDefault(); window.location.replace(learningUrl); };
     $("pause").onclick = () => this.pause(); $("resume").onclick = () => this.resume();
     $("sound").onclick = () => { this.audio.unlock(); this.audio.enabled = !this.audio.enabled; $("sound").textContent = `音 ${this.audio.enabled ? "ON" : "OFF"}`; $("sound").setAttribute("aria-pressed", String(this.audio.enabled)); };
     document.addEventListener("visibilitychange", () => { if (document.hidden) this.pause(); });
@@ -39,6 +42,7 @@ class Game {
   }
   resize() { this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(innerWidth, innerHeight); }
   start() {
+    if (this.state !== "ready") return;
     this.audio.unlock(); this.city.reset(); this.fx.reset(); this.input.reset();
     this.hp = CONFIG.monsterHealth; this.elapsed = 0; this.knockdowns = 0; this.knockTime = 0; this.attackClock = 4; this.attack = null; this.attackNumber = 0; this.shotClock = 0; this.shake = 0;
     this.kaiju.root.position.set(0, 0, -26); this.kaiju.root.rotation.set(0, Math.PI, 0); this.player.root.position.set(0, 0, 42); this.player.body.rotation.set(0, 0, 0);
@@ -184,9 +188,13 @@ class Game {
 }
 
 try {
-  const game = new Game();
-  // Local-only instrumentation for reproducible browser checks; absent on the published URL.
-  if (["127.0.0.1", "localhost"].includes(location.hostname) && new URLSearchParams(location.search).has("test")) window.testGame = game;
+  if (!consumeAccess()) {
+    window.location.replace(learningUrl);
+  } else {
+    const game = new Game();
+    // Local-only instrumentation for reproducible browser checks; absent on the published URL.
+    if (["127.0.0.1", "localhost"].includes(location.hostname) && new URLSearchParams(location.search).has("test")) window.testGame = game;
+  }
 } catch (error) {
   console.error(error); $("loadStatus").textContent = "起動できませんでした。ページを再読み込みしてください。";
 }

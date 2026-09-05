@@ -6,7 +6,7 @@ export class Input {
     this.pad.addEventListener("pointermove", e => { if (e.pointerId === this.moveId) this.move(e); });
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) this.pad.addEventListener(type, e => { if (e.pointerId === this.moveId) { this.moveId = null; this.x = this.y = 0; this.stick.style.transform = ""; } });
     canvas.addEventListener("pointerdown", e => { if (this.aim) return; this.aim = { id: e.pointerId, x: e.clientX, y: e.clientY }; canvas.setPointerCapture(e.pointerId); });
-    canvas.addEventListener("pointermove", e => { if (this.aim?.id !== e.pointerId) return; this.yaw -= (e.clientX - this.aim.x) * .0045; this.pitch = Math.max(-.65, Math.min(.9, this.pitch - (e.clientY - this.aim.y) * .0035)); this.aim.x = e.clientX; this.aim.y = e.clientY; });
+    canvas.addEventListener("pointermove", e => { if (this.aim?.id !== e.pointerId) return; this.yaw += (e.clientX - this.aim.x) * .0045; this.pitch = Math.max(-.65, Math.min(.9, this.pitch - (e.clientY - this.aim.y) * .0035)); this.aim.x = e.clientX; this.aim.y = e.clientY; });
     for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) canvas.addEventListener(type, e => { if (this.aim?.id === e.pointerId) this.aim = null; });
     window.addEventListener("keydown", e => { if (["KeyW", "KeyA", "KeyS", "KeyD", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) { e.preventDefault(); this.keys.add(e.code); } });
     window.addEventListener("keyup", e => this.keys.delete(e.code)); window.addEventListener("blur", () => this.reset());

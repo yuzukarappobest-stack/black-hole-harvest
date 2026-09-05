@@ -1,7 +1,7 @@
 import * as T from "./vendor/three.module.js";
 import { City, Effects } from "./world.js";
 import { soldier, monster } from "./actors.js";
-import { Input } from "./input.js";
+import { Input } from "./input.js?v=2";
 import { Sound } from "./audio.js";
 import { CONFIG, formatTime } from "./config.js";
 
@@ -9,7 +9,7 @@ const $ = id => document.getElementById(id);
 class Game {
   constructor() {
     this.state = "ready"; this.hp = CONFIG.monsterHealth; this.elapsed = 0; this.shotClock = 0; this.attackClock = 4;
-    this.knockTime = 0; this.knockdowns = 0; this.attack = null; this.attackNumber = 0; this.shake = 0; this.locked = true; this.hitTime = 0;
+    this.knockTime = 0; this.knockdowns = 0; this.attack = null; this.attackNumber = 0; this.shake = 0; this.hitTime = 0;
     this.scene = new T.Scene(); this.scene.background = new T.Color(0x9cc2cb); this.scene.fog = new T.Fog(0x9cc2cb, 85, 215);
     this.camera = new T.PerspectiveCamera(62, 1, .1, 260);
     this.renderer = new T.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
@@ -31,7 +31,6 @@ class Game {
     $("start").disabled = false; $("start").textContent = "出撃する"; $("loadStatus").textContent = "";
     $("start").onclick = () => this.start(); $("retry").onclick = () => this.start();
     $("pause").onclick = () => this.pause(); $("resume").onclick = () => this.resume();
-    $("lock").onclick = () => { this.locked = !this.locked; $("lock").classList.toggle("active", this.locked); $("lock").setAttribute("aria-pressed", String(this.locked)); $("lock").textContent = `照準アシスト ${this.locked ? "ON" : "OFF"}`; };
     $("sound").onclick = () => { this.audio.unlock(); this.audio.enabled = !this.audio.enabled; $("sound").textContent = `音 ${this.audio.enabled ? "ON" : "OFF"}`; $("sound").setAttribute("aria-pressed", String(this.audio.enabled)); };
     document.addEventListener("visibilitychange", () => { if (document.hidden) this.pause(); });
     window.addEventListener("resize", () => this.resize());
@@ -74,14 +73,6 @@ class Game {
   }
   updateCamera(dt) {
     const p = this.player.root.position;
-    // Assist tracks the monster only while the player is not manually looking around.
-    if (this.locked && !this.input.aim && this.knockTime === 0) {
-      const k = this.kaiju.root.position;
-      const desired = Math.atan2(k.x - p.x, -(k.z - p.z));
-      let diff = T.MathUtils.euclideanModulo(desired - this.input.yaw + Math.PI, Math.PI * 2) - Math.PI;
-      this.input.yaw += diff * Math.min(1, dt * 3);
-      this.input.pitch = T.MathUtils.lerp(this.input.pitch, Math.atan2(11, Math.hypot(k.x - p.x, k.z - p.z) + 8), Math.min(1, dt * 3));
-    }
     const yaw = this.input.yaw, pitch = this.input.pitch;
     this.camTarget.set(p.x - Math.sin(yaw) * 8 + Math.cos(yaw) * .75, 3.1, p.z + Math.cos(yaw) * 8 + Math.sin(yaw) * .75);
     // Shorten the camera boom when a building lies between the soldier and camera.

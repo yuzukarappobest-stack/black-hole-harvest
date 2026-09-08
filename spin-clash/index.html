@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#191e21"><title>SPIN CLASH | コマバトル3D</title>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <main id="app">
+    <div id="hud" hidden>
+      <header class="battleHeader"><span>SPIN CLASH</span><b id="time">30.0</b><button id="pause" class="icon" aria-label="一時停止">Ⅱ</button></header>
+      <section class="gauges"><div class="gauge yours"><div><span id="yourName">YOU</span><b id="yourSpin">100</b></div><i><em id="yourBar"></em></i></div><div class="gauge enemy"><div><span id="enemyName">RIVAL</span><b id="enemySpin">100</b></div><i><em id="enemyBar"></em></i></div></section>
+      <div id="callout" role="status"></div><div id="countdown"></div>
+      <div id="pad" aria-label="移動スティック"><div id="knob"></div></div>
+      <button id="dash"><span>↗</span><b>ダッシュ</b><small id="cooldown">READY</small></button>
+      <span class="bottomLabel">YOUR TOP <i></i></span>
+    </div>
+    <section id="ready" class="ready">
+      <div class="title"><p>3D TOP BATTLE</p><h1>SPIN<span>CLASH</span></h1><div class="subtitle">コマバトル3D</div></div>
+      <div class="setup"><div class="choices" role="group" aria-label="コマを選ぶ"><button data-top="0" class="selected" aria-pressed="true"><i class="cyan"></i><b>ストーム</b><small>バランス</small></button><button data-top="1" aria-pressed="false"><i class="coral"></i><b>ブレイズ</b><small>こうげき</small></button><button data-top="2" aria-pressed="false"><i class="lime"></i><b>バルク</b><small>ぼうぎょ</small></button></div>
+      <p class="help">左で移動・右でダッシュ<br>相手をはじき出すか、回転を止めよう。</p>
+      <button id="launch" class="primary" disabled>準備中…</button><p id="loading" role="status"></p></div>
+    </section>
+    <section id="pauseScreen" class="veil" hidden><div class="dialog"><p class="eyebrow">TIME OUT</p><h2>ひとやすみ</h2><button id="resume" class="primary">つづける</button></div></section>
+    <section id="result" class="veil" hidden><div class="dialog"><p id="resultTag" class="eyebrow">BATTLE COMPLETE</p><h2 id="resultTitle">YOU WIN</h2><p id="reason"></p><div class="score"><strong id="resultTime"></strong><span>秒</span></div><p id="best"></p><div id="summary"></div><button id="retry" class="primary">もう一度バトル</button><button id="choose" class="secondary">コマをえらびなおす</button></div></section>
+    <button id="sound" class="sound" aria-pressed="true">音 ON</button>
+  </main>
+  <script type="module" src="main.js?v=1"></script>
+</body>
+</html>

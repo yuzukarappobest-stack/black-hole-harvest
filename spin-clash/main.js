@@ -1,5 +1,5 @@
 import * as T from './vendor/three.module.js';
-import { TOPS, CONFIG } from './config.js';
+import { TOPS, CONFIG } from './config.js?v=2';
 import { makeArena, makeTop, disposeTop, Sparks } from './visuals.js';
 import { BattlePhysics } from './physics.js';
 import { Input } from './input.js';

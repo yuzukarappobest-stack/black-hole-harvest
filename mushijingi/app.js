@@ -8,6 +8,7 @@
   let uidCounter = 1;
   let state = null;
   let modalResolver = null;
+  let setChoiceResolver = null;
 
   const colorJa = {red:'赤', blue:'青', green:'緑'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
@@ -61,6 +62,21 @@
   function hideCpuNotice(){
     const popup=$('cpuActionPopup');
     if(popup)popup.classList.add('hidden');
+  }
+
+  function askSetChoice(){
+    return new Promise(resolve=>{
+      setChoiceResolver=resolve;
+      const popup=$('setChoicePopup');
+      popup.classList.remove('hidden');
+    });
+  }
+  function closeSetChoice(value){
+    const popup=$('setChoicePopup');
+    if(popup)popup.classList.add('hidden');
+    const r=setChoiceResolver;
+    setChoiceResolver=null;
+    if(r)r(value);
   }
 
   function maxHp(fc){
@@ -240,6 +256,7 @@
   }
   function showStart(){
     hideCpuNotice();
+    closeSetChoice(null);
     state=null; gameScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); closeModal(null);
   }
   async function beginTurn(){
@@ -278,10 +295,7 @@
     const s=state.player;
     if(!s.hand.length){finishSetPhase();return;}
 
-    const decision=await choose([
-      {value:'place',title:'置く',detail:'手札から1枚をエサ場に置く'},
-      {value:'skip',title:'置かない',detail:'このターンはエサを増やさない'}
-    ],'エサを置く？ 置かない？','セットフェイズ');
+    const decision=await askSetChoice();
 
     if(!state || state.over || state.turn!=='player' || state.phase!=='set')return;
     if(decision!=='place'){finishSetPhase();return;}
@@ -590,6 +604,8 @@
   }
   async function confirmChoice(text,title){const v=await choose([{value:true,title:'はい',detail:'場に出す'},{value:false,title:'いいえ',detail:'手札に加える'}],text,title);return !!v;}
 
+  $('setPlaceBtn').addEventListener('click',()=>closeSetChoice('place'));
+  $('setSkipBtn').addEventListener('click',()=>closeSetChoice('skip'));
   document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>startGame(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>{ if(!state||state.over)showStart(); else if(confirm('今の対戦を終了して最初からやり直しますか？'))showStart(); });
 })();

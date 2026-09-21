@@ -274,7 +274,10 @@
     if(state.busy||state.turn!=='player'||state.phase!=='main')return;
     const fc=state.player.field.find(x=>x.inst.uid===uid); if(!fc||!canAttack(fc))return;
     const c=def(fc.inst);
-    const attacks=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
+    let attacks=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
+    if(state.chain?.side==='player' && state.chain.uid===fc.inst.uid && state.chain.kind==='mantisCombo'){
+      attacks=attacks.filter(a=>a.effect==='mantisCombo');
+    }
     const options=attacks.map((a,i)=>({value:i,title:`${a.name} ${Math.max(0,a.power+attackBonus(fc))}`,detail:a.text||'攻撃'}));
     options.push({value:null,title:'やめる',detail:''});
     const idx=await choose(options,'使う技を選んでください。','虫の攻撃');
@@ -305,7 +308,21 @@
     } else if(attack.effect==='flip'){
       target.hidden=true; log(`${sideName(side)}の「すくい投げ」！ 「${def(target.inst).name}」をターン終了まで裏返した。`);
     } else if(attack.effect==='stinkHorn'){
-      target.attackPenaltyTurn=state.turnSeq+1; target.attackPenalty=400; log(`${sideName(side)}の「くさいツノ」！ 次のターン「${def(target.inst).name}」の攻撃力-400。`);
+      target.attackPenaltyTurn=state.turnSeq+1;
+      target.attackPenalty=400;
+      const mult=weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
+      const dmg=base*mult;
+      target.damage+=dmg;
+      log(`${sideName(side)}の「くさいツノ」！ 「${def(target.inst).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。次のターン攻撃力-400。`);
+      if(target.damage>=maxHp(target)){
+        const revenge=hasAttachment(target,'revenge');
+        destroyFieldCard(other(side),target,'attack',fc);
+        if(revenge && sideObj(side).field.includes(fc)){
+          log(`「針金虫の道連れ」で攻撃した「${def(fc.inst).name}」も破壊！`);
+          destroyFieldCard(side,fc,'effect',null);
+        }
+        await takeTerritory(other(side),false);
+      }
     } else {
       const mult=weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
       const dmg=base*mult; target.damage+=dmg;
@@ -322,7 +339,7 @@
     render();
     if(state.over)return true;
     if(!isChainAttack && attack.effect==='mantisCombo' && sideObj(side).field.includes(fc) && opponentHasFieldInsect(side)){
-      state.chain={side,uid:fc.inst.uid};
+      state.chain={side,uid:fc.inst.uid,kind:'mantisCombo'};
       if(side==='cpu'){
         await sleep(300);
         const nextAttack=chooseMantisSecondAttackCPU(fc);
@@ -416,7 +433,7 @@
     if(c.id===79 && fieldActive('player').some(x=>Math.max(...def(x.inst).attacks.map(a=>a.power))>=500))return ats.find(a=>a.effect==='stinkHorn')||ats[0];
     return [...ats].sort((a,b)=>b.power-a.power)[0];
   }
-  function chooseMantisSecondAttackCPU(fc){return chooseAttackCPU(fc);}
+  function chooseMantisSecondAttackCPU(fc){return def(fc.inst).attacks.find(a=>a.effect==='mantisCombo')||null;}
   function chooseAttackTargetCPU(fc,attack,targets){
     const base=Math.max(0,attack.power+attackBonus(fc));
     return [...targets].sort((a,b)=>{

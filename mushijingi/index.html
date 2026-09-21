@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes" />
   <meta name="theme-color" content="#172117" />
   <title>蟲神器 SOLO - スターター対戦</title>
   <link rel="stylesheet" href="./styles.css" />
@@ -46,11 +46,40 @@
             <div class="mini-stats">
               <span>山札 <b id="cpuDeckCount">0</b></span>
               <span>手札 <b id="cpuHandCount">0</b></span>
+              <span>捨て札 <b id="cpuDiscardCount">0</b></span>
               <span>エサ <b id="cpuBaitCount">0</b></span>
             </div>
           </div>
-          <div class="territory-row" id="cpuTerritory"></div>
-          <div class="field-row" id="cpuField"></div>
+
+          <div class="board-lane hand-lane cpu-hand-lane">
+            <div class="lane-title">CPU 手札</div>
+            <div class="hidden-hand-row" id="cpuHandVisual"></div>
+          </div>
+
+          <div class="resource-lane">
+            <div class="pile-zone">
+              <div class="lane-title">山札</div>
+              <div id="cpuDeckVisual" class="pile-visual"></div>
+            </div>
+            <div class="board-lane bait-lane">
+              <div class="lane-title">エサ場</div>
+              <div id="cpuBaitVisual" class="mini-card-row"></div>
+            </div>
+            <div class="pile-zone">
+              <div class="lane-title">捨て札</div>
+              <div id="cpuDiscardVisual" class="pile-visual"></div>
+            </div>
+          </div>
+
+          <div class="board-lane territory-lane">
+            <div class="lane-title">縄張り <span>6枚からスタート</span></div>
+            <div class="territory-row" id="cpuTerritory"></div>
+          </div>
+
+          <div class="board-lane field-lane">
+            <div class="lane-title">場 <span id="cpuFieldCount">0体</span></div>
+            <div class="field-row" id="cpuField"></div>
+          </div>
         </section>
 
         <section class="battle-center panel">
@@ -68,9 +97,32 @@
         </section>
 
         <section class="player-zone self-zone panel">
-          <div class="field-row" id="playerField"></div>
-          <div class="territory-row" id="playerTerritory"></div>
-          <div class="zone-head">
+          <div class="board-lane field-lane">
+            <div class="lane-title">場 <span id="playerFieldCount">0体</span></div>
+            <div class="field-row" id="playerField"></div>
+          </div>
+
+          <div class="board-lane territory-lane">
+            <div class="lane-title">縄張り <span>6枚からスタート</span></div>
+            <div class="territory-row" id="playerTerritory"></div>
+          </div>
+
+          <div class="resource-lane">
+            <div class="pile-zone">
+              <div class="lane-title">山札</div>
+              <div id="playerDeckVisual" class="pile-visual"></div>
+            </div>
+            <div class="board-lane bait-lane">
+              <div class="lane-title">エサ場</div>
+              <div id="playerBaitVisual" class="mini-card-row"></div>
+            </div>
+            <div class="pile-zone">
+              <div class="lane-title">捨て札</div>
+              <div id="playerDiscardVisual" class="pile-visual"></div>
+            </div>
+          </div>
+
+          <div class="zone-head player-zone-head">
             <div><b id="playerDeckName">あなた</b></div>
             <div class="mini-stats">
               <span>山札 <b id="playerDeckCount">0</b></span>
@@ -78,8 +130,11 @@
               <span>エサ <b id="playerBaitCount">0</b></span>
             </div>
           </div>
-          <div class="hand-label">手札 <span id="playerHandCount"></span></div>
-          <div class="hand-row" id="playerHand"></div>
+
+          <div class="board-lane hand-lane player-hand-lane">
+            <div class="lane-title">手札 <span id="playerHandCount"></span></div>
+            <div class="hand-row" id="playerHand"></div>
+          </div>
         </section>
       </section>
     </main>

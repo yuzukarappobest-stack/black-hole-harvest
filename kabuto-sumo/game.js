@@ -7,15 +7,53 @@
   const playerPowerEl = document.getElementById('playerPower');
   const cpuPowerEl = document.getElementById('cpuPower');
   const arena = document.getElementById('arena');
+  const difficultyButtons = [...document.querySelectorAll('.difficulty-button')];
 
+  const DIFFICULTIES = {
+    normal: {
+      label: 'ふつう',
+      cpuBase: 3.0,
+      cpuRandom: 2.6,
+      ramp: 0.022,
+      rampMax: 1.7,
+      firstDelay: 300,
+      nextDelayMin: 190,
+      nextDelayRandom: 150
+    },
+    strong: {
+      label: 'つよい',
+      cpuBase: 3.6,
+      cpuRandom: 2.9,
+      ramp: 0.028,
+      rampMax: 1.8,
+      firstDelay: 250,
+      nextDelayMin: 155,
+      nextDelayRandom: 120
+    },
+    ultra: {
+      label: 'ちょうつよい',
+      cpuBase: 4.4,
+      cpuRandom: 3.1,
+      ramp: 0.035,
+      rampMax: 1.95,
+      firstDelay: 210,
+      nextDelayMin: 120,
+      nextDelayRandom: 100
+    }
+  };
+
+  let difficulty = 'normal';
   let running = false;
+  let matchLocked = false;
   let position = 0;
   let playerPower = 0;
   let cpuPower = 0;
   let cpuTimer = null;
   let countdownTimer = null;
+  let battleStartTimer = null;
   let gameStartedAt = 0;
   let lastPlayerTap = 0;
+
   const WIN_DISTANCE = 132;
 
   function setStatus(text) {
@@ -26,6 +64,22 @@
     pair.style.setProperty('--offset', position + 'px');
     playerPowerEl.textContent = playerPower;
     cpuPowerEl.textContent = cpuPower;
+  }
+
+  function setDifficulty(key) {
+    if (matchLocked || !DIFFICULTIES[key]) return;
+    difficulty = key;
+    difficultyButtons.forEach((button) => {
+      button.classList.toggle('is-active', button.dataset.difficulty === key);
+    });
+    setStatus('スタートを押してね');
+  }
+
+  function lockDifficulty(locked) {
+    matchLocked = locked;
+    difficultyButtons.forEach((button) => {
+      button.disabled = locked;
+    });
   }
 
   function flashImpact() {
@@ -55,10 +109,12 @@
   }
 
   function stopTimers() {
-    clearInterval(cpuTimer);
+    clearTimeout(cpuTimer);
     clearInterval(countdownTimer);
+    clearTimeout(battleStartTimer);
     cpuTimer = null;
     countdownTimer = null;
+    battleStartTimer = null;
   }
 
   function finish(playerWon) {
@@ -66,8 +122,10 @@
     running = false;
     tapButton.disabled = true;
     stopTimers();
+
     position = playerWon ? WIN_DISTANCE + 26 : -WIN_DISTANCE - 26;
     render();
+
     arena.classList.add('shake');
     setTimeout(() => arena.classList.remove('shake'), 250);
 
@@ -79,8 +137,10 @@
       setStatus('💥 押し出された！ CPUの勝ち');
       sound(120, .12, .05);
     }
+
     startButton.textContent = 'もう一度！';
     startButton.disabled = false;
+    lockDifficulty(false);
   }
 
   function checkWin() {
@@ -90,25 +150,31 @@
 
   function playerTap() {
     if (!running) return;
+
     const now = performance.now();
     const dt = Math.max(45, now - lastPlayerTap);
     lastPlayerTap = now;
 
     const rapidBonus = dt < 135 ? 1.25 : dt < 210 ? 1.1 : 1;
     const push = (4.4 + Math.random() * 1.8) * rapidBonus;
+
     position += push;
     playerPower++;
     flashImpact();
     sound(180 + Math.min(playerPower, 25) * 4, .03, .025);
+
     render();
     checkWin();
   }
 
   function cpuPush() {
     if (!running) return;
+
+    const level = DIFFICULTIES[difficulty];
     const elapsed = (performance.now() - gameStartedAt) / 1000;
-    const difficultyRamp = Math.min(1.7, 1 + elapsed * 0.022);
-    const push = (3.0 + Math.random() * 2.6) * difficultyRamp;
+    const difficultyRamp = Math.min(level.rampMax, 1 + elapsed * level.ramp);
+    const push = (level.cpuBase + Math.random() * level.cpuRandom) * difficultyRamp;
+
     position -= push;
     cpuPower++;
     flashImpact();
@@ -117,13 +183,17 @@
   }
 
   function startCpu() {
+    const level = DIFFICULTIES[difficulty];
+
     const schedule = () => {
       if (!running) return;
       cpuPush();
-      const next = 190 + Math.random() * 150;
+
+      const next = level.nextDelayMin + Math.random() * level.nextDelayRandom;
       cpuTimer = setTimeout(schedule, next);
     };
-    cpuTimer = setTimeout(schedule, 300);
+
+    cpuTimer = setTimeout(schedule, level.firstDelay);
   }
 
   function beginBattle() {
@@ -133,43 +203,53 @@
     startButton.textContent = '勝負中！';
     gameStartedAt = performance.now();
     lastPlayerTap = 0;
+
     setStatus('押せ！ 押せ！ 押せ！');
     startCpu();
   }
 
   function startGame() {
     stopTimers();
+    lockDifficulty(true);
+
     running = false;
     position = 0;
     playerPower = 0;
     cpuPower = 0;
     render();
+
     tapButton.disabled = true;
     startButton.disabled = true;
 
     let count = 3;
-    setStatus(String(count));
+    setStatus(count + '　' + DIFFICULTIES[difficulty].label);
     sound(330, .05, .03);
 
     countdownTimer = setInterval(() => {
       count--;
+
       if (count > 0) {
-        setStatus(String(count));
+        setStatus(count + '　' + DIFFICULTIES[difficulty].label);
         sound(330, .05, .03);
       } else {
         clearInterval(countdownTimer);
         countdownTimer = null;
         setStatus('はっけよい！');
         sound(650, .08, .04);
-        setTimeout(beginBattle, 350);
+        battleStartTimer = setTimeout(beginBattle, 350);
       }
     }, 650);
   }
 
   startButton.addEventListener('click', startGame);
+
   tapButton.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     playerTap();
+  });
+
+  difficultyButtons.forEach((button) => {
+    button.addEventListener('click', () => setDifficulty(button.dataset.difficulty));
   });
 
   document.addEventListener('keydown', (event) => {
@@ -181,4 +261,5 @@
   }, { passive: false });
 
   render();
+  setDifficulty('normal');
 })();

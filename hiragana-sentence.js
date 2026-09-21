@@ -187,7 +187,7 @@ function renderChoices(choices) {
 
 function showComplete() {
   issueRewardToken();
-  completePanel.classList.remove("hidden");
+  window.location.replace("game-menu.html");
 }
 
 function buildBalancedChoices(question) {

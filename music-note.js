@@ -21,7 +21,7 @@ const REWARDS = [
   ["frog-jump", "カエルジャンプ", "frog-jump.html"],
   ["fruit-rush", "フルーツラッシュ", "fruit-rush/"],
   ["space-blaster", "スペースブラスター", "space-blaster/"],
-  ["kaiju-defense", "かいじゅうぼうえいせん", "kaiju-defense/"],
+  ["kabuto-sumo", "カブトムシ相撲", "kabuto-sumo/"], ["kaiju-defense", "かいじゅうぼうえいせん", "kaiju-defense/"],
 ];
 
 const NOTES = [

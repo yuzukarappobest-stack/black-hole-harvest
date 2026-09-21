@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#172117" />
+  <title>蟲神器 SOLO - スターター対戦</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div>
+        <h1>蟲神器 SOLO</h1>
+        <p>スターターセット・テキスト対戦版</p>
+      </div>
+      <button id="newGameBtn" class="ghost-btn">最初から</button>
+    </header>
+
+    <main>
+      <section id="startScreen" class="start-screen panel">
+        <h2>使うデッキを選んでね</h2>
+        <p>相手はもう一方のスターターデッキをCPUが使います。</p>
+        <div class="deck-choices">
+          <button class="deck-choice kabuto" data-deck="kabuto">
+            <span class="deck-icon">🪲</span>
+            <strong>カブトムシデッキ</strong>
+            <small>守りながら、すくい投げで道をあける</small>
+          </button>
+          <button class="deck-choice mantis" data-deck="mantis">
+            <span class="deck-icon">🦗</span>
+            <strong>オオカマキリデッキ</strong>
+            <small>強い攻撃とカマ連撃で押し切る</small>
+          </button>
+        </div>
+        <div class="rules-note">
+          <b>この版について</b>
+          <span>カード画像は使わず、スターター2デッキのカード内容をテキストで再現しています。</span>
+        </div>
+      </section>
+
+      <section id="gameScreen" class="game-screen hidden">
+        <section class="player-zone opponent-zone panel">
+          <div class="zone-head">
+            <div><b id="cpuDeckName">CPU</b><span class="cpu-badge">CPU</span></div>
+            <div class="mini-stats">
+              <span>山札 <b id="cpuDeckCount">0</b></span>
+              <span>手札 <b id="cpuHandCount">0</b></span>
+              <span>エサ <b id="cpuBaitCount">0</b></span>
+            </div>
+          </div>
+          <div class="territory-row" id="cpuTerritory"></div>
+          <div class="field-row" id="cpuField"></div>
+        </section>
+
+        <section class="battle-center panel">
+          <div class="turn-strip">
+            <span id="turnLabel">準備中</span>
+            <span id="phaseLabel"></span>
+            <span id="costLabel"></span>
+          </div>
+          <div id="messageBox" class="message-box">デッキを準備しています。</div>
+          <div id="actionBar" class="action-bar"></div>
+          <details class="log-box">
+            <summary>対戦ログ</summary>
+            <div id="gameLog"></div>
+          </details>
+        </section>
+
+        <section class="player-zone self-zone panel">
+          <div class="field-row" id="playerField"></div>
+          <div class="territory-row" id="playerTerritory"></div>
+          <div class="zone-head">
+            <div><b id="playerDeckName">あなた</b></div>
+            <div class="mini-stats">
+              <span>山札 <b id="playerDeckCount">0</b></span>
+              <span>捨て札 <b id="playerDiscardCount">0</b></span>
+              <span>エサ <b id="playerBaitCount">0</b></span>
+            </div>
+          </div>
+          <div class="hand-label">手札 <span id="playerHandCount"></span></div>
+          <div class="hand-row" id="playerHand"></div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
+    <div class="modal-card">
+      <h3 id="modalTitle">選んでください</h3>
+      <p id="modalText"></p>
+      <div id="modalOptions" class="modal-options"></div>
+    </div>
+  </div>
+
+  <script src="./cards.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>

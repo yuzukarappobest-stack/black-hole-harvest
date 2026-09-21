@@ -1,4 +1,32 @@
 (() => {
+  const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
+  const GAME_ID = "kabuto-sumo";
+
+  function getLearningUrl() {
+    const saved = sessionStorage.getItem("miniGameReturnUrl");
+    if (!saved) return "../learn.html";
+    if (/^(?:[a-z]+:|\/)/i.test(saved)) return saved;
+    return "../" + saved.replace(/^\.\//, "");
+  }
+
+  function requireMiniGameAccess() {
+    const key = MINI_GAME_ACCESS_PREFIX + GAME_ID;
+    if (sessionStorage.getItem(key) === "1") {
+      sessionStorage.removeItem(key);
+      return true;
+    }
+    window.location.replace(getLearningUrl());
+    return false;
+  }
+
+  if (!requireMiniGameAccess()) return;
+
+  window.addEventListener("pageshow", (event) => {
+    if (event.persisted) {
+      window.location.replace(getLearningUrl());
+    }
+  });
+
   const startButton = document.getElementById('startButton');
   const tapButton = document.getElementById('tapButton');
   const pair = document.getElementById('beetlePair');
@@ -138,9 +166,10 @@
       sound(120, .12, .05);
     }
 
-    startButton.textContent = 'もう一度！';
+    startButton.textContent = 'がくしゅうへ';
     startButton.disabled = false;
-    lockDifficulty(false);
+    startButton.dataset.action = 'return';
+    lockDifficulty(true);
   }
 
   function checkWin() {
@@ -209,6 +238,11 @@
   }
 
   function startGame() {
+    if (startButton.dataset.action === 'return') {
+      window.location.replace(getLearningUrl());
+      return;
+    }
+
     stopTimers();
     lockDifficulty(true);
 
@@ -260,6 +294,7 @@
     }
   }, { passive: false });
 
+  startButton.dataset.action = 'play';
   render();
   setDifficulty('normal');
 })();

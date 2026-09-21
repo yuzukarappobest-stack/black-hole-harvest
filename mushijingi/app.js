@@ -84,8 +84,12 @@
     $('playerBaitCount').textContent=p.bait.length;
     $('cpuBaitCount').textContent=c.bait.length;
     $('playerDiscardCount').textContent=p.discard.length;
+    $('cpuDiscardCount').textContent=c.discard.length;
+    $('playerFieldCount').textContent=`${fieldActive('player').length}体`;
+    $('cpuFieldCount').textContent=`${fieldActive('cpu').length}体`;
     renderTerritory('player'); renderTerritory('cpu');
     renderField('player'); renderField('cpu');
+    renderAuxZones();
     renderHand();
     $('turnLabel').textContent = state.over ? '対戦終了' : `${state.turn==='player'?'あなた':'CPU'}のターン`;
     $('phaseLabel').textContent = state.over ? '' : phaseName(state.phase);
@@ -106,6 +110,39 @@
     if(!arr.length){const e=document.createElement('div');e.className='field-empty';e.textContent='場に虫はいません';el.appendChild(e);return;}
     arr.forEach(fc=>el.appendChild(cardElement(fc.inst,{field:fc,side})));
   }
+  function cardBack(){
+    const d=document.createElement('div'); d.className='card-back'; return d;
+  }
+  function emptyZone(text){
+    const d=document.createElement('div'); d.className='empty-zone'; d.textContent=text; return d;
+  }
+  function renderPile(id,items,faceUp){
+    const el=$(id); el.innerHTML='';
+    if(!items.length){el.appendChild(emptyZone('0枚'));return;}
+    if(faceUp) el.appendChild(cardElement(items[items.length-1],{mini:true}));
+    else el.appendChild(cardBack());
+    const n=document.createElement('span');n.className='pile-count';n.textContent=items.length;el.appendChild(n);
+  }
+  function renderBait(side){
+    const el=$(side==='player'?'playerBaitVisual':'cpuBaitVisual');el.innerHTML='';
+    const items=sideObj(side).bait;
+    if(!items.length){el.appendChild(emptyZone('まだありません'));return;}
+    items.forEach(inst=>el.appendChild(cardElement(inst,{mini:true})));
+  }
+  function renderCpuHand(){
+    const el=$('cpuHandVisual');el.innerHTML='';
+    const n=state.cpu.hand.length;
+    if(!n){el.appendChild(emptyZone('0枚'));return;}
+    for(let i=0;i<Math.min(n,10);i++)el.appendChild(cardBack());
+    if(n>10){const more=document.createElement('span');more.className='empty-zone';more.textContent=`+${n-10}`;el.appendChild(more);}
+  }
+  function renderAuxZones(){
+    renderPile('playerDeckVisual',state.player.deck,false);
+    renderPile('cpuDeckVisual',state.cpu.deck,false);
+    renderPile('playerDiscardVisual',state.player.discard,true);
+    renderPile('cpuDiscardVisual',state.cpu.discard,true);
+    renderBait('player');renderBait('cpu');renderCpuHand();
+  }
   function renderHand(){
     const el=$('playerHand'); el.innerHTML='';
     state.player.hand.forEach(inst=>{
@@ -118,7 +155,7 @@
   function cardElement(inst,opt={}){
     const c=def(inst); const fc=opt.field;
     const el=document.createElement('div');
-    el.className=`game-card ${c.type==='insect'?c.color:'special'} ${opt.playable?'playable':''} ${fc?.attacked?'used':''} ${fc?.hidden?'hidden-insect':''}`;
+    el.className=`game-card ${c.type==='insect'?c.color:'special'} ${opt.playable?'playable':''} ${fc?.attacked?'used':''} ${fc?.hidden?'hidden-insect':''} ${opt.mini?'mini-card':''}`;
     if(fc?.hidden){ el.innerHTML='<div class="card-name">裏向きの虫</div><div class="card-effect">ターン終了まで「場にいない」扱い</div>'; return el; }
     const meta=c.type==='insect' ? `<span>${colorJa[fc?effectiveColor(fc):c.color]}</span><span>HP ${fc?Math.max(0,maxHp(fc)-fc.damage):c.hp}/${fc?maxHp(fc):c.hp}</span>` : `<span>${cardTypeLabel(c)}</span>`;
     let body='';

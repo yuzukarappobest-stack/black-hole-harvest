@@ -8,7 +8,6 @@
   let uidCounter = 1;
   let state = null;
   let modalResolver = null;
-  let setChoiceResolver = null;
 
   const colorJa = {red:'赤', blue:'青', green:'緑'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
@@ -64,20 +63,6 @@
     if(popup)popup.classList.add('hidden');
   }
 
-  function askSetChoice(){
-    return new Promise(resolve=>{
-      setChoiceResolver=resolve;
-      const popup=$('setChoicePopup');
-      popup.classList.remove('hidden');
-    });
-  }
-  function closeSetChoice(value){
-    const popup=$('setChoicePopup');
-    if(popup)popup.classList.add('hidden');
-    const r=setChoiceResolver;
-    setChoiceResolver=null;
-    if(r)r(value);
-  }
 
   function maxHp(fc){
     let hp=def(fc.inst).hp;
@@ -218,7 +203,10 @@
       const b=btn('もう一度遊ぶ','action-btn',()=>showStart());bar.appendChild(b);return;
     }
     if(state.turn!=='player')return;
-    if(state.phase==='set') return;
+    if(state.phase==='set'){
+      bar.appendChild(btn('エサを置かない','action-btn secondary',()=>finishSetPhase()));
+      return;
+    }
     if(state.phase==='main'){
       if(state.chain?.side==='player') bar.appendChild(btn('連撃をやめる','action-btn secondary',()=>{state.chain=null;message('連撃を終了しました。');render();}));
       else bar.appendChild(btn('ターン終了','action-btn',()=>endTurn()));
@@ -229,7 +217,7 @@
   function canUseHandCard(side,inst){
     if(state.turn!==side || state.over) return false;
     const s=sideObj(side),c=def(inst);
-    if(state.phase==='set') return false;
+    if(state.phase==='set') return !s.setDone;
     if(state.phase!=='main' || state.chain) return false;
     if(c.cost>s.cost)return false;
     if(c.type==='insect') return true;
@@ -256,7 +244,6 @@
   }
   function showStart(){
     hideCpuNotice();
-    closeSetChoice(null);
     state=null; gameScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); closeModal(null);
   }
   async function beginTurn(){
@@ -273,12 +260,7 @@
     } else log('先攻1ターン目なのでドローはありません。');
     render();
     if(side==='cpu'){state.phase='cpu';render();await sleep(450);await cpuTurn();}
-    else {
-      state.phase='set';
-      message('セットフェイズ：エサを置くか選んでください。');
-      render();
-      await promptSetPhase();
-    }
+    else {state.phase='set';message('セットフェイズ：手札からエサを1枚置くか、「エサを置かない」を選んでください。');render();}
   }
   function resolveDeckOut(side){
     const p=state.player.territory.length,c=state.cpu.territory.length;
@@ -287,39 +269,11 @@
   }
   async function onHandCard(uid){
     if(state.busy)return; const s=state.player; const inst=s.hand.find(x=>x.uid===uid); if(!inst)return;
-    if(state.phase==='main' && canUseHandCard('player',inst)) await playCardFromHand('player',inst);
-  }
-
-  async function promptSetPhase(){
-    if(!state || state.over || state.turn!=='player' || state.phase!=='set')return;
-    const s=state.player;
-    if(!s.hand.length){finishSetPhase();return;}
-
-    const decision=await askSetChoice();
-
-    if(!state || state.over || state.turn!=='player' || state.phase!=='set')return;
-    if(decision!=='place'){finishSetPhase();return;}
-
-    const inst=await chooseBaitCard(s.hand);
-    if(!inst){
-      await promptSetPhase();
-      return;
+    if(state.phase==='set'){
+      s.hand=s.hand.filter(x=>x.uid!==uid); s.bait.push(inst); s.setDone=true;
+      log(`あなたは「${def(inst).name}」をエサにしました。`); finishSetPhase(); return;
     }
-    s.hand=s.hand.filter(x=>x.uid!==inst.uid);
-    s.bait.push(inst);
-    s.setDone=true;
-    log(`あなたは「${def(inst).name}」をエサにしました。`);
-    finishSetPhase();
-  }
-
-  function chooseBaitCard(instances){
-    const opts=instances.map(i=>{
-      const c=def(i);
-      return {value:i.uid,title:c.name,detail:`${cardTypeLabel(c)} / コスト ${c.cost}`};
-    });
-    opts.push({value:null,title:'戻る',detail:'「置く／置かない」の選択に戻る'});
-    return choose(opts,'エサ場に置くカードを選んでください。','エサを選択')
-      .then(uid=>instances.find(i=>i.uid===uid)||null);
+    if(state.phase==='main' && canUseHandCard('player',inst)) await playCardFromHand('player',inst);
   }
 
   function finishSetPhase(){
@@ -604,8 +558,6 @@
   }
   async function confirmChoice(text,title){const v=await choose([{value:true,title:'はい',detail:'場に出す'},{value:false,title:'いいえ',detail:'手札に加える'}],text,title);return !!v;}
 
-  $('setPlaceBtn').addEventListener('click',()=>closeSetChoice('place'));
-  $('setSkipBtn').addEventListener('click',()=>closeSetChoice('skip'));
   document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>startGame(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>{ if(!state||state.over)showStart(); else if(confirm('今の対戦を終了して最初からやり直しますか？'))showStart(); });
 })();

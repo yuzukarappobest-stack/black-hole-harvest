@@ -402,6 +402,11 @@
           log(`「針金虫の道連れ」で攻撃した「${def(fc.inst).name}」も破壊！`);
           destroyFieldCard(side,fc,'effect',null);
         }
+        if(side==='cpu'){
+          render();
+          await cpuNotice(cpuAttackSummary + ' → 破壊');
+          cpuAttackSummary='';
+        }
         await takeTerritory(other(side),false);
       }
     } else {
@@ -415,6 +420,11 @@
         destroyFieldCard(other(side),target,'attack',fc);
         if(revenge && sideObj(side).field.includes(fc)){
           log(`「針金虫の道連れ」で攻撃した「${def(fc.inst).name}」も破壊！`); destroyFieldCard(side,fc,'effect',null);
+        }
+        if(side==='cpu'){
+          render();
+          await cpuNotice(cpuAttackSummary + ' → 破壊');
+          cpuAttackSummary='';
         }
         await takeTerritory(other(side),false);
       }

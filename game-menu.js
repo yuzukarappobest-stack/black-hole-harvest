@@ -20,6 +20,7 @@
     { id: "fruit-rush", label: "フルーツラッシュ", sub: "フルーツであそぼう", icon: "🍓", href: "fruit-rush/", soft: "#fff0e8" },
     { id: "space-blaster", label: "スペースブラスター", sub: "うちゅうバトル！", icon: "🚀", href: "space-blaster/", soft: "#e9edff" },
     { id: "kabuto-sumo", label: "カブトムシ相撲", sub: "連打で押し出せ！", icon: "🪲", href: "kabuto-sumo/", soft: "#f5eadb" },
+    { id: "mushijingi-reward", label: "蟲神器", sub: "スターターデッキでCPU対戦", icon: "🃏", href: "mushijingi-reward/", soft: "#edf3df" },
     { id: "kaiju-defense", label: "かいじゅうぼうえいせん", sub: "まちをまもれ！", icon: "🦖", href: "kaiju-defense/", soft: "#e8f4df" }
   ];
 

@@ -376,6 +376,11 @@
     if(!target){
       log(`${sideName(side)}の「${def(fc.inst).name}」が${attack.name}で直接攻撃！`);
       cpuAttackSummary=`「${def(fc.inst).name}」の「${attack.name}」で直接攻撃`;
+      if(side==='cpu'){
+        render();
+        await cpuNotice(cpuAttackSummary);
+        cpuAttackSummary='';
+      }
       await takeTerritory(other(side),true);
     } else if(attack.effect==='flip'){
       target.hidden=true; log(`${sideName(side)}の「すくい投げ」！ 「${def(target.inst).name}」をターン終了まで裏返した。`);

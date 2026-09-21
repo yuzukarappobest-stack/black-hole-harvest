@@ -232,16 +232,25 @@
     return !fc.attacked;
   }
 
-  async function startGame(deckKey){
+  async function startGame(deckKey, firstSide){
     const cpuKey=deckKey==='kabuto'?'mantis':'kabuto';
     uidCounter=1;
-    state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:Math.random()<.5?'player':'cpu',turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false};
+    state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
     log(`対戦開始！ あなたは「${state.player.deckName}」を使用。`);
     log(`${state.turn==='player'?'あなた':'CPU'}が先攻です。`);
     render();
     await beginTurn();
   }
+  async function chooseTurnOrder(deckKey){
+    const firstSide=await choose([
+      {value:'player',title:'先攻',detail:'あなたから開始。先攻1ターン目はドローなし'},
+      {value:'cpu',title:'後攻',detail:'CPUが先攻。あなたは後攻で開始'}
+    ],'先攻・後攻を選んでください。','ターン順');
+    if(!firstSide)return;
+    await startGame(deckKey,firstSide);
+  }
+
   function showStart(){
     hideCpuNotice();
     state=null; gameScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); closeModal(null);
@@ -568,6 +577,6 @@
   }
   async function confirmChoice(text,title){const v=await choose([{value:true,title:'はい',detail:'場に出す'},{value:false,title:'いいえ',detail:'手札に加える'}],text,title);return !!v;}
 
-  document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>startGame(b.dataset.deck)));
+  document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>chooseTurnOrder(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>{ if(!state||state.over)showStart(); else if(confirm('今の対戦を終了して最初からやり直しますか？'))showStart(); });
 })();

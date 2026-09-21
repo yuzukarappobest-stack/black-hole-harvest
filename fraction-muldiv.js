@@ -234,7 +234,7 @@ function showFeedback(text, type) {
 
 function showComplete() {
   issueRewardToken();
-  completePanel.classList.remove("hidden");
+  window.location.replace("game-menu.html");
 }
 
 function grantMiniGameAccess(gameId) {

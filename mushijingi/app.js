@@ -202,10 +202,7 @@
       const b=btn('もう一度遊ぶ','action-btn',()=>showStart());bar.appendChild(b);return;
     }
     if(state.turn!=='player')return;
-    if(state.phase==='set'){
-      bar.appendChild(btn('エサを置かない','action-btn secondary',()=>finishSetPhase()));
-      return;
-    }
+    if(state.phase==='set') return;
     if(state.phase==='main'){
       if(state.chain?.side==='player') bar.appendChild(btn('連撃をやめる','action-btn secondary',()=>{state.chain=null;message('連撃を終了しました。');render();}));
       else bar.appendChild(btn('ターン終了','action-btn',()=>endTurn()));
@@ -216,7 +213,7 @@
   function canUseHandCard(side,inst){
     if(state.turn!==side || state.over) return false;
     const s=sideObj(side),c=def(inst);
-    if(state.phase==='set') return !s.setDone;
+    if(state.phase==='set') return false;
     if(state.phase!=='main' || state.chain) return false;
     if(c.cost>s.cost)return false;
     if(c.type==='insect') return true;
@@ -259,7 +256,12 @@
     } else log('先攻1ターン目なのでドローはありません。');
     render();
     if(side==='cpu'){state.phase='cpu';render();await sleep(450);await cpuTurn();}
-    else {state.phase='set';message('セットフェイズ：手札からエサを1枚置くか、「エサを置かない」を選んでください。');render();}
+    else {
+      state.phase='set';
+      message('セットフェイズ：エサを置くか選んでください。');
+      render();
+      await promptSetPhase();
+    }
   }
   function resolveDeckOut(side){
     const p=state.player.territory.length,c=state.cpu.territory.length;
@@ -268,12 +270,44 @@
   }
   async function onHandCard(uid){
     if(state.busy)return; const s=state.player; const inst=s.hand.find(x=>x.uid===uid); if(!inst)return;
-    if(state.phase==='set'){
-      s.hand=s.hand.filter(x=>x.uid!==uid); s.bait.push(inst); s.setDone=true;
-      log(`あなたは「${def(inst).name}」をエサにしました。`); finishSetPhase(); return;
-    }
     if(state.phase==='main' && canUseHandCard('player',inst)) await playCardFromHand('player',inst);
   }
+
+  async function promptSetPhase(){
+    if(!state || state.over || state.turn!=='player' || state.phase!=='set')return;
+    const s=state.player;
+    if(!s.hand.length){finishSetPhase();return;}
+
+    const decision=await choose([
+      {value:'place',title:'置く',detail:'手札から1枚をエサ場に置く'},
+      {value:'skip',title:'置かない',detail:'このターンはエサを増やさない'}
+    ],'エサを置く？ 置かない？','セットフェイズ');
+
+    if(!state || state.over || state.turn!=='player' || state.phase!=='set')return;
+    if(decision!=='place'){finishSetPhase();return;}
+
+    const inst=await chooseBaitCard(s.hand);
+    if(!inst){
+      await promptSetPhase();
+      return;
+    }
+    s.hand=s.hand.filter(x=>x.uid!==inst.uid);
+    s.bait.push(inst);
+    s.setDone=true;
+    log(`あなたは「${def(inst).name}」をエサにしました。`);
+    finishSetPhase();
+  }
+
+  function chooseBaitCard(instances){
+    const opts=instances.map(i=>{
+      const c=def(i);
+      return {value:i.uid,title:c.name,detail:`${cardTypeLabel(c)} / コスト ${c.cost}`};
+    });
+    opts.push({value:null,title:'戻る',detail:'「置く／置かない」の選択に戻る'});
+    return choose(opts,'エサ場に置くカードを選んでください。','エサを選択')
+      .then(uid=>instances.find(i=>i.uid===uid)||null);
+  }
+
   function finishSetPhase(){
     if(state.turn!=='player'||state.phase!=='set')return;
     const s=state.player; s.setDone=true; s.cost=s.bait.length; state.phase='main';

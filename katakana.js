@@ -23,6 +23,7 @@ const FROG_JUMP_GAME_ID = "frog-jump";
 const FRUIT_RUSH_GAME_ID = "fruit-rush";
 const SPACE_BLASTER_GAME_ID = "space-blaster";
 const KAIJU_DEFENSE_GAME_ID = "kaiju-defense";
+const KABUTO_SUMO_GAME_ID = "kabuto-sumo";
 
 function toKatakana(text) {
   return text.replace(/[\u3041-\u3096]/g, (char) => String.fromCharCode(char.charCodeAt(0) + 0x60));
@@ -247,6 +248,12 @@ const playFrogJumpButton = document.getElementById("playFrogJumpButton");
 const playFruitRushButton = document.getElementById("playFruitRushButton");
 const playSpaceBlasterButton = document.getElementById("playSpaceBlasterButton");
 const playKaijuDefenseButton = document.getElementById("playKaijuDefenseButton");
+const playKabutoSumoButton = document.getElementById("playKabutoSumoButton");
+playKabutoSumoButton.addEventListener("click", () => {
+  if (grantMiniGameAccess(KABUTO_SUMO_GAME_ID)) {
+    window.location.replace("kabuto-sumo/");
+  }
+});
 const stayButton = document.getElementById("stayButton");
 const heardBox = document.getElementById("heardBox");
 const heardText = document.getElementById("heardText");

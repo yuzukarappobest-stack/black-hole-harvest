@@ -100,3 +100,12 @@ button{font:inherit}.hidden{display:none!important}
   .set-choice-title{font-size:16px}
   .set-choice-btn{padding:7px 12px}
 }
+
+.result-popup{position:fixed;inset:0;z-index:80;display:grid;place-items:center;padding:20px;background:#000b}
+.result-card{width:min(560px,90vw);text-align:center;background:#152019;border:3px solid #e0c45f;border-radius:24px;padding:30px 24px 24px;box-shadow:0 24px 80px #000d}
+.result-title{font-size:clamp(48px,12vw,96px);line-height:1;font-weight:1000;letter-spacing:.04em;margin-bottom:18px}
+.result-popup.win .result-title{color:#ffe16d;text-shadow:0 4px 18px #b18400}
+.result-popup.lose .result-title{color:#ff8a7d;text-shadow:0 4px 18px #7a1e18}
+.result-popup.draw .result-title{color:#b8d7ff;text-shadow:0 4px 18px #214f80}
+.result-text{font-size:clamp(14px,3vw,20px);line-height:1.5;color:#e9eee8;margin-bottom:24px}
+.result-restart-btn{border:0;border-radius:12px;padding:12px 22px;background:#e1c45c;color:#17170f;font-weight:900;font-size:16px}

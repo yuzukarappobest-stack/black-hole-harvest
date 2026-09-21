@@ -28,6 +28,7 @@
 - `fruit-rush/`: Fruit Rush（開発用の単独3Dミニゲーム）
 - `tetris.html`: テトリス
 - `tetris-drag.html`: テトリス ドラッグベータ
+- `mushijingi/`: 蟲神器 SOLO（スターター2デッキ・テキストCPU対戦版）
 
 ## 遊び方
 
@@ -85,5 +86,6 @@ python3 -m http.server 8000
 - Fruit Rush（開発用）: https://yuzukarappobest-stack.github.io/black-hole-harvest/fruit-rush/
 - テトリス: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris.html
 - テトリス ドラッグベータ: https://yuzukarappobest-stack.github.io/black-hole-harvest/tetris-drag.html
+- 蟲神器 SOLO: https://yuzukarappobest-stack.github.io/black-hole-harvest/mushijingi/
 
 静的ファイルだけで動くため、GitHub Pages の Source を `Deploy from a branch`、Branch を `main`、Folder を `/root` に設定すると公開できます。

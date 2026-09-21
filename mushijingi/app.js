@@ -253,6 +253,7 @@
 
   function showStart(){
     hideCpuNotice();
+    hideResultPopup();
     state=null; gameScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); closeModal(null);
   }
   async function beginTurn(){
@@ -556,7 +557,25 @@
   }
 
   function sideName(side){return side==='player'?'あなた':'CPU';}
-  function finishGame(winner,text){state.over=true;state.winner=winner;state.chain=null;state.phase='';message(text);log(text);render();}
+  function hideResultPopup(){
+    const p=$('resultPopup');
+    if(p){p.classList.add('hidden');p.classList.remove('win','lose','draw');}
+  }
+  function showResultPopup(winner,text){
+    const p=$('resultPopup');
+    const title=$('resultTitle');
+    const detail=$('resultText');
+    if(!p||!title||!detail)return;
+    p.classList.remove('hidden','win','lose','draw');
+    if(winner==='player'){p.classList.add('win');title.textContent='勝ち！';}
+    else if(winner==='cpu'){p.classList.add('lose');title.textContent='負け…';}
+    else{p.classList.add('draw');title.textContent='引き分け';}
+    detail.textContent=text;
+  }
+  function finishGame(winner,text){
+    state.over=true;state.winner=winner;state.chain=null;state.phase='';
+    message(text);log(text);render();showResultPopup(winner,text);
+  }
 
   function choose(options,text,title='選択'){
     return new Promise(resolve=>{
@@ -577,6 +596,7 @@
   }
   async function confirmChoice(text,title){const v=await choose([{value:true,title:'はい',detail:'場に出す'},{value:false,title:'いいえ',detail:'手札に加える'}],text,title);return !!v;}
 
+  $('resultRestartBtn').addEventListener('click',()=>showStart());
   document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>chooseTurnOrder(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>{ if(!state||state.over)showStart(); else if(confirm('今の対戦を終了して最初からやり直しますか？'))showStart(); });
 })();

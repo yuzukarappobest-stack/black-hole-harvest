@@ -65,7 +65,7 @@
 
   function createRuntimeState(){
     return {
-      overrides:{name:null,color:null,hp:null,attacks:null,effectText:null,passive:null},
+      overrides:{},
       modifiers:[]
     };
   }
@@ -92,14 +92,15 @@
   function currentCardDefinition(base,fieldState){
     if(!fieldState?.runtime?.overrides) return base;
     const o=fieldState.runtime.overrides;
+    const pick=(key,fallback)=>Object.prototype.hasOwnProperty.call(o,key)?o[key]:fallback;
     return {
       ...base,
-      name:o.name ?? base.name,
-      color:o.color ?? base.color,
-      hp:o.hp ?? base.hp,
-      attacks:o.attacks ?? base.attacks,
-      effectText:o.effectText ?? base.effectText,
-      passive:o.passive ?? base.passive
+      name:pick('name',base.name),
+      color:pick('color',base.color),
+      hp:pick('hp',base.hp),
+      attacks:pick('attacks',base.attacks),
+      effectText:pick('effectText',base.effectText),
+      passive:pick('passive',base.passive)
     };
   }
 
@@ -110,7 +111,7 @@
 
   function clearCardOverrides(fieldState){
     if(!fieldState.runtime) fieldState.runtime=createRuntimeState();
-    fieldState.runtime.overrides={name:null,color:null,hp:null,attacks:null,effectText:null,passive:null};
+    fieldState.runtime.overrides={};
   }
 
   let modifierCounter=1;

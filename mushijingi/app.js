@@ -40,7 +40,7 @@
   function newFieldCard(inst){
     const c=def(inst);
     return Engine.createFieldState(inst,{
-      mimicTurn:c.passive?.type==='mimic'?state.turnSeq+1:0,
+      mimicTurn:['mimic','thornMimic'].includes(c.passive?.type)?state.turnSeq+1:0,
       persistentDamage:0,
       temporaryDestroyTurn:0,
       cannotAttackTurn:0,
@@ -596,6 +596,47 @@
       return;
     }
 
+    if(p.type==='whiteShell'){
+      fc.whiteShellTurn=state.turnSeq+1;
+      return;
+    }
+
+    if(p.type==='baitColor'){
+      const available=sideObj(side).bait.filter(isFaceUpBait);
+      if(!available.length)return;
+      let col=null;
+      if(side==='player'){
+        col=await choose([
+          {value:'red',title:'赤',detail:'表向きのエサを赤として扱う'},
+          {value:'blue',title:'青',detail:'表向きのエサを青として扱う'},
+          {value:'green',title:'緑',detail:'表向きのエサを緑として扱う'},
+          {value:null,title:'変えない',detail:''}
+        ],'＜七色反射＞ エサの色を選びますか？','七色反射');
+      }else col='blue';
+      if(col){
+        for(const bait of available){bait.baitColor=col;bait.baitColorTurn=state.turnSeq;}
+        log(`＜七色反射＞ ${sideName(side)}の表向きのエサをこのターン${colorJa[col]}として扱う。`);
+      }
+      return;
+    }
+
+    if(p.type==='entryMist'){
+      const targets=fieldActive(other(side));
+      if(!targets.length)return;
+      let use=true;
+      if(side==='player')use=await confirmYesNo(`＜毒霧散布＞で相手の虫に${Number(p.value||0)}ダメージを与えますか？`,'毒霧散布');
+      if(!use)return;
+      const target=side==='player'
+        ? await chooseField('毒霧散布の対象を選んでください。',targets,true)
+        : chooseBurnTargetCPU(targets);
+      if(!target)return;
+      const amount=Number(p.value||0);
+      const actual=await dealDamage(other(side),target,amount,{source:fc,sourceSide:side,kind:'effect'});
+      log(`＜毒霧散布＞ 「${fieldDef(target).name}」に${actual}ダメージ。`);
+      if(target.damage>=maxHp(target))await attemptDestroyFieldCard(other(side),target,'effect',null);
+      return;
+    }
+
     if(p.type==='cicadaEmperor'){
       const choices=sideObj(side).discard.filter(isCicadaCard);
       if(!choices.length)return;
@@ -1033,7 +1074,8 @@
 
   async function applyAttackDamage(side,fc,target,attack,base){
     const defenderSide=other(side);
-    const mult=hasAttachment(target,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
+    const noWeak=hasAttachment(target,'noWeakness')||(fieldDef(target).passive?.type==='whiteShell'&&target.whiteShellTurn===state.turnSeq);
+    const mult=noWeak?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
     const proposed=base*mult;
     const dmg=await dealDamage(defenderSide,target,proposed,{source:fc,sourceSide:side,kind:'attack',attack});
     return {dmg,mult:proposed===0?1:mult};
@@ -1376,7 +1418,9 @@
   function chooseAttackTargetCPU(fc,attack,targets){
     const base=attackPower('cpu',fc,attack);
     return [...targets].sort((a,b)=>{
-      const da=base*(hasAttachment(a,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(a))); const db=base*(hasAttachment(b,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(b)));
+      const nwa=hasAttachment(a,'noWeakness')||(fieldDef(a).passive?.type==='whiteShell'&&a.whiteShellTurn===state.turnSeq);
+      const nwb=hasAttachment(b,'noWeakness')||(fieldDef(b).passive?.type==='whiteShell'&&b.whiteShellTurn===state.turnSeq);
+      const da=base*(nwa?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(a))); const db=base*(nwb?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(b)));
       const ka=da>=maxHp(a)-a.damage?10000:0, kb=db>=maxHp(b)-b.damage?10000:0;
       return (kb+def(b.inst).cost*100-(maxHp(b)-b.damage))-(ka+def(a.inst).cost*100-(maxHp(a)-a.damage));
     })[0];

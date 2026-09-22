@@ -13,12 +13,32 @@
   let state = null;
   let modalResolver = null;
 
-  const colorJa = {red:'赤', blue:'青', green:'緑'};
+  const colorJa = {red:'赤', blue:'青', green:'緑', colorless:'無色'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
 
   function instance(cardId,owner=null) { return Engine.createCardInstance(uidCounter++,cardId,owner); }
   function def(inst) { return cards[inst.cardId]; }
   function fieldDef(fc) { return Engine.currentCardDefinition(def(fc.inst),fc); }
+  function rawFieldPassive(fc){ return fieldDef(fc)?.passive||null; }
+  function silenceActive(){
+    if(!state)return false;
+    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>rawFieldPassive(fc)?.type==='silenceAll'));
+  }
+  function passiveOfField(fc){
+    const p=rawFieldPassive(fc);
+    if(!p)return null;
+    if(p.type==='silenceAll')return p;
+    return silenceActive()?null:p;
+  }
+  function passiveOfInst(inst){
+    const p=def(inst)?.passive||null;
+    if(!p)return null;
+    if(p.type==='silenceAll')return p;
+    return silenceActive()?null:p;
+  }
+  function dangerSenseActive(){
+    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='dangerSense'));
+  }
   function shuffled(list) {
     const a=[...list];
     for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
@@ -89,24 +109,34 @@
 
 
   function attachmentStatFactor(fc){
-    return fieldDef(fc).passive?.type==='doubleEnhance'?2:1;
+    return passiveOfField(fc)?.type==='doubleEnhance'?2:1;
+  }
+  function attachmentModifier(inst){
+    const e=def(inst).effect;
+    if(e==='imitation')return {attack:Number(inst.copyAttack||0),hp:Number(inst.copyHp||0)};
+    const map={
+      attack300:[300,0],attack400:[400,0],attack500:[500,0],attack700:[700,0],attack1000:[1000,0],
+      hp500:[0,500],hp600:[0,600],hp800:[0,800],hp1000:[0,1000],
+      hpAttack200:[200,200],hpAttack300:[300,300],hpAttack500:[500,500],hpAttack700:[700,700]
+    };
+    const v=map[e]||[0,0];
+    return {attack:v[0],hp:v[1]};
+  }
+  function scavengerActive(side){
+    if(!side)return false;
+    const colors=new Set(sideObj(side).discard.filter(x=>def(x).type==='insect').map(x=>def(x).color));
+    return colors.has('red')&&colors.has('blue')&&colors.has('green');
   }
   function maxHp(fc){
     let hp=fieldDef(fc).hp+Engine.modifierTotal(fc,'hp',state?.turnSeq||0);
     const factor=attachmentStatFactor(fc);
-    for(const a of fc.attachments){
-      const e=def(a).effect;
-      if(e==='hp500')hp+=500*factor;
-      if(e==='hp800')hp+=800*factor;
-      if(e==='hpAttack200')hp+=200*factor;
-      if(e==='hpAttack300')hp+=300*factor;
-      if(e==='hpAttack500')hp+=500*factor;
-      if(e==='hpAttack700')hp+=700*factor;
-    }
-    const p=fieldDef(fc).passive;
-    if(p?.type==='bloodPrice'){
-      const side=findFieldSide(fc);if(side)hp-=sideObj(side).territory.length*100;
-    }
+    for(const a of fc.attachments)hp+=attachmentModifier(a).hp*factor;
+    const p=passiveOfField(fc);
+    const side=findFieldSide(fc);
+    if(p?.type==='bloodPrice'&&side)hp-=sideObj(side).territory.length*100;
+    if(p?.type==='scavenger'&&scavengerActive(side))hp+=Number(p.value||200);
+    if(p?.type==='giantBait'&&side&&sideObj(side).bait.length>=Number(p.threshold||8))hp+=Number(p.value||0);
+    if(p?.type==='fungusPower'&&fc.attachments.length>0)hp+=Number(p.value||100);
     return hp;
   }
   function effectiveColor(fc){
@@ -123,20 +153,15 @@
   function attackBonus(fc){
     let b=(fc.turnAttackBonus||0)+Engine.modifierTotal(fc,'attack',state?.turnSeq||0);
     const factor=attachmentStatFactor(fc);
-    for(const a of fc.attachments){
-      const e=def(a).effect;
-      if(e==='attack300')b+=300*factor;
-      if(e==='attack500')b+=500*factor;
-      if(e==='hpAttack200')b+=200*factor;
-      if(e==='hpAttack300')b+=300*factor;
-      if(e==='hpAttack500')b+=500*factor;
-      if(e==='hpAttack700')b+=700*factor;
-    }
-    const p=fieldDef(fc).passive;
+    for(const a of fc.attachments)b+=attachmentModifier(a).attack*factor;
+    const p=passiveOfField(fc);
     const side=findFieldSide(fc);
     if(p?.type==='emblem'&&side&&fieldActive(side).some(x=>x!==fc&&fieldDef(x).name===p.partner))b+=Number(p.value||300);
     if(p?.type==='loneAttack'&&side&&fieldActive(side).length===1)b+=Number(p.value||100);
     if(p?.type==='bloodPrice'&&side)b-=sideObj(side).territory.length*100;
+    if(p?.type==='scavenger'&&scavengerActive(side))b+=Number(p.value||200);
+    if(p?.type==='giantBait'&&side&&sideObj(side).bait.length>=Number(p.threshold||8))b+=Number(p.value||0);
+    if(p?.type==='fungusPower'&&fc.attachments.length>0)b+=Number(p.value||100);
     if(fc.attackPenaltyTurn===state.turnSeq)b-=fc.attackPenalty||0;
     return b;
   }
@@ -155,9 +180,23 @@
     sideObj(ownerSideOf(inst,fallback)).bait.push(inst);
   }
   function isFaceUpBait(inst){return !inst.faceDown;}
-  function legalSpellTarget(fc){return fieldDef(fc).passive?.type!=='foamGuard';}
+  function legalSpellTarget(fc,casterSide=null){
+    const p=passiveOfField(fc);
+    if(p?.type==='foamGuard')return false;
+    const owner=findFieldSide(fc);
+    if(casterSide&&owner&&casterSide!==owner&&fc.spellShieldUntilTurnSeq>=state.turnSeq)return false;
+    return true;
+  }
+  function spellTargetCandidates(casterSide,targetSide){
+    let list=fieldActive(targetSide).filter(fc=>legalSpellTarget(fc,casterSide));
+    if(casterSide!==targetSide){
+      const forced=list.filter(fc=>passiveOfField(fc)?.type==='spellTaunt'||hasAttachment(fc,'spellTauntAttachment'));
+      if(forced.length)list=forced;
+    }
+    return list;
+  }
   function oncePerEntryEffect(effect){
-    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory'].includes(effect);
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce'].includes(effect);
   }
   function baitCardColor(inst){
     if(!inst||inst.faceDown)return null;
@@ -169,7 +208,7 @@
   }
   function activeLowSpellTax(){
     let count=0;
-    for(const owner of ['player','cpu'])count+=fieldActive(owner).filter(fc=>fieldDef(fc).passive?.type==='spellTaxLow').length;
+    for(const owner of ['player','cpu'])count+=fieldActive(owner).filter(fc=>passiveOfField(fc)?.type==='spellTaxLow').length;
     return count;
   }
   function currentSpellTax(side,c){
@@ -185,22 +224,36 @@
   }
   function canAttachEnhancement(fc,inst){
     if(!fc||fc.hidden)return false;
-    const p=fieldDef(fc).passive;
+    const p=passiveOfField(fc);
     if(p?.type==='doubleEnhance'&&fc.attachments.length>=1)return false;
     return true;
+  }
+  function printedTechniqueCount(card){
+    return (card.attacks?.length||0)+(card.passive?1:0);
+  }
+  function activeIntimidateCount(){
+    let n=0;
+    for(const owner of ['player','cpu'])n+=fieldActive(owner).filter(fc=>passiveOfField(fc)?.type==='intimidateCost').length;
+    return n;
   }
   function effectiveCardCost(side,inst,target=null){
     const c=def(inst);
     let cost=Number(c.cost||0);
     if(c.type==='insect'){
-      const p=c.passive;
+      const p=passiveOfInst(inst);
       if(p?.type==='aquaticCost'||p?.type==='sapCost')cost-=Math.floor(faceUpColorCount(side,'blue')/2);
       if(p?.type==='nightFlight'&&fieldActive(side).length===0)cost-=1;
+      if(p?.type==='ancientFossil'){
+        cost-=sideObj(side).discard.filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='ancientFossil').length;
+      }
+      if(p?.type==='waterLarva')cost-=Math.floor(faceUpColorCount(other(side),'blue')/3);
+      if(printedTechniqueCount(c)>=2)cost+=activeIntimidateCount();
     }else if(c.type==='spell'){
       cost+=currentSpellTax(side,c);
     }else if(c.type==='enhance'){
       cost-=currentEnhanceDiscount(side);
-      if(target&&fieldDef(target).passive?.type==='enhanceDiscount')cost-=Number(fieldDef(target).passive.value||1);
+      const tp=target?passiveOfField(target):null;
+      if(tp?.type==='enhanceDiscount')cost-=Number(tp.value||1);
     }
     return Math.max(0,cost);
   }
@@ -229,11 +282,12 @@
     if(attack.dynamic==='discard100')return s.discard.length*100;
     if(attack.dynamic==='field100')return fieldActive(side).length*100;
     if(attack.dynamic==='greenField300')return fieldActive(side).filter(x=>effectiveColor(x)==='green').length*300;
+    if(attack.dynamic==='antField200')return fieldActive(side).filter(x=>fieldDef(x).name.includes('アリ')).length*200;
     return Number(attack.power||0);
   }
   function attackPower(side,fc,attack){return Math.max(0,dynamicBasePower(side,fc,attack)+attackBonus(fc));}
   function isAttackBlocked(side,fc){
-    const p=fieldDef(fc).passive;
+    const p=passiveOfField(fc);
     if(p?.type==='foamGuard'||p?.type==='cannotAttack')return true;
     if(p?.type==='greenBaitAttackGate'&&faceUpColorCount(side,'green')<Number(p.value||0))return true;
     if(hasAttachment(fc,'summonWithAttachment'))return true;
@@ -257,9 +311,12 @@
       if(attackableTargets(side).length===0)return false;
       if(!sideObj(other(side)).bait.some(x=>isFaceUpBait(x)&&def(x).type==='insect'))return false;
     }
+    if(attack.effect==='sacrificeEnhanceAttack'){
+      if(!fieldActive(side).some(x=>x.attachments.length>0))return false;
+    }
     if(attack.effect==='multiTwo'){
       const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
-      const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
+      const forced=raw.filter(x=>['pollen','taunt'].includes(passiveOfField(x)?.type)||hasAttachment(x,'tauntAttachment'));
       if(forced.length)return false;
       if(raw.length<2)return false;
     }
@@ -270,17 +327,28 @@
   }
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
-    let candidates=fieldActive(opp).filter(fc=>fc.mimicTurn!==state.turnSeq&&!fc.attachments.some(a=>def(a).effect==='secretBook'&&a.protectTurn===state.turnSeq));
-    const forced=candidates.filter(fc=>['pollen','taunt'].includes(fieldDef(fc).passive?.type)||hasAttachment(fc,'tauntAttachment'));
+    const active=fieldActive(opp);
+    let candidates=active.filter(fc=>{
+      if(fc.mimicTurn===state.turnSeq)return false;
+      if(fc.attachments.some(a=>def(a).effect==='secretBook'&&a.protectTurn===state.turnSeq))return false;
+      const p=passiveOfField(fc);
+      if(p?.type==='batesMimic'&&active.some(x=>x!==fc))return false;
+      return true;
+    });
+    const forced=candidates.filter(fc=>
+      ['pollen','taunt'].includes(passiveOfField(fc)?.type)||
+      hasAttachment(fc,'tauntAttachment')||
+      fc.forcedAttackTargetTurn===state.turnSeq
+    );
     if(forced.length)candidates=forced;
     return candidates;
   }
   function opponentHasFieldInsect(side){ return fieldActive(other(side)).length>0; }
-  function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>fieldDef(fc).passive?.type==='flyOut'); }
+  function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>passiveOfField(fc)?.type==='flyOut'); }
   function grasshopperFamily(inst){return /(バッタ|イナゴ)/.test(def(inst).name);}
   function hasFlyOutAbility(side,inst){
     if(def(inst).type!=='insect')return false;
-    if(def(inst).passive?.type==='flyOut')return true;
+    if(passiveOfInst(inst)?.type==='flyOut')return true;
     const rec=state?.grasshopperAmbush?.[side];
     return !!(rec?.active&&!rec.ended&&grasshopperFamily(inst));
   }
@@ -564,8 +632,12 @@
     return ['ミンミンゼミ','ヒグラシ','クマゼミ','アブラゼミ','テイオウゼミ','エゾゼミ','ツクツクボウシ','チッチゼミ'].includes(def(inst).name);
   }
   async function handleInsectEntered(side,fc){
-    const p=fieldDef(fc).passive;
+    const p=passiveOfField(fc);
     if(!p)return;
+    if(dangerSenseActive()&&String(p.text||'').includes('場に出たとき')&&p.type!=='dangerSense'){
+      log(`＜危険察知＞により「${fieldDef(fc).name}」の場に出たときの効果は使えない。`);
+      return;
+    }
 
     if(p.type==='honey'){
       const hand=sideObj(side).hand;
@@ -663,7 +735,7 @@
   async function putInsectOnField(side,inst,options={}){
     inst.baitColor=null;inst.baitColorTurn=0;
     const fc=newFieldCard(inst);
-    if(['mimic','thornMimic'].includes(fieldDef(fc).passive?.type))fc.mimicTurn=nextOpponentTurnSeq(side);
+    if(['mimic','thornMimic'].includes(passiveOfField(fc)?.type))fc.mimicTurn=nextOpponentTurnSeq(side);
     if(options.temporary)fc.temporaryDestroyTurn=state.turnSeq;
     if(options.noAttackThisTurn)fc.cannotAttackTurn=state.turnSeq;
     if(options.puppet)fc.puppetDestroyTurn=state.turnSeq;
@@ -671,7 +743,7 @@
     if(options.suppressKeywords){Engine.setCardOverrides(fc,{passive:null});fc.suppressKeywords=true;}
     if(options.silverThreadLink)fc.silverThreadLink=options.silverThreadLink;
     if(options.summonedBySpell){
-      const lock=['player','cpu'].some(owner=>fieldActive(owner).some(x=>fieldDef(x).passive?.type==='spellSummonLock'));
+      const lock=['player','cpu'].some(owner=>fieldActive(owner).some(x=>passiveOfField(x)?.type==='spellSummonLock'));
       if(lock)fc.cannotAttackTurn=state.turnSeq;
     }
     sideObj(side).field.push(fc);
@@ -764,7 +836,7 @@
   }
   async function resolveAttackDestructionReaction(defenderSide,target,attacker){
     const attackerSide=other(defenderSide);
-    const p=fieldDef(target).passive;
+    const p=passiveOfField(target);
 
     if(attacker&&sideObj(attackerSide).field.includes(attacker)&&p?.type==='poisonBubble'){
       attacker.poisonBubbleTurn=state.turnSeq+1;
@@ -1247,7 +1319,7 @@
 
   async function applyAttackDamage(side,fc,target,attack,base){
     const defenderSide=other(side);
-    const noWeak=hasAttachment(target,'noWeakness')||(fieldDef(target).passive?.type==='whiteShell'&&target.whiteShellTurn===state.turnSeq);
+    const noWeak=hasAttachment(target,'noWeakness')||(passiveOfField(target)?.type==='whiteShell'&&target.whiteShellTurn===state.turnSeq);
     const mult=noWeak?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
     const proposed=base*mult;
     const dmg=await dealDamage(defenderSide,target,proposed,{source:fc,sourceSide:side,kind:'attack',attack});
@@ -1326,7 +1398,7 @@
     }
   }
   async function resolveDestroyedAttackTarget(side,fc,target,attack){
-    const defender=other(side),p=fieldDef(target).passive;
+    const defender=other(side),p=passiveOfField(target);
 
     // 操り針 is the turn-player effect and takes priority over 宝石昆虫.
     if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
@@ -1555,7 +1627,7 @@
     // トゲ擬態の攻撃力上昇は擬態期間が終わった後も残る。
     if(state.turn===other(side)){
       for(const fc of fieldActive(side)){
-        const p=fieldDef(fc).passive;
+        const p=passiveOfField(fc);
         if(p?.type==='thornMimic'){
           Engine.addModifier(fc,{stat:'attack',value:Number(p.value||300)});
           log(`＜トゲ擬態＞ 「${fieldDef(fc).name}」の攻撃力が+300。`);
@@ -1637,7 +1709,7 @@
       // ＜黒光り＞は他のターン終了時破壊処理の後にも常に条件を確認する。
       for(const controller of ['player','cpu']){
         for(const fc of [...sideObj(controller).field]){
-          if(fieldDef(fc).passive?.type==='blackShine'&&fc.attachments.length===0){
+          if(passiveOfField(fc)?.type==='blackShine'&&fc.attachments.length===0){
             await attemptDestroyFieldCard(controller,fc,'effect',null);
             log(`＜黒光り＞ 「${fieldDef(fc).name}」を破壊した。`);
           }
@@ -1702,8 +1774,8 @@
   function chooseAttackTargetCPU(fc,attack,targets){
     const base=attackPower('cpu',fc,attack);
     return [...targets].sort((a,b)=>{
-      const nwa=hasAttachment(a,'noWeakness')||(fieldDef(a).passive?.type==='whiteShell'&&a.whiteShellTurn===state.turnSeq);
-      const nwb=hasAttachment(b,'noWeakness')||(fieldDef(b).passive?.type==='whiteShell'&&b.whiteShellTurn===state.turnSeq);
+      const nwa=hasAttachment(a,'noWeakness')||(passiveOfField(a)?.type==='whiteShell'&&a.whiteShellTurn===state.turnSeq);
+      const nwb=hasAttachment(b,'noWeakness')||(passiveOfField(b)?.type==='whiteShell'&&b.whiteShellTurn===state.turnSeq);
       const da=base*(nwa?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(a))); const db=base*(nwb?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(b)));
       const ka=da>=maxHp(a)-a.damage?10000:0, kb=db>=maxHp(b)-b.damage?10000:0;
       return (kb+def(b.inst).cost*100-(maxHp(b)-b.damage))-(ka+def(a.inst).cost*100-(maxHp(a)-a.damage));

@@ -149,7 +149,7 @@
     sideObj(ownerSideOf(inst,fallback)).hand.push(inst);
   }
   function sendToOwnerBait(inst,fallback){
-    inst.faceDown=false;
+    inst.faceDown=false;inst.baitColor=null;inst.baitColorTurn=0;
     sideObj(ownerSideOf(inst,fallback)).bait.push(inst);
   }
   function isFaceUpBait(inst){return !inst.faceDown;}
@@ -652,6 +652,7 @@
     }
   }
   async function putInsectOnField(side,inst,options={}){
+    inst.baitColor=null;inst.baitColorTurn=0;
     const fc=newFieldCard(inst);
     if(options.temporary)fc.temporaryDestroyTurn=state.turnSeq;
     if(options.noAttackThisTurn)fc.cannotAttackTurn=state.turnSeq;
@@ -907,8 +908,8 @@
     }else if(c.effect==='baitBoost'){
       {const cost=effectiveCardCost(side,inst);if(!spendCost(side,inst,cost))return false;}removeHand(s,inst);inst.faceDown=false;s.bait.push(inst);
       log(`${sideName(side)}は「蟲の息吹」を使い、エサを1枚増やした（このターンのコストは増えない）。`);
-    }else if(c.effect==='allAttack200'||c.effect==='allAttack300'){
-      paySpell(side,inst,c);const value=c.effect==='allAttack300'?300:200;
+    }else if(c.effect==='allAttack200'||c.effect==='allAttack300'||c.effect==='allAttack500'){
+      paySpell(side,inst,c);const value=c.effect==='allAttack500'?500:(c.effect==='allAttack300'?300:200);
       for(const fc of fieldActive(side))fc.turnAttackBonus+=value;
       log(`${sideName(side)}の場の虫すべての攻撃力がこのターン+${value}。`);
     }else if(c.effect==='moveEnhance'){
@@ -918,7 +919,7 @@
       paySpell(side,inst,c);removeInstance(pick.source.attachments,pick.attachment);dest.attachments.push(pick.attachment);
       log(`「${def(pick.attachment).name}」を「${fieldDef(dest).name}」につけ替えた。`);
     }else if(c.effect==='addTerritory'){
-      s.cost-=c.cost;emitCost(side,inst,c);removeHand(s,inst);inst.faceUpTerritory=true;s.territory.push(inst);
+      if(!paySpell(side,inst,c,false))return false;inst.faceUpTerritory=true;s.territory.push(inst);
       log('「蜜蝋の壁」を表向きで縄張りに置いた。');
     }else if(c.effect==='readyAttack'){
       const list=fieldActive(side).filter(fc=>fc.attacked);if(!list.length)return false;
@@ -929,7 +930,7 @@
       let picks=[];
       if(side==='player'){
         const first=await chooseInstances('エサ場から出す虫（1つ目）を選んでください。',insects);if(!first)return false;
-        picks.push(first);const same=insects.filter(x=>x.uid!==first.uid&&def(x).color===def(first).color);
+        picks.push(first);const same=insects.filter(x=>x.uid!==first.uid&&baitCardColor(x)===baitCardColor(first));
         if(same.length){
           const second=await choose([...same.map(i=>({value:i.uid,title:def(i).name,detail:`${colorJa[def(i).color]} / コスト ${def(i).cost}`})),{value:null,title:'1つだけ出す',detail:''}],'同じ色の虫をもう1つ出せます。','瀬戸際の虫時雨');
           const found=same.find(x=>x.uid===second);if(found)picks.push(found);
@@ -939,7 +940,7 @@
         picks=Object.values(groups).sort((a,b)=>b.length-a.length)[0].sort((a,b)=>def(b).cost-def(a).cost).slice(0,2);
       }
       paySpell(side,inst,c);
-      for(const i of picks){removeInstance(s.bait,i);const fc=await putInsectOnField(side,i,{temporary:true});log(`「${fieldDef(fc).name}」がエサ場から出た。`);}
+      for(const i of picks){removeInstance(s.bait,i);const fc=await putInsectOnField(side,i,{temporary:true,summonedBySpell:true});log(`「${fieldDef(fc).name}」がエサ場から出た。`);}
     }else if(c.effect==='destroyOpponent'){
       const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
       target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
@@ -949,7 +950,7 @@
       if(!s.deck.length)log('山札にカードがありません。');
       else{
         const top=s.deck.shift();
-        if(def(top).type==='insect'){const fc=await putInsectOnField(side,top,{temporary:true});log(`山札から「${fieldDef(fc).name}」が場に出た。`);}
+        if(def(top).type==='insect'){const fc=await putInsectOnField(side,top,{temporary:true,summonedBySpell:true});log(`山札から「${fieldDef(fc).name}」が場に出た。`);}
         else{s.hand.push(top);log(`山札の「${def(top).name}」を手札に加えた。`);}
       }
     }else if(c.effect==='swapDiscardField'){
@@ -958,7 +959,7 @@
       const outgoing=await chooseOwnedField(side,'捨て札と入れ替える場の虫を選んでください。');if(!outgoing)return false;
       paySpell(side,inst,c);removeInstance(s.discard,incoming);
       s.field=s.field.filter(x=>x!==outgoing);sendToOwnerDiscard(outgoing.inst,side);discardAttachmentsToOwners(outgoing,side);
-      await putInsectOnField(side,incoming,{noAttackThisTurn:true});
+      await putInsectOnField(side,incoming,{noAttackThisTurn:true,summonedBySpell:true});
       log(`「${fieldDef(outgoing).name}」と「${def(incoming).name}」を入れ替えた。`);
     }else if(c.effect==='baitToHand'){
       const list=faceUpBait(side).filter(x=>def(x).type==='insect');if(!list.length)return false;
@@ -967,11 +968,11 @@
     }else if(c.effect==='baitTempSummon'){
       const list=faceUpBait(side).filter(x=>def(x).type==='insect');if(!list.length)return false;
       chosen=await chooseOwnedInstance(side,'場に出すエサの虫を選んでください。',list);if(!chosen)return false;
-      paySpell(side,inst,c);removeInstance(s.bait,chosen);await putInsectOnField(side,chosen,{temporary:true});log(`「${def(chosen).name}」をエサ場から場に出した。`);
+      paySpell(side,inst,c);removeInstance(s.bait,chosen);await putInsectOnField(side,chosen,{temporary:true,summonedBySpell:true});log(`「${def(chosen).name}」をエサ場から場に出した。`);
     }else if(c.effect==='handTempSummon'){
       const list=s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect');if(!list.length)return false;
       chosen=await chooseOwnedInstance(side,'場に出す手札の虫を選んでください。',list);if(!chosen)return false;
-      paySpell(side,inst,c);removeHand(s,chosen);await putInsectOnField(side,chosen,{temporary:true});log(`「${def(chosen).name}」を手札から場に出した。`);
+      paySpell(side,inst,c);removeHand(s,chosen);await putInsectOnField(side,chosen,{temporary:true,summonedBySpell:true});log(`「${def(chosen).name}」を手札から場に出した。`);
     }else if(c.effect==='sameCostSwap'){
       const handInsects=s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect'&&fieldActive(side).some(fc=>def(fc.inst).cost===def(x).cost));if(!handInsects.length)return false;
       const incoming=await chooseOwnedInstance(side,'場に出す手札の虫を選んでください。',handInsects);if(!incoming)return false;
@@ -979,7 +980,7 @@
       const outgoing=await chooseOwnedField(side,'手札に戻す同コストの虫を選んでください。',matches);if(!outgoing)return false;
       paySpell(side,inst,c);removeHand(s,incoming);
       s.field=s.field.filter(x=>x!==outgoing);discardAttachmentsToOwners(outgoing,side);sendToOwnerHand(outgoing.inst,side);
-      await putInsectOnField(side,incoming,{noAttackThisTurn:true});
+      await putInsectOnField(side,incoming,{noAttackThisTurn:true,summonedBySpell:true});
       log(`「${def(incoming).name}」と「${fieldDef(outgoing).name}」を入れ替えた。`);
     }else if(c.effect==='destroyEnhance'){
       const choices=fieldActive(opp).filter(fc=>legalSpellTarget(fc)&&fc.attachments.length);
@@ -1001,7 +1002,7 @@
       sideObj(side).field=sideObj(side).field.filter(x=>x!==larva);
       discardAttachmentsToOwners(larva,side);sendToOwnerBait(larva.inst,side);
       events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:larva,reason:'evolve'});
-      removeHand(s,adult);const fc=await putInsectOnField(side,adult);
+      removeHand(s,adult);const fc=await putInsectOnField(side,adult,{summonedBySpell:true});
       log(`「${fieldDef(larva).name}」が「${fieldDef(fc).name}」に羽化した。`);
     }else if(c.effect==='smokeNoFlyOut'){
       paySpell(side,inst,c);state.noFlyOutSide=opp;state.noFlyOutTurn=state.turnSeq;
@@ -1014,6 +1015,108 @@
       const list=faceUpBait(side).filter(x=>['enhance','spell'].includes(def(x).type));if(!list.length)return false;
       chosen=await chooseOwnedInstance(side,'手札に戻すエサを選んでください。',list);if(!chosen)return false;
       paySpell(side,inst,c);removeInstance(s.bait,chosen);s.hand.push(chosen);log(`「${def(chosen).name}」をエサ場から手札に戻した。`);
+    }else if(c.effect==='queenBeeSummon'){
+      const bees=s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect'&&def(x).name.includes('バチ'));if(!bees.length)return false;
+      let picks=[];
+      if(side==='player'){
+        const first=await chooseOwnedInstance(side,'場に出す～バチ科の虫（1つ目）',bees);if(!first)return false;picks.push(first);
+        const rest=bees.filter(x=>x.uid!==first.uid);
+        if(rest.length){
+          const uid=await choose([...rest.map(x=>({value:x.uid,title:def(x).name,detail:''})),{value:null,title:'1つだけ出す',detail:''}],'もう1つ場に出しますか？','女王蜂の匂い袋');
+          const second=rest.find(x=>x.uid===uid);if(second)picks.push(second);
+        }
+      }else picks=[...bees].sort((x,y)=>def(y).cost-def(x).cost).slice(0,2);
+      if(!paySpell(side,inst,c))return false;
+      for(const bug of picks){removeHand(s,bug);await putInsectOnField(side,bug,{temporary:true,summonedBySpell:true});}
+      log(`「女王蜂の匂い袋」で${picks.length}体を場に出した。`);
+    }else if(c.effect==='bloodPact'){
+      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
+      const normalCost=effectiveCardCost(side,inst);
+      let useTerritory=s.territory.length>=2&&normalCost>s.cost;
+      if(side==='player'&&s.territory.length>=2&&normalCost<=s.cost){
+        const pay=await choose([
+          {value:'cost',title:`${normalCost}コスト払う`,detail:'通常のコストで使用'},
+          {value:'territory',title:'縄張り2枚を捨てる',detail:'コストの代わりに支払う'}
+        ],'刺蠅の血盟の支払い方法を選んでください。','刺蠅の血盟');
+        if(pay===null)return false;useTerritory=pay==='territory';
+      }
+      if(useTerritory){
+        const picked=[];
+        for(let n=0;n<2;n++){
+          let idx=0;
+          if(side==='player'){
+            const opts=s.territory.map((x,i)=>({value:i,title:`縄張り ${i+1}`,detail:x.faceUpTerritory?def(x).name:'裏向き'}));
+            idx=await choose(opts,'捨て札にする縄張りを選んでください。','刺蠅の血盟');if(idx===null)return false;
+          }
+          const [card]=s.territory.splice(Number(idx)||0,1);picked.push(card);sendToOwnerDiscard(card,side);
+        }
+        removeHand(s,inst);s.discard.push(inst);emitCost(side,inst,c,'縄張り2枚');
+      }else{
+        if(normalCost>s.cost||!paySpell(side,inst,c))return false;
+      }
+      await attemptDestroyFieldCard(opp,target,'effect',null);
+    }else if(c.effect==='drawOwnTerritory'){
+      if(!paySpell(side,inst,c))return false;
+      await takeTerritory(side,false,{suppressFlyOut:true});
+    }else if(c.effect==='hideOwn'){
+      const list=fieldActive(side);if(!list.length)return false;
+      target=await chooseOwnedField(side,'裏向きにする自分の虫を選んでください。',list);if(!target)return false;
+      if(!paySpell(side,inst,c))return false;
+      target.hidden=true;target.hiddenUntilTurnSeq=state.turnSeq+1;
+      log(`「${fieldDef(target).name}」を次の相手ターン終了時まで裏向きにした。`);
+    }else if(c.effect==='breathRelease'){
+      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      target=side==='player'?await chooseField('ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
+      const base=effectiveCardCost(side,inst);if(base>s.cost)return false;
+      const maxExtra=Math.max(0,s.cost-base);
+      let extra=maxExtra;
+      if(side==='player'){
+        const opts=[];for(let n=0;n<=maxExtra;n++)opts.push({value:n,title:`追加${n}コスト`,detail:`${n*300}ダメージ`});
+        extra=await choose(opts,'追加で支払うコストを選んでください。','息吹の解放');if(extra===null)return false;
+      }
+      const total=base+Number(extra||0);if(!spendCost(side,inst,total))return false;
+      removeHand(s,inst);s.discard.push(inst);
+      const actual=await dealDamage(opp,target,Number(extra||0)*300,{source:inst,sourceSide:side,kind:'spell',forceDamageEvent:true});
+      log(`「息吹の解放」！ 追加${extra}コストで「${fieldDef(target).name}」に${actual}ダメージ。`);
+      if(target.damage>=maxHp(target))await attemptDestroyFieldCard(opp,target,'effect',null);
+    }else if(c.effect==='trimHands4'){
+      if(!paySpell(side,inst,c))return false;
+      const discardDown=async who=>{
+        const ss=sideObj(who);
+        while(ss.hand.length>4){
+          const card=await chooseOwnedInstance(who,'捨てる手札を選んでください。',ss.hand);if(!card)break;
+          removeInstance(ss.hand,card);ss.discard.push(card);
+        }
+      };
+      await discardDown('player');await discardDown('cpu');
+      log('「四柱の間引き」で手札が5枚以上のプレイヤーは4枚まで捨てた。');
+    }else if(c.effect==='flipOwnBaitUp'){
+      if(!paySpell(side,inst,c))return false;
+      let left=3;
+      while(left>0){
+        const down=s.bait.filter(x=>x.faceDown);if(!down.length)break;
+        let card;
+        if(side==='player'){
+          const uid=await choose([...down.map(x=>({value:x.uid,title:'裏向きのエサ',detail:'表向きにする'})),{value:null,title:'ここで終了',detail:''}],'表向きにするエサを選んでください。','衣蛾の虫喰み');
+          if(uid===null)break;card=down.find(x=>x.uid===uid);
+        }else card=down[0];
+        if(!card)break;card.faceDown=false;left--;
+      }
+      log('「衣蛾の虫喰み」で裏向きのエサを表向きにした。');
+    }else if(c.effect==='nextEnhanceDiscount'){
+      if(!paySpell(side,inst,c))return false;
+      const rec=state.enhanceDiscount[side];if(rec.turnSeq!==state.turnSeq){rec.turnSeq=state.turnSeq;rec.count=0;}rec.count++;
+      log(`次に使う強化カードのコストが${rec.count}減る。`);
+    }else if(c.effect==='nextOpponentSpellTax'){
+      if(!paySpell(side,inst,c))return false;
+      const rec=state.spellTax[opp];const turn=state.turnSeq+1;
+      if(rec.turnSeq!==turn){rec.turnSeq=turn;rec.count=0;}rec.count++;
+      log(`次の${sideName(opp)}のターン、術カードのコストが+${rec.count}。`);
+    }else if(c.effect==='grasshopperAmbush'){
+      if(!paySpell(side,inst,c))return false;
+      const rec=state.grasshopperAmbush[side];
+      if(!rec.ended){rec.active=true;log(`「飛蝗の待ち伏せ」！ 縄張りが0になるまでバッタ科・イナゴ科に＜とびだす＞を付与。`);}
     }else return false;
 
     if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用`);}
@@ -1041,13 +1144,13 @@
       log(`＜毒の体＞ 「${fieldDef(target).name}」は毒の技のダメージを0にした。`);
     }
 
-    if(actual>0&&p?.type==='undyingDance'&&target.damageShieldUsedTurn!==state.turnSeq){
+    if((actual>0||ctx.forceDamageEvent)&&p?.type==='undyingDance'&&target.damageShieldUsedTurn!==state.turnSeq){
       target.damageShieldUsedTurn=state.turnSeq;
       actual=0;
       log(`＜不死蝶の舞＞ 「${fieldDef(target).name}」がこのターン最初のダメージを0にした。`);
     }
 
-    if(actual>0&&target.spiderWebTurn===state.turnSeq&&target.spiderWebUsedTurn!==state.turnSeq){
+    if((actual>0||ctx.forceDamageEvent)&&target.spiderWebTurn===state.turnSeq&&target.spiderWebUsedTurn!==state.turnSeq){
       target.spiderWebUsedTurn=state.turnSeq;
       actual=0;
       log(`「蜘蛛の巣」で「${fieldDef(target).name}」への最初のダメージを0にした。`);

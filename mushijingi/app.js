@@ -451,6 +451,11 @@
       s.discard.push(armor);
       fc.damage=fc.persistentDamage||0;
       log(`「空蝉の皮鎧」が「${fieldDef(fc).name}」の破壊を防いだ！`);
+      // 毒のキバなど「回復しないダメージ」が致死量なら、公式裁定どおり改めて破壊する。
+      if(fc.damage>=maxHp(fc)){
+        destroyFieldCard(side,fc,reason,attacker);
+        return true;
+      }
       return false;
     }
     destroyFieldCard(side,fc,reason,attacker);

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes" />
   <meta name="theme-color" content="#172117" />
   <title>蟲神器 SOLO - 学習ごほうび</title>
-  <link rel="stylesheet" href="./styles.css?v=11" />
+  <link rel="stylesheet" href="./styles.css?v=12" />
 </head>
 <body>
   <div id="app">
@@ -19,8 +19,27 @@
 
     <main>
       <section id="startScreen" class="start-screen panel">
-        <h2>使うデッキを選んでね</h2>
-        <p>スターター2種、または第1〜8弾ランダムデッキでCPUと対戦できます。</p>
+        <h2>蟲神器 SOLO</h2>
+        <p>デッキ作りはいつでもできます。CPU対戦は、がくしゅうをクリアしたあとに1回遊べます。</p>
+
+        <div class="start-actions">
+          <button id="deckBuilderBtn" class="menu-action primary" type="button">
+            <span>🧰</span><strong>デッキを作る・編集する</strong>
+            <small>がくしゅうしなくても使えます</small>
+          </button>
+          <button id="learningBtn" class="menu-action" type="button">
+            <span>📚</span><strong>がくしゅうする</strong>
+            <small>クリアするとCPU対戦が1回できます</small>
+          </button>
+        </div>
+
+        <div id="battleGate" class="battle-gate locked">
+          <strong id="battleGateTitle">🔒 CPU対戦はロック中</strong>
+          <span id="battleGateText">がくしゅうをクリアすると対戦できます。</span>
+        </div>
+
+        <h3 class="deck-section-title">自分のデッキを選ぶ</h3>
+        <p class="deck-flow-note">自分のデッキ → CPUのデッキ → 先攻・後攻 の順に選びます。</p>
         <div class="deck-choices">
           <button class="deck-choice kabuto" data-deck="kabuto">
             <span class="deck-icon">🪲</span>
@@ -73,10 +92,87 @@
             <small>第8弾「不滅の戦陣」64種から毎回ランダムに20枚</small>
           </button>
         </div>
+
+        <h3 class="deck-section-title">保存した自作デッキ</h3>
+        <div id="customDeckChoices" class="deck-choices custom-deck-choices"></div>
+        <p id="noCustomDecks" class="empty-custom-note">まだ保存したデッキはありません。「デッキを作る」から作れます。</p>
+
         <div class="rules-note">
-          <b>この版について</b>
-          <span>学習後のごほうびとして1回だけ遊べます。対戦終了後は学習へ戻ります。</span>
+          <b>対戦ルール</b>
+          <span>CPU対戦は学習後に1回だけ。デッキ作成・編集・保存はいつでもできます。</span>
         </div>
+      </section>
+
+      <section id="deckBuilderScreen" class="deck-builder-screen panel hidden">
+        <div class="builder-head">
+          <div>
+            <p class="builder-kicker">DECK BUILDER</p>
+            <h2>デッキを作る</h2>
+            <p>20枚ちょうど・同じカードは2枚まで。保存したデッキは次の対戦でも使えます。</p>
+          </div>
+          <button id="builderBackBtn" class="ghost-btn" type="button">← 対戦メニューへ</button>
+        </div>
+
+        <div class="builder-savebar">
+          <label class="builder-field">
+            <span>保存デッキ</span>
+            <select id="savedDeckSelect">
+              <option value="">新しいデッキ</option>
+            </select>
+          </label>
+          <label class="builder-field builder-name-field">
+            <span>デッキ名</span>
+            <input id="deckNameInput" type="text" maxlength="24" placeholder="例：さいきょうカブトデッキ">
+          </label>
+          <button id="newDeckBtn" class="builder-btn secondary" type="button">新規</button>
+          <button id="saveDeckBtn" class="builder-btn primary" type="button">保存</button>
+          <button id="deleteDeckBtn" class="builder-btn danger" type="button">削除</button>
+        </div>
+
+        <div class="builder-status">
+          <div><strong id="builderCount">0 / 20枚</strong><span id="builderRuleStatus">あと20枚</span></div>
+          <p id="builderNotice"></p>
+        </div>
+
+        <section class="builder-current">
+          <h3>いまのデッキ</h3>
+          <div id="builderDeckList" class="builder-deck-list"></div>
+        </section>
+
+        <section class="builder-catalog-wrap">
+          <div class="builder-catalog-head">
+            <h3>カードを追加</h3>
+            <div class="builder-filters">
+              <input id="cardSearchInput" type="search" placeholder="カード名で検索">
+              <select id="cardSetFilter">
+                <option value="all">すべての弾</option>
+                <option value="starter">スターター</option>
+                <option value="booster1">第1弾</option>
+                <option value="booster2">第2弾</option>
+                <option value="booster3">第3弾</option>
+                <option value="booster4">第4弾</option>
+                <option value="booster5">第5弾</option>
+                <option value="booster6">第6弾</option>
+                <option value="booster7">第7弾</option>
+                <option value="booster8">第8弾</option>
+              </select>
+              <select id="cardTypeFilter">
+                <option value="all">全カード種</option>
+                <option value="insect">虫</option>
+                <option value="enhance">強化</option>
+                <option value="spell">術</option>
+              </select>
+              <select id="cardColorFilter">
+                <option value="all">全色</option>
+                <option value="red">赤</option>
+                <option value="blue">青</option>
+                <option value="green">緑</option>
+                <option value="colorless">無色</option>
+              </select>
+            </div>
+          </div>
+          <div id="cardCatalog" class="card-catalog"></div>
+        </section>
       </section>
 
       <section id="gameScreen" class="game-screen hidden">
@@ -204,8 +300,8 @@
     </div>
   </div>
 
-  <script src="./cards.js?v=11"></script>
-  <script src="./engine.js?v=11"></script>
-  <script src="./app.js?v=11"></script>
+  <script src="./cards.js?v=12"></script>
+  <script src="./engine.js?v=12"></script>
+  <script src="./app.js?v=12"></script>
 </body>
 </html>

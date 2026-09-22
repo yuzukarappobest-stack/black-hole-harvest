@@ -289,7 +289,7 @@
     return list;
   }
   function oncePerEntryEffect(effect){
-    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce','sourceAttackLockPersistent','dragonMantisFist','superPainNeedle','colorlessTargetOnce','charmingWing','antennaWhip','spellTaxTwoNext'].includes(effect);
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce','sourceAttackLockPersistent','dragonMantisFist','superPainNeedle','colorlessTargetOnce','kingHorn','charmingWing','antennaWhip','spellTaxTwoNext'].includes(effect);
   }
   function baitCardColor(inst){
     if(!inst||inst.faceDown)return null;

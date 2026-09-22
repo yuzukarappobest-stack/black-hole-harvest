@@ -4447,7 +4447,37 @@
   async function confirmYesNo(text,title){const v=await choose([{value:true,title:'はい',detail:''},{value:false,title:'いいえ',detail:''}],text,title);return !!v;}
 
   $('resultRestartBtn').addEventListener('click',()=>returnToLearning());
-  window.MUSHI_RUNTIME={engineVersion:Engine.version,events,getState:()=>state,fieldDef};
-  document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>chooseTurnOrder(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>returnToLearning());
+  $('learningBtn').addEventListener('click',()=>returnToLearning());
+  $('deckBuilderBtn').addEventListener('click',()=>openDeckBuilder());
+  $('builderBackBtn').addEventListener('click',()=>closeDeckBuilder());
+  $('newDeckBtn').addEventListener('click',()=>newBuilderDeck());
+  $('saveDeckBtn').addEventListener('click',()=>saveBuilderDeck());
+  $('deleteDeckBtn').addEventListener('click',()=>deleteBuilderDeck());
+  $('savedDeckSelect').addEventListener('change',(event)=>{
+    if(event.target.value)loadBuilderDeck(event.target.value);
+    else newBuilderDeck();
+  });
+  for(const id of ['cardSetFilter','cardTypeFilter','cardColorFilter']){
+    $(id).addEventListener('change',()=>renderCardCatalog());
+  }
+  $('cardSearchInput').addEventListener('input',()=>renderCardCatalog());
+
+  document.querySelectorAll('#startScreen .deck-choice[data-deck]').forEach(button=>{
+    button.addEventListener('click',()=>chooseTurnOrder(button.dataset.deck));
+  });
+
+  window.MUSHI_RUNTIME={
+    engineVersion:Engine.version,
+    events,
+    getState:()=>state,
+    fieldDef,
+    getCustomDecks:()=>customDecks.map(deck=>({...deck,ids:[...deck.ids]})),
+    hasBattleAccess
+  };
+
+  renderCustomDeckChoices();
+  refreshBattleGate();
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('mode')==='builder')openDeckBuilder();
 })();

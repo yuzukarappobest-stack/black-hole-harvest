@@ -3,6 +3,12 @@
 
   const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
   const GAME_ID = "mushijingi-reward";
+  const CUSTOM_DECKS_KEY = "mushijingiCustomDecks:v1";
+  const CUSTOM_DECK_SIZE = 20;
+  const CUSTOM_DECK_MAX_COPIES = 2;
+  const BATTLE_ACCESS_KEY = MINI_GAME_ACCESS_PREFIX + GAME_ID;
+  let battleAccessAvailable = sessionStorage.getItem(BATTLE_ACCESS_KEY) === "1";
+  let battleAccessConsumed = false;
 
   function getLearningUrl() {
     const saved = sessionStorage.getItem("miniGameReturnUrl");
@@ -15,20 +21,26 @@
     window.location.replace(getLearningUrl());
   }
 
-  function requireMiniGameAccess() {
-    const key = MINI_GAME_ACCESS_PREFIX + GAME_ID;
-    if (sessionStorage.getItem(key) === "1") {
-      sessionStorage.removeItem(key);
-      return true;
-    }
-    returnToLearning();
-    return false;
+  function hasBattleAccess() {
+    return battleAccessAvailable && !battleAccessConsumed;
   }
 
-  if (!requireMiniGameAccess()) return;
+  function consumeBattleAccess() {
+    if (!hasBattleAccess()) return false;
+    sessionStorage.removeItem(BATTLE_ACCESS_KEY);
+    battleAccessAvailable = false;
+    battleAccessConsumed = true;
+    refreshBattleGate();
+    return true;
+  }
 
   window.addEventListener("pageshow", (event) => {
-    if (event.persisted) returnToLearning();
+    if (event.persisted && battleAccessConsumed) {
+      returnToLearning();
+      return;
+    }
+    battleAccessAvailable = sessionStorage.getItem(BATTLE_ACCESS_KEY) === "1";
+    refreshBattleGate();
   });
 
   const {cards, decks} = window.MUSHI_DATA;
@@ -38,11 +50,15 @@
   const events = Engine.createEventBus();
   const $ = (id) => document.getElementById(id);
   const startScreen = $('startScreen');
+  const deckBuilderScreen = $('deckBuilderScreen');
   const gameScreen = $('gameScreen');
   const modal = $('modal');
   let uidCounter = 1;
   let state = null;
   let modalResolver = null;
+  let customDecks = [];
+  let builderDeckId = null;
+  let builderIds = [];
 
   const colorJa = {red:'赤', blue:'青', green:'緑', colorless:'無色'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
@@ -94,20 +110,92 @@
   function dangerSenseActive(){
     return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='dangerSense'));
   }
+  function safeParseCustomDecks() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(CUSTOM_DECKS_KEY) || "[]");
+      if (!Array.isArray(raw)) return [];
+      return raw.map((deck, index) => {
+        const ids = Array.isArray(deck?.ids) ? deck.ids.map(Number).filter(id => cards[id]) : [];
+        const limited = [];
+        const counts = new Map();
+        for (const id of ids) {
+          if (limited.length >= CUSTOM_DECK_SIZE) break;
+          const n = counts.get(id) || 0;
+          if (n >= CUSTOM_DECK_MAX_COPIES) continue;
+          counts.set(id, n + 1);
+          limited.push(id);
+        }
+        return {
+          id: String(deck?.id || `legacy-${index + 1}`),
+          name: String(deck?.name || `自作デッキ ${index + 1}`).slice(0, 24),
+          ids: limited,
+          updatedAt: Number(deck?.updatedAt || 0)
+        };
+      }).filter(deck => deck.ids.length > 0);
+    } catch (error) {
+      return [];
+    }
+  }
+  function persistCustomDecks() {
+    try {
+      localStorage.setItem(CUSTOM_DECKS_KEY, JSON.stringify(customDecks));
+      return true;
+    } catch (error) {
+      setBuilderNotice('このブラウザではデッキを保存できませんでした。', true);
+      return false;
+    }
+  }
+  function customDeckRef(id) { return `custom:${id}`; }
+  function customDeckById(id) { return customDecks.find(deck => deck.id === String(id)) || null; }
+  function customDeckFromRef(ref) {
+    if (!String(ref || '').startsWith('custom:')) return null;
+    return customDeckById(String(ref).slice(7));
+  }
+  function resolveDeckDefinition(ref) {
+    if (decks[ref]) return { ...decks[ref], ref, custom:false };
+    const custom = customDeckFromRef(ref);
+    if (!custom) return null;
+    return { name:custom.name, ids:[...custom.ids], ref, custom:true };
+  }
+  function deckIsBattleReady(deck) {
+    if (!deck) return false;
+    if (deck.randomCount) return Number(deck.randomCount) === CUSTOM_DECK_SIZE && deck.ids.length >= CUSTOM_DECK_SIZE;
+    return Array.isArray(deck.ids) && deck.ids.length === CUSTOM_DECK_SIZE && deck.ids.every(id => !!cards[id]);
+  }
+  function battleDeckOptions() {
+    const builtIn = Object.entries(decks).map(([ref, deck]) => ({
+      ref,
+      name:deck.name,
+      detail:deck.randomCount ? `${deck.ids.length}種からランダム20枚` : '固定20枚'
+    }));
+    const custom = customDecks.filter(deck => deckIsBattleReady(deck)).map(deck => ({
+      ref:customDeckRef(deck.id),
+      name:deck.name,
+      detail:'保存した自作デッキ・20枚'
+    }));
+    return [...builtIn, ...custom];
+  }
+  function newCustomDeckId() {
+    return `deck-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  }
+
   function shuffled(list) {
     const a=[...list];
     for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
     return a;
   }
-  function makeSide(deckKey,isCPU){
+  function makeSide(deckRef,isCPU){
     const owner=isCPU?'cpu':'player';
-    const deckDef=decks[deckKey];
-    const ids=deckDef.randomCount ? shuffled(deckDef.ids).slice(0,deckDef.randomCount) : deckDef.ids;
+    const deckDef=resolveDeckDefinition(deckRef);
+    if(!deckDef||!deckIsBattleReady(deckDef))throw new Error(`Invalid deck: ${deckRef}`);
+    const ids=deckDef.randomCount ? shuffled(deckDef.ids).slice(0,deckDef.randomCount) : [...deckDef.ids];
     const deck=shuffled(ids.map(id=>instance(id,owner)));
     const territory=deck.splice(0,6);
     const hand=deck.splice(0,4);
-    return Engine.ensureModernZones({deckKey,deckName:deckDef.name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
+    return Engine.ensureModernZones({deckKey:deckRef,deckName:deckDef.name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
   }
+  customDecks = safeParseCustomDecks();
+
   function sideObj(side){ return state[side]; }
   function other(side){ return side==='player'?'cpu':'player'; }
   function fieldActive(side){ return sideObj(side).field.filter(x=>!x.hidden); }

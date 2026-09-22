@@ -212,6 +212,11 @@
   function eligibleSwordDanceEnhance(inst){
     return def(inst).type==='enhance'&&!['summonWithAttachment','silverThread'].includes(def(inst).effect);
   }
+  function canSwordDanceAttach(side,inst){
+    if(!eligibleSwordDanceEnhance(inst))return false;
+    if(def(inst).effect==='imitation'&&allOwnEnhancements(side).length===0)return false;
+    return fieldActive(side).some(fc=>canAttachEnhancement(fc,inst));
+  }
   function baseAdultName(name){return String(name).replace('（幼虫）','');}
   function matchingLarvaName(adult){return adult+'（幼虫）';}
 
@@ -328,6 +333,7 @@
     if(attack.effect==='sacrificeEnhanceAttack'){
       if(!fieldActive(side).some(x=>x.attachments.length>0))return false;
     }
+    if(attack.effect==='banditArm'&&sideObj(other(side)).hand.length===0)return false;
     if(attack.effect==='multiTwo'&&attackableTargets(side).length<2)return false;
     return true;
   }
@@ -546,7 +552,7 @@
     if(c.effect==='whiteAntHarvest')return faceUpBait(side).some(x=>def(x).type==='enhance');
     if(c.effect==='leafcutterWork')return faceUpBait(side).length>0;
     if(c.effect==='spellShield')return fieldActive(side).length>0;
-    if(c.effect==='swordDanceAttach')return fieldActive(side).length>0&&faceUpBait(side).some(x=>eligibleSwordDanceEnhance(x));
+    if(c.effect==='swordDanceAttach')return faceUpBait(side).some(x=>canSwordDanceAttach(side,x));
     if(c.effect==='sameNameBurn')return legalOpp.length>0;
     if(c.effect==='sacrificeEnhanceBurn')return allOwnEnhancements(side).length>0;
     return true;
@@ -1399,7 +1405,7 @@
       if(!paySpell(side,inst,c))return false;
       let attached=0;
       while(attached<2){
-        const avail=faceUpBait(side).filter(x=>eligibleSwordDanceEnhance(x));
+        const avail=faceUpBait(side).filter(x=>canSwordDanceAttach(side,x));
         if(!avail.length)break;
         let enhancement=avail[0];
         if(side==='player'){
@@ -1822,6 +1828,7 @@
       fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,targets,attack});
       for(const target of targets){
         if(!sideObj(side).field.includes(fc))break;
+        if(!sideObj(other(side)).field.includes(target))break;
         const {dmg,mult}=await applyAttackDamage(side,fc,target,attack,attackPower(side,fc,attack));
         log(`「${fieldDef(fc).name}」の「${attack.name}」→「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
         let destroyed=false;

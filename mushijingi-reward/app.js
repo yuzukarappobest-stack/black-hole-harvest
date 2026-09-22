@@ -44,12 +44,32 @@
   let state = null;
   let modalResolver = null;
 
-  const colorJa = {red:'赤', blue:'青', green:'緑'};
+  const colorJa = {red:'赤', blue:'青', green:'緑', colorless:'無色'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
 
   function instance(cardId,owner=null) { return Engine.createCardInstance(uidCounter++,cardId,owner); }
   function def(inst) { return cards[inst.cardId]; }
   function fieldDef(fc) { return Engine.currentCardDefinition(def(fc.inst),fc); }
+  function rawFieldPassive(fc){ return fieldDef(fc)?.passive||null; }
+  function silenceActive(){
+    if(!state)return false;
+    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>rawFieldPassive(fc)?.type==='silenceAll'));
+  }
+  function passiveOfField(fc){
+    const p=rawFieldPassive(fc);
+    if(!p)return null;
+    if(p.type==='silenceAll')return p;
+    return silenceActive()?null:p;
+  }
+  function passiveOfInst(inst){
+    const p=def(inst)?.passive||null;
+    if(!p)return null;
+    if(p.type==='silenceAll')return p;
+    return silenceActive()?null:p;
+  }
+  function dangerSenseActive(){
+    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='dangerSense'));
+  }
   function shuffled(list) {
     const a=[...list];
     for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
@@ -120,24 +140,34 @@
 
 
   function attachmentStatFactor(fc){
-    return fieldDef(fc).passive?.type==='doubleEnhance'?2:1;
+    return passiveOfField(fc)?.type==='doubleEnhance'?2:1;
+  }
+  function attachmentModifier(inst){
+    const e=def(inst).effect;
+    if(e==='imitation')return {attack:Number(inst.copyAttack||0),hp:Number(inst.copyHp||0)};
+    const map={
+      attack300:[300,0],attack400:[400,0],attack500:[500,0],attack700:[700,0],attack1000:[1000,0],
+      hp500:[0,500],hp600:[0,600],hp800:[0,800],hp1000:[0,1000],
+      hpAttack200:[200,200],hpAttack300:[300,300],hpAttack500:[500,500],hpAttack700:[700,700]
+    };
+    const v=map[e]||[0,0];
+    return {attack:v[0],hp:v[1]};
+  }
+  function scavengerActive(side){
+    if(!side)return false;
+    const colors=new Set(sideObj(side).discard.filter(x=>def(x).type==='insect').map(x=>def(x).color));
+    return colors.has('red')&&colors.has('blue')&&colors.has('green');
   }
   function maxHp(fc){
     let hp=fieldDef(fc).hp+Engine.modifierTotal(fc,'hp',state?.turnSeq||0);
     const factor=attachmentStatFactor(fc);
-    for(const a of fc.attachments){
-      const e=def(a).effect;
-      if(e==='hp500')hp+=500*factor;
-      if(e==='hp800')hp+=800*factor;
-      if(e==='hpAttack200')hp+=200*factor;
-      if(e==='hpAttack300')hp+=300*factor;
-      if(e==='hpAttack500')hp+=500*factor;
-      if(e==='hpAttack700')hp+=700*factor;
-    }
-    const p=fieldDef(fc).passive;
-    if(p?.type==='bloodPrice'){
-      const side=findFieldSide(fc);if(side)hp-=sideObj(side).territory.length*100;
-    }
+    for(const a of fc.attachments)hp+=attachmentModifier(a).hp*factor;
+    const p=passiveOfField(fc);
+    const side=findFieldSide(fc);
+    if(p?.type==='bloodPrice'&&side)hp-=sideObj(side).territory.length*100;
+    if(p?.type==='scavenger'&&scavengerActive(side))hp+=Number(p.value||200);
+    if(p?.type==='giantBait'&&side&&sideObj(side).bait.length>=Number(p.threshold||8))hp+=Number(p.value||0);
+    if(p?.type==='fungusPower'&&fc.attachments.length>0)hp+=Number(p.value||100);
     return hp;
   }
   function effectiveColor(fc){
@@ -154,20 +184,15 @@
   function attackBonus(fc){
     let b=(fc.turnAttackBonus||0)+Engine.modifierTotal(fc,'attack',state?.turnSeq||0);
     const factor=attachmentStatFactor(fc);
-    for(const a of fc.attachments){
-      const e=def(a).effect;
-      if(e==='attack300')b+=300*factor;
-      if(e==='attack500')b+=500*factor;
-      if(e==='hpAttack200')b+=200*factor;
-      if(e==='hpAttack300')b+=300*factor;
-      if(e==='hpAttack500')b+=500*factor;
-      if(e==='hpAttack700')b+=700*factor;
-    }
-    const p=fieldDef(fc).passive;
+    for(const a of fc.attachments)b+=attachmentModifier(a).attack*factor;
+    const p=passiveOfField(fc);
     const side=findFieldSide(fc);
     if(p?.type==='emblem'&&side&&fieldActive(side).some(x=>x!==fc&&fieldDef(x).name===p.partner))b+=Number(p.value||300);
     if(p?.type==='loneAttack'&&side&&fieldActive(side).length===1)b+=Number(p.value||100);
     if(p?.type==='bloodPrice'&&side)b-=sideObj(side).territory.length*100;
+    if(p?.type==='scavenger'&&scavengerActive(side))b+=Number(p.value||200);
+    if(p?.type==='giantBait'&&side&&sideObj(side).bait.length>=Number(p.threshold||8))b+=Number(p.value||0);
+    if(p?.type==='fungusPower'&&fc.attachments.length>0)b+=Number(p.value||100);
     if(fc.attackPenaltyTurn===state.turnSeq)b-=fc.attackPenalty||0;
     return b;
   }
@@ -186,9 +211,23 @@
     sideObj(ownerSideOf(inst,fallback)).bait.push(inst);
   }
   function isFaceUpBait(inst){return !inst.faceDown;}
-  function legalSpellTarget(fc){return fieldDef(fc).passive?.type!=='foamGuard';}
+  function legalSpellTarget(fc,casterSide=null){
+    const p=passiveOfField(fc);
+    if(p?.type==='foamGuard')return false;
+    const owner=findFieldSide(fc);
+    if(casterSide&&owner&&casterSide!==owner&&fc.spellShieldUntilTurnSeq>=state.turnSeq)return false;
+    return true;
+  }
+  function spellTargetCandidates(casterSide,targetSide){
+    let list=fieldActive(targetSide).filter(fc=>legalSpellTarget(fc,casterSide));
+    if(casterSide!==targetSide){
+      const forced=list.filter(fc=>passiveOfField(fc)?.type==='spellTaunt'||hasAttachment(fc,'spellTauntAttachment'));
+      if(forced.length)list=forced;
+    }
+    return list;
+  }
   function oncePerEntryEffect(effect){
-    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory'].includes(effect);
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce'].includes(effect);
   }
   function baitCardColor(inst){
     if(!inst||inst.faceDown)return null;
@@ -198,9 +237,23 @@
   function faceUpColorCount(side,color){
     return sideObj(side).bait.filter(i=>baitCardColor(i)===color).length;
   }
+  function allOwnEnhancements(side){
+    return fieldActive(side).flatMap(fc=>fc.attachments.map(att=>({fc,att})));
+  }
+  function eligibleSwordDanceEnhance(inst){
+    return def(inst).type==='enhance'&&!['summonWithAttachment','silverThread'].includes(def(inst).effect);
+  }
+  function canSwordDanceAttach(side,inst){
+    if(!eligibleSwordDanceEnhance(inst))return false;
+    if(def(inst).effect==='imitation'&&allOwnEnhancements(side).length===0)return false;
+    return fieldActive(side).some(fc=>canAttachEnhancement(fc,inst));
+  }
+  function baseAdultName(name){return String(name).replace('（幼虫）','');}
+  function matchingLarvaName(adult){return adult+'（幼虫）';}
+
   function activeLowSpellTax(){
     let count=0;
-    for(const owner of ['player','cpu'])count+=fieldActive(owner).filter(fc=>fieldDef(fc).passive?.type==='spellTaxLow').length;
+    for(const owner of ['player','cpu'])count+=fieldActive(owner).filter(fc=>passiveOfField(fc)?.type==='spellTaxLow').length;
     return count;
   }
   function currentSpellTax(side,c){
@@ -216,22 +269,41 @@
   }
   function canAttachEnhancement(fc,inst){
     if(!fc||fc.hidden)return false;
-    const p=fieldDef(fc).passive;
+    const p=passiveOfField(fc);
     if(p?.type==='doubleEnhance'&&fc.attachments.length>=1)return false;
     return true;
+  }
+  function effectiveTechniqueCount(side,inst){
+    const card=def(inst);
+    let count=card.attacks?.length||0;
+    if(passiveOfInst(inst))count++;
+    const amb=state?.grasshopperAmbush?.[side];
+    if(!silenceActive()&&amb?.active&&!amb.ended&&grasshopperFamily(inst)&&passiveOfInst(inst)?.type!=='flyOut')count++;
+    return count;
+  }
+  function activeIntimidateCount(){
+    let n=0;
+    for(const owner of ['player','cpu'])n+=fieldActive(owner).filter(fc=>passiveOfField(fc)?.type==='intimidateCost').length;
+    return n;
   }
   function effectiveCardCost(side,inst,target=null){
     const c=def(inst);
     let cost=Number(c.cost||0);
     if(c.type==='insect'){
-      const p=c.passive;
+      const p=passiveOfInst(inst);
       if(p?.type==='aquaticCost'||p?.type==='sapCost')cost-=Math.floor(faceUpColorCount(side,'blue')/2);
       if(p?.type==='nightFlight'&&fieldActive(side).length===0)cost-=1;
+      if(p?.type==='ancientFossil'){
+        cost-=sideObj(side).discard.filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='ancientFossil').length;
+      }
+      if(p?.type==='waterLarva')cost-=Math.floor(faceUpColorCount(other(side),'blue')/3);
+      if(effectiveTechniqueCount(side,inst)>=2)cost+=activeIntimidateCount();
     }else if(c.type==='spell'){
       cost+=currentSpellTax(side,c);
     }else if(c.type==='enhance'){
       cost-=currentEnhanceDiscount(side);
-      if(target&&fieldDef(target).passive?.type==='enhanceDiscount')cost-=Number(fieldDef(target).passive.value||1);
+      const tp=target?passiveOfField(target):null;
+      if(tp?.type==='enhanceDiscount')cost-=Number(tp.value||1);
     }
     return Math.max(0,cost);
   }
@@ -260,11 +332,12 @@
     if(attack.dynamic==='discard100')return s.discard.length*100;
     if(attack.dynamic==='field100')return fieldActive(side).length*100;
     if(attack.dynamic==='greenField300')return fieldActive(side).filter(x=>effectiveColor(x)==='green').length*300;
+    if(attack.dynamic==='antField200')return fieldActive(side).filter(x=>fieldDef(x).name.includes('アリ')).length*200;
     return Number(attack.power||0);
   }
   function attackPower(side,fc,attack){return Math.max(0,dynamicBasePower(side,fc,attack)+attackBonus(fc));}
   function isAttackBlocked(side,fc){
-    const p=fieldDef(fc).passive;
+    const p=passiveOfField(fc);
     if(p?.type==='foamGuard'||p?.type==='cannotAttack')return true;
     if(p?.type==='greenBaitAttackGate'&&faceUpColorCount(side,'green')<Number(p.value||0))return true;
     if(hasAttachment(fc,'summonWithAttachment'))return true;
@@ -288,12 +361,11 @@
       if(attackableTargets(side).length===0)return false;
       if(!sideObj(other(side)).bait.some(x=>isFaceUpBait(x)&&def(x).type==='insect'))return false;
     }
-    if(attack.effect==='multiTwo'){
-      const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
-      const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
-      if(forced.length)return false;
-      if(raw.length<2)return false;
+    if(attack.effect==='sacrificeEnhanceAttack'){
+      if(!fieldActive(side).some(x=>x.attachments.length>0))return false;
     }
+    if(attack.effect==='banditArm'&&sideObj(other(side)).hand.length===0)return false;
+    if(attack.effect==='multiTwo'&&attackableTargets(side).length<2)return false;
     return true;
   }
   function weaknessMultiplier(attackerColor, defenderColor){
@@ -301,17 +373,28 @@
   }
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
-    let candidates=fieldActive(opp).filter(fc=>fc.mimicTurn!==state.turnSeq&&!fc.attachments.some(a=>def(a).effect==='secretBook'&&a.protectTurn===state.turnSeq));
-    const forced=candidates.filter(fc=>['pollen','taunt'].includes(fieldDef(fc).passive?.type)||hasAttachment(fc,'tauntAttachment'));
-    if(forced.length)candidates=forced;
+    const active=fieldActive(opp);
+    const forcedRaw=active.filter(fc=>
+      ['pollen','taunt'].includes(passiveOfField(fc)?.type)||
+      hasAttachment(fc,'tauntAttachment')||
+      fc.forcedAttackTargetTurn===state.turnSeq
+    );
+    let candidates=active.filter(fc=>{
+      if(fc.mimicTurn===state.turnSeq)return false;
+      if(fc.attachments.some(a=>def(a).effect==='secretBook'&&a.protectTurn===state.turnSeq))return false;
+      const p=passiveOfField(fc);
+      if(p?.type==='batesMimic'&&active.some(x=>x!==fc))return false;
+      return true;
+    });
+    if(forcedRaw.length)candidates=candidates.filter(fc=>forcedRaw.includes(fc));
     return candidates;
   }
   function opponentHasFieldInsect(side){ return fieldActive(other(side)).length>0; }
-  function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>fieldDef(fc).passive?.type==='flyOut'); }
+  function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>passiveOfField(fc)?.type==='flyOut'); }
   function grasshopperFamily(inst){return /(バッタ|イナゴ)/.test(def(inst).name);}
   function hasFlyOutAbility(side,inst){
     if(def(inst).type!=='insect')return false;
-    if(def(inst).passive?.type==='flyOut')return true;
+    if(passiveOfInst(inst)?.type==='flyOut')return true;
     const rec=state?.grasshopperAmbush?.[side];
     return !!(rec?.active&&!rec.ended&&grasshopperFamily(inst));
   }
@@ -457,21 +540,22 @@
 
     if(c.type==='insect'){
       const cost=effectiveCardCost(side,inst);
-      if(c.passive?.type==='altSacrifice2')return cost<=ss.cost||fieldActive(side).length>=2;
-      if(c.passive?.type==='larvaSacrificeSummon')return cost<=ss.cost||fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
+      if(passiveOfInst(inst)?.type==='altSacrifice2')return cost<=ss.cost||fieldActive(side).length>=2;
+      if(passiveOfInst(inst)?.type==='larvaSacrificeSummon')return cost<=ss.cost||fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
       return cost<=ss.cost;
     }
 
     if(c.type==='enhance'){
       if(c.effect==='silverThread')return effectiveCardCost(side,inst)<=ss.cost&&ss.discard.filter(x=>def(x).type==='insect').length>=2;
       if(c.effect==='summonWithAttachment')return effectiveCardCost(side,inst)<=ss.cost&&ss.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect');
+      if(c.effect==='imitation'&&allOwnEnhancements(side).length===0)return false;
       const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,inst));
       return targets.some(fc=>effectiveCardCost(side,inst,fc)<=ss.cost);
     }
 
     const cost=effectiveCardCost(side,inst);
     const opp=other(side);
-    const legalOpp=fieldActive(opp).filter(legalSpellTarget);
+    const legalOpp=spellTargetCandidates(side,opp);
     if(c.effect==='bloodPact'){
       if(!legalOpp.length)return false;
       return cost<=ss.cost||ss.territory.length>=2;
@@ -493,6 +577,15 @@
     if(c.effect==='queenBeeSummon')return ss.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect'&&def(x).name.includes('バチ'));
     if(c.effect==='drawOwnTerritory')return ss.territory.length>0;
     if(c.effect==='flipOwnBaitUp')return ss.bait.some(x=>x.faceDown);
+    if(c.effect==='youngReincarnation')return fieldActive(side).some(fc=>!fieldDef(fc).name.includes('（幼虫）')&&ss.discard.some(x=>def(x).type==='insect'&&def(x).name===matchingLarvaName(fieldDef(fc).name)));
+    if(c.effect==='ghostSwap')return legalOpp.length>0&&faceUpBait(opp).some(x=>def(x).type==='insect');
+    if(c.effect==='polarEvolution')return fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）')&&ss.discard.some(x=>def(x).type==='insect'&&def(x).name===baseAdultName(fieldDef(fc).name)));
+    if(c.effect==='whiteAntHarvest')return faceUpBait(side).some(x=>def(x).type==='enhance');
+    if(c.effect==='leafcutterWork')return faceUpBait(side).length>0;
+    if(c.effect==='spellShield')return fieldActive(side).length>0;
+    if(c.effect==='swordDanceAttach')return faceUpBait(side).some(x=>canSwordDanceAttach(side,x));
+    if(c.effect==='sameNameBurn')return legalOpp.length>0;
+    if(c.effect==='sacrificeEnhanceBurn')return allOwnEnhancements(side).length>0;
     return true;
   }
   function canAttack(fc){
@@ -595,8 +688,12 @@
     return ['ミンミンゼミ','ヒグラシ','クマゼミ','アブラゼミ','テイオウゼミ','エゾゼミ','ツクツクボウシ','チッチゼミ'].includes(def(inst).name);
   }
   async function handleInsectEntered(side,fc){
-    const p=fieldDef(fc).passive;
+    const p=passiveOfField(fc);
     if(!p)return;
+    if(dangerSenseActive()&&String(p.text||'').includes('場に出たとき')&&p.type!=='dangerSense'){
+      log(`＜危険察知＞により「${fieldDef(fc).name}」の場に出たときの効果は使えない。`);
+      return;
+    }
 
     if(p.type==='honey'){
       const hand=sideObj(side).hand;
@@ -677,6 +774,22 @@
       return;
     }
 
+    if(p.type==='mandatoryBaitSacrifice'){
+      const available=sideObj(side).bait.filter(isFaceUpBait);
+      if(!available.length){
+        log(`＜狂暴化＞ エサを破壊できないため「${fieldDef(fc).name}」を破壊した。`);
+        await attemptDestroyFieldCard(side,fc,'effect',null);
+        return;
+      }
+      const chosen=await chooseOwnedInstance(side,'＜狂暴化＞で破壊するエサを選んでください。',available);
+      if(!chosen){
+        await attemptDestroyFieldCard(side,fc,'effect',null);return;
+      }
+      removeInstance(sideObj(side).bait,chosen);sendToOwnerDiscard(chosen,side);
+      log(`＜狂暴化＞ 「${def(chosen).name}」をエサ場から破壊した。`);
+      return;
+    }
+
     if(p.type==='cicadaEmperor'){
       const choices=sideObj(side).discard.filter(isCicadaCard);
       if(!choices.length)return;
@@ -694,7 +807,7 @@
   async function putInsectOnField(side,inst,options={}){
     inst.baitColor=null;inst.baitColorTurn=0;
     const fc=newFieldCard(inst);
-    if(['mimic','thornMimic'].includes(fieldDef(fc).passive?.type))fc.mimicTurn=nextOpponentTurnSeq(side);
+    if(['mimic','thornMimic'].includes(passiveOfField(fc)?.type))fc.mimicTurn=nextOpponentTurnSeq(side);
     if(options.temporary)fc.temporaryDestroyTurn=state.turnSeq;
     if(options.noAttackThisTurn)fc.cannotAttackTurn=state.turnSeq;
     if(options.puppet)fc.puppetDestroyTurn=state.turnSeq;
@@ -702,7 +815,7 @@
     if(options.suppressKeywords){Engine.setCardOverrides(fc,{passive:null});fc.suppressKeywords=true;}
     if(options.silverThreadLink)fc.silverThreadLink=options.silverThreadLink;
     if(options.summonedBySpell){
-      const lock=['player','cpu'].some(owner=>fieldActive(owner).some(x=>fieldDef(x).passive?.type==='spellSummonLock'));
+      const lock=['player','cpu'].some(owner=>fieldActive(owner).some(x=>passiveOfField(x)?.type==='spellSummonLock'));
       if(lock)fc.cannotAttackTurn=state.turnSeq;
     }
     sideObj(side).field.push(fc);
@@ -739,16 +852,30 @@
       if(def(a).effect==='secretBook'&&reason==='attack')sendToOwnerHand(a,controllerSide);
       else sendToOwnerDiscard(a,controllerSide);
       if(def(a).effect==='silverThread'&&a.uid!==options.skipThreadUid)threadUids.push(a.uid);
+      if(['attack','effect','sacrifice'].includes(reason))destroyImitationsOf(a.uid);
     }
     fc.attachments=[];
     if(reason==='attack'&&threadUids.length)fc.pendingSilverThreadUids=[...(fc.pendingSilverThreadUids||[]),...threadUids];
     else for(const uid of threadUids)resolveSilverThreadDestroyed(uid);
+  }
+  function destroyImitationsOf(sourceUid){
+    for(const side of ['player','cpu']){
+      for(const fc of [...sideObj(side).field]){
+        for(const copy of [...fc.attachments]){
+          if(def(copy).effect==='imitation'&&copy.copySourceUid===sourceUid){
+            destroyAttachment(fc,copy,side,'effect');
+            log(`元の強化カードが破壊されたため「蠱術の贋作」も破壊した。`);
+          }
+        }
+      }
+    }
   }
   function destroyAttachment(source,att,controllerSide,reason='effect'){
     if(!source||!att)return false;
     if(!removeInstance(source.attachments,att))return false;
     sendToOwnerDiscard(att,controllerSide);
     if(def(att).effect==='silverThread')resolveSilverThreadDestroyed(att.uid);
+    destroyImitationsOf(att.uid);
     return true;
   }
   function leaveFieldToHand(side,fc){
@@ -769,6 +896,8 @@
   }
   function destroyFieldCard(side,fc,reason,attacker,options={}){
     const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    const owner=ownerSideOf(fc.inst,side);
+    fc.preDestroyEnhanceUids=sideObj(owner).discard.filter(x=>def(x).type==='enhance').map(x=>x.uid);
     ss.field=ss.field.filter(x=>x!==fc);
     sendToOwnerDiscard(fc.inst,side);
     discardAttachmentsToOwners(fc,side,reason,{skipThreadUid:options.skipThreadUid});
@@ -795,7 +924,7 @@
   }
   async function resolveAttackDestructionReaction(defenderSide,target,attacker){
     const attackerSide=other(defenderSide);
-    const p=fieldDef(target).passive;
+    const p=passiveOfField(target);
 
     if(attacker&&sideObj(attackerSide).field.includes(attacker)&&p?.type==='poisonBubble'){
       attacker.poisonBubbleTurn=state.turnSeq+1;
@@ -820,6 +949,19 @@
       if(card){
         sendToOwnerBait(card,owner);
         log(`＜宝石昆虫＞ 「${fieldDef(target).name}」を持ち主のエサ場に置いた。`);
+      }
+    }
+    if(p?.type==='eyePattern')await flipOpponentBait(defenderSide,Number(p.value||1),p.value===2?'巴紋':'眼状紋');
+    if(p?.type==='discardEnhanceRecover'){
+      const owner=ownerSideOf(target.inst,defenderSide);
+      const allowed=new Set(target.preDestroyEnhanceUids||[]);
+      const choices=sideObj(owner).discard.filter(x=>allowed.has(x.uid)&&def(x).type==='enhance');
+      if(choices.length){
+        let use=true;if(owner==='player')use=await confirmYesNo('＜尺取り＞で捨て札の強化カードを手札に戻しますか？','尺取り');
+        if(use){
+          const chosen=await chooseOwnedInstance(owner,'手札に戻す強化カードを選んでください。',choices);
+          if(chosen){removeInstance(sideObj(owner).discard,chosen);sideObj(owner).hand.push(chosen);log(`＜尺取り＞ 「${def(chosen).name}」を手札に戻した。`);}
+        }
       }
     }
 
@@ -900,7 +1042,7 @@
     let alt=null;
     const normalCost=effectiveCardCost(side,inst);
 
-    if(c.type==='insect'&&c.passive?.type==='altSacrifice2'){
+    if(c.type==='insect'&&passiveOfInst(inst)?.type==='altSacrifice2'){
       if(normalCost>ss.cost){
         if(fieldActive(side).length<2)return false;
         alt='sac2';
@@ -911,7 +1053,7 @@
         ],'リオックをどうやって場に出しますか？','＜エサにする＞');
         if(mode===null)return false;alt=mode==='sac2'?'sac2':null;
       }
-    }else if(c.type==='insect'&&c.passive?.type==='larvaSacrificeSummon'){
+    }else if(c.type==='insect'&&passiveOfInst(inst)?.type==='larvaSacrificeSummon'){
       const hasLarva=fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
       if(normalCost>ss.cost){
         if(!hasLarva)return false;alt='larva';
@@ -956,6 +1098,7 @@
           const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,inst)&&effectiveCardCost(side,inst,fc)<=ss.cost);
           if(!targets.length)return false;
           const target=await chooseOwnedField(side,`「${c.name}」をつける虫を選んでください。`,targets);if(!target)return false;
+          if(c.effect==='imitation'&&!await configureImitation(side,inst,target))return false;
           const cost=effectiveCardCost(side,inst,target);if(!spendCost(side,inst,cost))return false;
           removeHand(ss,inst);target.attachments.push(inst);
           if(c.effect==='changeColor'){
@@ -969,7 +1112,13 @@
       }else{
         const ok=await resolveSpell(side,inst,c);if(!ok)return false;
       }
-      events.emit(EVENT.CARD_RESOLVED,action);render();return true;
+      events.emit(EVENT.CARD_RESOLVED,action);render();
+      if(state.forceEndAfterResolve){
+        state.forceEndAfterResolve=false;
+        state.busy=false;
+        await endTurn();
+      }
+      return true;
     }finally{state.busy=false;render();}
   }
 
@@ -998,7 +1147,7 @@
       log(`${sideName(side)}は「${c.name}」で「${def(chosen).name}」を手札に戻した。`);
     }else if(c.effect==='burn600'||c.effect==='burn1000'){
       const amount=c.effect==='burn1000'?1000:600;
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField(`${amount}ダメージを与える相手の虫を選んでください。`,choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);
       const actual=await dealDamage(opp,target,amount,{source:inst,sourceSide:side,kind:'spell'});
@@ -1015,6 +1164,7 @@
       const pick=await chooseAttachment(side,fieldActive(side),'強化カードがついている虫を選んでください。');if(!pick)return false;
       const dests=fieldActive(side).filter(x=>x!==pick.source&&canAttachEnhancement(x,pick.attachment));if(!dests.length)return false;
       const dest=await chooseOwnedField(side,'つけ替える先の虫を選んでください。',dests);if(!dest)return false;
+      if(def(pick.attachment).effect==='imitation'&&!await configureImitation(side,pick.attachment,dest))return false;
       paySpell(side,inst,c);removeInstance(pick.source.attachments,pick.attachment);dest.attachments.push(pick.attachment);
       log(`「${def(pick.attachment).name}」を「${fieldDef(dest).name}」につけ替えた。`);
     }else if(c.effect==='addTerritory'){
@@ -1041,7 +1191,7 @@
       paySpell(side,inst,c);
       for(const i of picks){removeInstance(s.bait,i);const fc=await putInsectOnField(side,i,{temporary:true,summonedBySpell:true});log(`「${fieldDef(fc).name}」がエサ場から出た。`);}
     }else if(c.effect==='destroyOpponent'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);await attemptDestroyFieldCard(opp,target,'effect',null);
     }else if(c.effect==='topDeckSummon'){
@@ -1082,13 +1232,13 @@
       await putInsectOnField(side,incoming,{noAttackThisTurn:true,summonedBySpell:true});
       log(`「${def(incoming).name}」と「${fieldDef(outgoing).name}」を入れ替えた。`);
     }else if(c.effect==='destroyEnhance'){
-      const choices=fieldActive(opp).filter(fc=>legalSpellTarget(fc)&&fc.attachments.length);
+      const choices=spellTargetCandidates(side,opp).filter(fc=>fc.attachments.length);
       const source=side==='player'?await chooseField('強化カードを破壊する相手の虫を選んでください。',choices,true):choices[0];
       if(!source)return false;
       const att=side==='player'?await chooseInstances('破壊する強化カードを選んでください。',source.attachments):source.attachments[0];if(!att)return false;
       paySpell(side,inst,c);destroyAttachment(source,att,opp,'effect');log(`「${def(att).name}」を破壊した。`);
     }else if(c.effect==='blockAttackNext'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('次のターン攻撃できなくする虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);target.cannotAttackTurn=state.turnSeq+1;log(`「${fieldDef(target).name}」は次のターン攻撃できない。`);
     }else if(c.effect==='evolveLarva'){
@@ -1129,7 +1279,7 @@
       for(const bug of picks){removeHand(s,bug);await putInsectOnField(side,bug,{temporary:true,summonedBySpell:true});}
       log(`「女王蜂の匂い袋」で${picks.length}体を場に出した。`);
     }else if(c.effect==='bloodPact'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       const normalCost=effectiveCardCost(side,inst);
       let useTerritory=s.territory.length>=2&&normalCost>s.cost;
@@ -1165,7 +1315,7 @@
       target.hidden=true;target.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);
       log(`「${fieldDef(target).name}」を次の相手ターン終了時まで裏向きにした。`);
     }else if(c.effect==='breathRelease'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       const base=effectiveCardCost(side,inst);if(base>s.cost)return false;
       const maxExtra=Math.max(0,s.cost-base);
@@ -1217,17 +1367,152 @@
       const rec=state.grasshopperAmbush[side];
       if(s.territory.length===0){rec.active=false;rec.ended=true;}
       else if(!rec.ended){rec.active=true;log(`「飛蝗の待ち伏せ」！ 縄張りが0になるまでバッタ科・イナゴ科に＜とびだす＞を付与。`);}
+    }else if(c.effect==='youngReincarnation'){
+      const adults=fieldActive(side).filter(fc=>!fieldDef(fc).name.includes('（幼虫）')&&s.discard.some(x=>def(x).type==='insect'&&def(x).name===matchingLarvaName(fieldDef(fc).name)));
+      if(!adults.length)return false;
+      const adult=await chooseOwnedField(side,'対応する幼虫を呼ぶ成虫を選んでください。',adults);if(!adult)return false;
+      const larvae=s.discard.filter(x=>def(x).type==='insect'&&def(x).name===matchingLarvaName(fieldDef(adult).name));
+      const larva=await chooseOwnedInstance(side,'場に出す幼虫を選んでください。',larvae);if(!larva)return false;
+      if(!paySpell(side,inst,c))return false;
+      removeInstance(s.discard,larva);await putInsectOnField(side,larva,{noAttackThisTurn:true,summonedBySpell:true});
+      log(`「若虫の転生」で「${def(larva).name}」を場に出した。`);
+    }else if(c.effect==='ghostSwap'){
+      const fields=spellTargetCandidates(side,opp),baits=faceUpBait(opp).filter(x=>def(x).type==='insect');
+      if(!fields.length||!baits.length)return false;
+      const outgoing=side==='player'?await chooseField('エサ場へ送る相手の虫を選んでください。',fields,true):fields[0];if(!outgoing)return false;
+      const incoming=await chooseOwnedInstance(side,'相手の場へ出すエサの虫を選んでください。',baits);if(!incoming)return false;
+      if(!paySpell(side,inst,c))return false;
+      sideObj(opp).field=sideObj(opp).field.filter(x=>x!==outgoing);
+      discardAttachmentsToOwners(outgoing,opp,'swap');sendToOwnerBait(outgoing.inst,opp);
+      events.emit(EVENT.CARD_LEFT_FIELD,{state,side:opp,fieldCard:outgoing,reason:'swap'});
+      removeInstance(sideObj(opp).bait,incoming);await putInsectOnField(opp,incoming,{summonedBySpell:true});
+      log(`「怨霊の虫送り」で「${fieldDef(outgoing).name}」と「${def(incoming).name}」を入れ替えた。`);
+    }else if(c.effect==='polarEvolution'){
+      const larvae=fieldActive(side).filter(fc=>fieldDef(fc).name.includes('（幼虫）')&&s.discard.some(x=>def(x).type==='insect'&&def(x).name===baseAdultName(fieldDef(fc).name)));
+      if(!larvae.length)return false;
+      const larva=await chooseOwnedField(side,'羽化させる幼虫を選んでください。',larvae);if(!larva)return false;
+      const adults=s.discard.filter(x=>def(x).type==='insect'&&def(x).name===baseAdultName(fieldDef(larva).name));
+      const adult=await chooseOwnedInstance(side,'場に出す成虫を選んでください。',adults);if(!adult)return false;
+      if(!paySpell(side,inst,c))return false;
+      removeInstance(s.discard,adult);
+      s.field=s.field.filter(x=>x!==larva);discardAttachmentsToOwners(larva,side,'swap');sendToOwnerDiscard(larva.inst,side);
+      events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:larva,reason:'swap'});
+      await putInsectOnField(side,adult,{summonedBySpell:true});
+      log(`「極夜の羽化」で「${fieldDef(larva).name}」と「${def(adult).name}」を入れ替えた。`);
+    }else if(c.effect==='kusanagiInferno'){
+      if(!paySpell(side,inst,c))return false;
+      for(const owner of ['player','cpu']){
+        for(const fc of [...fieldActive(owner)])await attemptDestroyFieldCard(owner,fc,'effect',null);
+      }
+      state.forceEndAfterResolve=true;
+      log('「草薙の劫火」で表向きの虫をすべて破壊した。ターンを終了する。');
+    }else if(c.effect==='whiteAntHarvest'){
+      const list=faceUpBait(side).filter(x=>def(x).type==='enhance');if(!list.length)return false;
+      if(!paySpell(side,inst,c))return false;
+      let left=2;
+      while(left>0){
+        const avail=faceUpBait(side).filter(x=>def(x).type==='enhance');if(!avail.length)break;
+        let pick=avail[0];
+        if(side==='player'){
+          const opts=avail.map(x=>({value:x.uid,title:def(x).name,detail:'手札に戻す'}));opts.push({value:null,title:'ここで終了',detail:''});
+          const uid=await choose(opts,'手札に戻す強化カードを選んでください。','白蟻の収穫');if(uid===null)break;pick=avail.find(x=>x.uid===uid);
+        }
+        if(!pick)break;removeInstance(s.bait,pick);s.hand.push(pick);left--;
+      }
+      log('「白蟻の収穫」で強化カードを手札に戻した。');
+    }else if(c.effect==='leafcutterWork'){
+      const list=faceUpBait(side);if(!list.length)return false;
+      chosen=await chooseOwnedInstance(side,'手札に戻すエサを選んでください。',list);if(!chosen)return false;
+      const cost=effectiveCardCost(side,inst);if(!spendCost(side,inst,cost))return false;
+      removeHand(s,inst);removeInstance(s.bait,chosen);s.hand.push(chosen);inst.faceDown=false;s.bait.push(inst);
+      log(`「葉切蟻の野良仕事」で「${def(chosen).name}」を手札へ戻し、この術をエサ場へ置いた（このターンのコストは増えない）。`);
+    }else if(c.effect==='spellShield'){
+      const list=fieldActive(side);if(!list.length)return false;
+      target=await chooseOwnedField(side,'術カードから守る虫を選んでください。',list);if(!target)return false;
+      if(!paySpell(side,inst,c))return false;
+      target.spellShieldUntilTurnSeq=nextOpponentTurnSeq(side);
+      log(`「${fieldDef(target).name}」は次の相手ターン終了時まで相手の術カードの対象にならない。`);
+    }else if(c.effect==='swordDanceAttach'){
+      if(!paySpell(side,inst,c))return false;
+      let attached=0;
+      while(attached<2){
+        const avail=faceUpBait(side).filter(x=>canSwordDanceAttach(side,x));
+        if(!avail.length)break;
+        let enhancement=avail[0];
+        if(side==='player'){
+          const opts=avail.map(x=>({value:x.uid,title:def(x).name,detail:'場の虫につける'}));if(attached>0)opts.push({value:null,title:'ここで終了',detail:''});
+          const uid=await choose(opts,'エサ場からつける強化カードを選んでください。','剣舞天翔の刹那');if(uid===null)break;enhancement=avail.find(x=>x.uid===uid);
+        }
+        if(!enhancement)break;
+        const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,enhancement));
+        if(def(enhancement).effect==='imitation'&&allOwnEnhancements(side).length===0){
+          if(side==='player'){removeInstance(s.bait,enhancement);s.bait.push(enhancement);break;}else break;
+        }
+        if(!targets.length)break;
+        const dest=await chooseOwnedField(side,'強化カードをつける虫を選んでください。',targets);if(!dest)break;
+        if(def(enhancement).effect==='imitation'&&!await configureImitation(side,enhancement,dest))break;
+        removeInstance(s.bait,enhancement);dest.attachments.push(enhancement);
+        if(def(enhancement).effect==='changeColor'){
+          const col=side==='player'?await chooseSimple('色を選んでください。',[['red','赤'],['blue','青'],['green','緑']]):bestColorAgainstCPU(dest,other(side));
+          dest.changedColor=col||effectiveColor(dest);
+        }
+        if(def(enhancement).effect==='secretBook')enhancement.protectTurn=nextOpponentTurnSeq(side);
+        attached++;
+      }
+      log(`「剣舞天翔の刹那」で強化カードを${attached}枚つけた。`);
+    }else if(c.effect==='sameNameBurn'){
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
+      const first=side==='player'?await chooseField('500ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!first)return false;
+      const name=fieldDef(first).name;if(!paySpell(side,inst,c))return false;
+      const firstDmg=await dealDamage(opp,first,500,{source:inst,sourceSide:side,kind:'spell'});
+      log(`「伏魔の蟲噛み」で「${name}」に${firstDmg}ダメージ。`);
+      if(first.damage>=maxHp(first)&&sideObj(opp).field.includes(first))await attemptDestroyFieldCard(opp,first,'effect',null);
+      const same=spellTargetCandidates(side,opp).filter(fc=>fc!==first&&fieldDef(fc).name===name);
+      if(same.length){
+        let use=true;if(side==='player')use=await confirmYesNo(`同名の「${name}」にも500ダメージを与えますか？`,'伏魔の蟲噛み');
+        if(use){
+          const second=side==='player'?await chooseField('追加でダメージを与える虫を選んでください。',same,true):same[0];
+          if(second){const dmg=await dealDamage(opp,second,500,{source:inst,sourceSide:side,kind:'spell'});if(second.damage>=maxHp(second))await attemptDestroyFieldCard(opp,second,'effect',null);log(`同名の「${fieldDef(second).name}」にも${dmg}ダメージ。`);}
+        }
+      }
+    }else if(c.effect==='sacrificeEnhanceBurn'){
+      const pick=await chooseOwnEnhancement(side,'破壊する自分の強化カードを選んでください。');if(!pick)return false;
+      if(!paySpell(side,inst,c))return false;
+      destroyAttachment(pick.fc,pick.att,side,'effect');log(`「${def(pick.att).name}」を破壊した。`);
+      const choices=spellTargetCandidates(side,opp);
+      if(choices.length){
+        let use=true;if(side==='player')use=await confirmYesNo('相手の虫に700ダメージを与えますか？','捨て身の兜投げ');
+        if(use){
+          target=side==='player'?await chooseField('700ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);
+          if(target){const dmg=await dealDamage(opp,target,700,{source:inst,sourceSide:side,kind:'spell'});if(target.damage>=maxHp(target))await attemptDestroyFieldCard(opp,target,'effect',null);log(`「捨て身の兜投げ」で「${fieldDef(target).name}」に${dmg}ダメージ。`);}
+        }
+      }
     }else return false;
 
     if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用`);}
     return true;
   }
 
+  function availableAttacks(side,fc){
+    const list=(fieldDef(fc).attacks||[]).map(a=>({...a}));
+    if(passiveOfField(fc)?.type==='militaryLink'){
+      for(const otherFc of fieldActive(side)){
+        if(otherFc===fc||passiveOfField(otherFc)?.type!=='militaryLink')continue;
+        for(const a of fieldDef(otherFc).attacks||[])list.push({...a,borrowedFrom:otherFc.inst.uid});
+      }
+    }
+    const seen=new Set();
+    return list.filter(a=>{
+      const key=`${a.name}|${a.effect||''}|${a.power||0}`;
+      if(seen.has(key))return false;seen.add(key);return true;
+    });
+  }
+
   async function onFieldCard(uid){
     if(state.busy||state.turn!=='player'||state.phase!=='main')return;
     const fc=state.player.field.find(x=>x.inst.uid===uid);if(!fc||!canAttack(fc))return;
     const c=fieldDef(fc);
-    let attacks=c.attacks.filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('player',fc,a));
+    let attacks=availableAttacks('player',fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('player',fc,a));
     if(state.chain?.side==='player'&&state.chain.uid===fc.inst.uid&&state.chain.kind==='mantisCombo')attacks=attacks.filter(a=>a.effect==='mantisCombo');
     const options=attacks.map((a,i)=>({value:i,title:`${a.name} ${attackPower('player',fc,a)}`,detail:a.text||'攻撃'}));
     options.push({value:null,title:'やめる',detail:''});
@@ -1238,7 +1523,7 @@
   async function dealDamage(targetSide,target,amount,ctx={}){
     const incoming=Math.max(0,Number(amount||0));
     let actual=incoming;
-    const p=fieldDef(target).passive;
+    const p=passiveOfField(target);
 
     if(ctx.kind==='attack'&&p?.type==='poisonBody'&&String(ctx.attack?.name||'').includes('毒')){
       actual=0;
@@ -1278,7 +1563,7 @@
 
   async function applyAttackDamage(side,fc,target,attack,base){
     const defenderSide=other(side);
-    const noWeak=hasAttachment(target,'noWeakness')||(fieldDef(target).passive?.type==='whiteShell'&&target.whiteShellTurn===state.turnSeq);
+    const noWeak=hasAttachment(target,'noWeakness')||(passiveOfField(target)?.type==='whiteShell'&&target.whiteShellTurn===state.turnSeq);
     const mult=noWeak?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
     const proposed=base*mult;
     const dmg=await dealDamage(defenderSide,target,proposed,{source:fc,sourceSide:side,kind:'attack',attack});
@@ -1294,12 +1579,75 @@
   }
   async function moveEnhanceByAttack(side,fc){
     if(!fc.attachments.length)return;
-    const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const att=await chooseOwnedInstance(side,'つけ替える強化カードを選んでください。',fc.attachments);if(!att)return;
+    const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
+    if(def(att).effect==='imitation'&&!await configureImitation(side,att,dest))return;
     removeInstance(fc.attachments,att);dest.attachments.push(att);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
   }
+  async function chooseOwnEnhancement(side,text){
+    const all=allOwnEnhancements(side);if(!all.length)return null;
+    if(side==='cpu')return all[0];
+    const value=await choose(all.map((x,i)=>({value:i,title:def(x.att).name,detail:`装着先：${fieldDef(x.fc).name}`})),text,'強化カード');
+    return value===null?null:all[value];
+  }
+  async function flipOpponentBait(side,maxCount,title){
+    const defender=other(side);let left=maxCount;
+    while(left>0){
+      const available=sideObj(defender).bait.filter(isFaceUpBait);if(!available.length)break;
+      let chosen=null;
+      if(side==='player'){
+        const opts=available.map(x=>({value:x.uid,title:def(x).name,detail:'裏向きにする'}));
+        opts.push({value:null,title:'ここで終了',detail:''});
+        const uid=await choose(opts,'裏向きにする相手のエサを選んでください。',title);
+        if(uid===null)break;chosen=available.find(x=>x.uid===uid);
+      }else chosen=available[0];
+      if(!chosen)break;chosen.faceDown=true;left--;
+      log(`「${def(chosen).name}」を裏向きのエサにした。`);
+    }
+  }
+  async function configureImitation(side,att,host){
+    const choices=allOwnEnhancements(side).filter(x=>x.att.uid!==att.uid);
+    if(!choices.length)return false;
+    let source=choices[0];
+    if(side==='player'){
+      const idx=await choose(choices.map((x,i)=>({value:i,title:def(x.att).name,detail:`装着先：${fieldDef(x.fc).name}`})),'蠱術の贋作で写す強化カードを選んでください。','蠱術の贋作');
+      if(idx===null)return false;source=choices[idx];
+    }
+    const mod=attachmentModifier(source.att);
+    att.copyAttack=mod.attack;att.copyHp=mod.hp;att.copySourceUid=source.att.uid;
+    log(`「蠱術の贋作」は「${def(source.att).name}」の修正値を写した。`);
+    return true;
+  }
   async function applyAttackUseSetup(side,fc,attack){
+    if(attack.effect==='banditArm'){
+      const hand=sideObj(other(side)).hand;
+      if(hand.length){
+        const chosen=hand[Math.floor(Math.random()*hand.length)];
+        removeInstance(hand,chosen);
+        if(def(chosen).type==='insect'){
+          await putInsectOnField(other(side),chosen);
+          log(`「盗賊の大腕」で相手の手札から「${def(chosen).name}」を相手の場に出した。`);
+        }else{
+          chosen.faceDown=false;sideObj(other(side)).bait.push(chosen);
+          log(`「盗賊の大腕」で相手の手札から「${def(chosen).name}」を相手のエサ場に置いた。`);
+        }
+      }
+    }
+    if(attack.effect==='baitFlipOnce')await flipOpponentBait(side,1,'花粉食い');
+    if(attack.effect==='dungRoll'){
+      const pile=sideObj(other(side)).discard;
+      if(pile.length){
+        let use=true;if(side==='player')use=await confirmYesNo('相手の捨て札1枚を山札の一番下に戻しますか？','フンコロガシ');
+        if(use){
+          const chosen=await chooseOwnedInstance(side,'山札の一番下に戻す相手の捨て札を選んでください。',pile);
+          if(chosen){
+            removeInstance(pile,chosen);chosen.faceDown=true;sideObj(other(side)).deck.push(chosen);
+            log(`「フンコロガシ」で「${def(chosen).name}」を相手の山札の一番下に戻した。`);
+          }
+        }
+      }
+    }
     if(attack.effect==='mimicColorAttack'){
       const others=fieldActive(side).filter(x=>x!==fc);if(!others.length)return false;
       const chosen=await chooseOwnedField(side,'擬態する色の虫を選んでください。',others);if(!chosen)return false;
@@ -1313,6 +1661,17 @@
     if(attack.effect==='nextOwnAttack'){
       Engine.addModifier(fc,{stat:'attack',value:Number(attack.value||0),activeFromTurnSeq:state.turnSeq+2,expiresAfterTurnSeq:state.turnSeq+2});
       log(`「${fieldDef(fc).name}」は次の自分のターン攻撃力+${Number(attack.value||0)}。`);
+    }
+    if(attack.effect==='forcedTargetNext'){
+      fc.forcedAttackTargetTurn=nextOpponentTurnSeq(side);
+      log(`「${fieldDef(fc).name}」の橋渡し。次の相手ターンはこの虫が攻撃先になる。`);
+    }
+    if(attack.effect==='spellTaxNextTurn'){
+      const opp=other(side),turn=nextOpponentTurnSeq(side);
+      const rec=state.spellTax[opp];
+      if(rec.turnSeq!==turn){rec.turnSeq=turn;rec.count=0;}
+      rec.count++;
+      log(`次の${sideName(opp)}のターン、術カードのコストが+1。`);
     }
     if(attack.effect==='weakPoison'){
       const defender=other(side),available=sideObj(defender).bait.filter(isFaceUpBait);
@@ -1351,16 +1710,57 @@
     }
   }
   async function finishAttackSpecialState(side,fc,attack){
+    if(attack.effect==='attackTurnsGreen'&&sideObj(side).field.includes(fc)){
+      fc.turnColorOverride='green';fc.turnColorOverrideTurn=state.turnSeq;
+      log(`「${fieldDef(fc).name}」は攻撃後、このターン緑になった。`);
+    }
     if(attack.effect==='hideUntilOpponentEnd'&&sideObj(side).field.includes(fc)){
       fc.hidden=true;fc.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);
       log(`「${fieldDef(fc).name}」は＜かくれる＞で次の相手ターン終了時まで裏向きになった。`);
     }
   }
+  function moveDestroyedToDeckBottom(target,defender){
+    const owner=ownerSideOf(target.inst,defender),pile=sideObj(owner).discard;
+    const card=removeInstance(pile,target.inst);
+    if(!card)return false;
+    card.faceDown=true;sideObj(owner).deck.push(card);
+    log(`「軍配虫の大団扇」で「${fieldDef(target).name}」を持ち主の山札の一番下へ置いた。`);
+    return true;
+  }
+  async function applyAttackerDestroyRouting(side,fc,target,attack){
+    const fan=sideObj(side).field.includes(fc)&&hasAttachment(fc,'militaryFan');
+    const puppet=attack.effect==='puppetNeedle';
+    if(fan&&puppet){
+      let first='fan';
+      if(side==='player'){
+        first=await choose([
+          {value:'fan',title:'軍配虫の大団扇',detail:'山札の一番下へ'},
+          {value:'puppet',title:'操り針',detail:'自分の場へ出す'}
+        ],'同時に使える効果の順番を選んでください。','破壊時効果');
+      }
+      if(first==='puppet'){await captureDestroyedInsect(side,target);moveDestroyedToDeckBottom(target,other(side));}
+      else{moveDestroyedToDeckBottom(target,other(side));await captureDestroyedInsect(side,target);}
+    }else if(fan)moveDestroyedToDeckBottom(target,other(side));
+    else if(puppet)await captureDestroyedInsect(side,target);
+  }
+  async function resolveMantisSickle(side,fc){
+    if(!sideObj(side).field.includes(fc))return;
+    const count=fc.attachments.filter(a=>def(a).effect==='mantisSickle').length;
+    const defender=other(side);
+    for(let n=0;n<count;n++){
+      const choices=fieldActive(defender);if(!choices.length)break;
+      const chosen=await chooseOwnedField(defender,'「蟷螂の大鎌」で破壊する自分の虫を選んでください。',choices);
+      if(chosen){
+        await attemptDestroyFieldCard(defender,chosen,'effect',null);
+        log(`「蟷螂の大鎌」で「${fieldDef(chosen).name}」を破壊した。`);
+      }
+    }
+  }
   async function resolveDestroyedAttackTarget(side,fc,target,attack){
-    const defender=other(side),p=fieldDef(target).passive;
+    const defender=other(side),p=passiveOfField(target);
 
-    // 操り針 is the turn-player effect and takes priority over 宝石昆虫.
-    if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
+    await applyAttackerDestroyRouting(side,fc,target,attack);
+    await resolveMantisSickle(side,fc);
     await resolveAttackDestructionReaction(defender,target,fc);
 
     let shouldDraw=true;
@@ -1439,6 +1839,11 @@
       const bait=await chooseOwnedInstance(side,'「イナゴの大群」で破壊するエサを選んでください。',available);if(!bait)return false;
       removeInstance(sideObj(side).bait,bait);sendToOwnerDiscard(bait,side);log(`「${def(bait).name}」をエサ場から破壊した。`);
     }
+    if(attack.effect==='sacrificeEnhanceAttack'){
+      const pick=await chooseOwnEnhancement(side,'「ゆりかご落とし」で破壊する強化カードを選んでください。');if(!pick)return false;
+      destroyAttachment(pick.fc,pick.att,side,'effect');
+      log(`「ゆりかご落とし」のため「${def(pick.att).name}」を破壊した。`);
+    }
 
     if(attack.effect==='reverseSwap')return performReverseSwap(side,fc,attack);
 
@@ -1454,6 +1859,7 @@
       fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,targets,attack});
       for(const target of targets){
         if(!sideObj(side).field.includes(fc))break;
+        if(!sideObj(other(side)).field.includes(target))break;
         const {dmg,mult}=await applyAttackDamage(side,fc,target,attack,attackPower(side,fc,attack));
         log(`「${fieldDef(fc).name}」の「${attack.name}」→「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
         let destroyed=false;
@@ -1519,7 +1925,8 @@
       if(attack.effect==='hpNextTurn')await applyNextTurnHp(fc,attack.value);
 
       let destroyed=false;
-      const base=attackPower(side,fc,attack);
+      let base=attackPower(side,fc,attack);
+      if(attack.effect==='bonusVsEnhanced'&&target.attachments.length)base+=Number(attack.value||300);
       if(attack.effect==='hornSkewer'&&target.damage>0&&base>=100){
         destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
         if(destroyed){
@@ -1586,7 +1993,7 @@
     // トゲ擬態の攻撃力上昇は擬態期間が終わった後も残る。
     if(state.turn===other(side)){
       for(const fc of fieldActive(side)){
-        const p=fieldDef(fc).passive;
+        const p=passiveOfField(fc);
         if(p?.type==='thornMimic'){
           Engine.addModifier(fc,{stat:'attack',value:Number(p.value||300)});
           log(`＜トゲ擬態＞ 「${fieldDef(fc).name}」の攻撃力が+300。`);
@@ -1601,6 +2008,22 @@
     if(drawn.faceUpTerritory){
       sendToOwnerDiscard(drawn,side);
       log('「蜜蝋の壁」は捨て札に置かれた。');render();return true;
+    }
+
+    // ＜かばう＞は＜とびだす＞とは別の縄張り誘発。
+    if(c.type==='insect'&&passiveOfInst(drawn)?.type==='cover'){
+      let use=true;
+      if(side==='player')use=await confirmYesNo(`引いた「${c.name}」を＜かばう＞で場に出しますか？`,'かばう');
+      if(use){
+        const fc=await putInsectOnField(side,drawn);
+        if(sideObj(side).field.includes(fc)){
+          fc.forcedAttackTargetTurn=state.turnSeq;
+          fc.coverReturnTurn=state.turnSeq;
+          log(`＜かばう＞！ 「${c.name}」を場に出した。ターン終了時に手札へ戻る。`);
+          if(side==='cpu')await cpuNotice(`縄張りから「${c.name}」が＜かばう＞で場に出た`);
+        }
+        render();return true;
+      }
     }
 
     // ＜装着＞は縄張りから引いた直後、表向きで存在する自分の虫につけられる。
@@ -1644,6 +2067,15 @@
 
       for(const controller of ['player','cpu']){
         for(const fc of [...sideObj(controller).field]){
+          if(fc.coverReturnTurn===state.turnSeq&&sideObj(controller).field.includes(fc)){
+            log(`＜かばう＞の効果で「${fieldDef(fc).name}」を持ち主の手札へ戻した。`);
+            leaveFieldToHand(controller,fc);
+          }
+        }
+      }
+
+      for(const controller of ['player','cpu']){
+        for(const fc of [...sideObj(controller).field]){
           if(!sideObj(controller).field.includes(fc))continue;
           if(fc.temporaryDestroyTurn===state.turnSeq){
             fc.temporaryDestroyTurn=0;await attemptDestroyFieldCard(controller,fc,'effect',null);
@@ -1668,7 +2100,7 @@
       // ＜黒光り＞は他のターン終了時破壊処理の後にも常に条件を確認する。
       for(const controller of ['player','cpu']){
         for(const fc of [...sideObj(controller).field]){
-          if(fieldDef(fc).passive?.type==='blackShine'&&fc.attachments.length===0){
+          if(passiveOfField(fc)?.type==='blackShine'&&fc.attachments.length===0){
             await attemptDestroyFieldCard(controller,fc,'effect',null);
             log(`＜黒光り＞ 「${fieldDef(fc).name}」を破壊した。`);
           }
@@ -1722,7 +2154,7 @@
     return [...hand].sort((a,b)=>score(a)-score(b))[0];
   }
   function chooseAttackCPU(fc){
-    const c=fieldDef(fc); let ats=c.attacks.filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('cpu',fc,a));
+    const c=fieldDef(fc); let ats=availableAttacks('cpu',fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('cpu',fc,a));
     const cann=ats.find(a=>a.effect==='cannibal');if(cann&&fieldActive('cpu').length>1)return cann;
     const combo=ats.find(a=>a.effect==='mantisCombo');if(combo)return combo;
     const flip=ats.find(a=>a.effect==='flip');if(flip&&fieldActive('player').length===1)return flip;
@@ -1733,8 +2165,8 @@
   function chooseAttackTargetCPU(fc,attack,targets){
     const base=attackPower('cpu',fc,attack);
     return [...targets].sort((a,b)=>{
-      const nwa=hasAttachment(a,'noWeakness')||(fieldDef(a).passive?.type==='whiteShell'&&a.whiteShellTurn===state.turnSeq);
-      const nwb=hasAttachment(b,'noWeakness')||(fieldDef(b).passive?.type==='whiteShell'&&b.whiteShellTurn===state.turnSeq);
+      const nwa=hasAttachment(a,'noWeakness')||(passiveOfField(a)?.type==='whiteShell'&&a.whiteShellTurn===state.turnSeq);
+      const nwb=hasAttachment(b,'noWeakness')||(passiveOfField(b)?.type==='whiteShell'&&b.whiteShellTurn===state.turnSeq);
       const da=base*(nwa?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(a))); const db=base*(nwb?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(b)));
       const ka=da>=maxHp(a)-a.damage?10000:0, kb=db>=maxHp(b)-b.damage?10000:0;
       return (kb+def(b.inst).cost*100-(maxHp(b)-b.damage))-(ka+def(a.inst).cost*100-(maxHp(a)-a.damage));

@@ -117,7 +117,13 @@
       megaArmorTurn:0,
       blueJadeUsedTurn:0,
       mucusCurse:false,
-      summonedByTimePupa:false
+      summonedByTimePupa:false,
+      hawkEyeSuppressedTurn:0,
+      nextDamageDestroy:false,
+      redOgreWebTurn:0,redOgreWebUsedTurn:0,
+      blueOgreWebTurn:0,blueOgreWebUsedTurn:0,
+      queenHatchTurn:0,
+      mossMultiplier:1
     });
   }
   function log(text){
@@ -164,11 +170,29 @@
       spellSummonLockAttachment:[100,100],suppressPassive:[300,300],
       spear400:[400,400],spear800:[800,800],waspArmor:[800,800],larvaPot:[400,400],
       flowerArmor1000:[1000,1000],smallKabutoArmor:[200,200],warriorSeal:[300,300],
-      longhornJaw:[300,300],ancientDragonflyBlade:[300,300],lifeFlame:[700,700]
+      longhornJaw:[300,300],ancientDragonflyBlade:[300,300],lifeFlame:[700,700],
+      grudgeJinbaori:[1000,1000],victoryBlade:[600,0],auspiciousBlade:[300,0],
+      electricKanabo:[500,500],blastClub:[300,300],jewelCrown:[500,500]
     };
     const v=map[e]||[0,0];
     return {attack:v[0],hp:v[1]};
   }
+  function distinctFaceUpInsectBaitColors(side){
+    return new Set(sideObj(side).bait.filter(x=>isFaceUpBait(x)&&def(x).type==='insect').map(x=>baitCardColor(x)).filter(Boolean));
+  }
+  function baitHasRGB(side){
+    const colors=new Set(sideObj(side).bait.filter(isFaceUpBait).map(x=>baitCardColor(x)).filter(Boolean));
+    return colors.has('red')&&colors.has('blue')&&colors.has('green');
+  }
+  function poisonTechniqueOnInstance(inst){
+    const c=def(inst),p=passiveOfInst(inst);
+    return (c.attacks||[]).some(a=>String(a.name||'').includes('毒')||String(a.text||'').includes('毒'))||
+      !!(p&&(/毒/.test(String(p.text||''))||/poison/i.test(String(p.type||''))));
+  }
+  function discardSummonBlocked(){
+    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='hellGatekeeper'));
+  }
+
   function scavengerActive(side){
     if(!side)return false;
     const colors=new Set(sideObj(side).discard.filter(x=>def(x).type==='insect').map(x=>def(x).color));
@@ -186,6 +210,7 @@
     if(p?.type==='fungusPower'&&fc.attachments.length>0)hp+=Number(p.value||100);
     if(p?.type==='aphidFavorite'&&side)hp+=faceUpBait(side).filter(x=>def(x).type==='insect'&&/アブラムシ/.test(def(x).name)).length*Number(p.value||100);
     if(p?.type==='cicadaParasite'&&side&&fieldActive(side).some(x=>x!==fc&&isCicadaCard(x.inst)))hp+=Number(p.value||100);
+    if(p?.type==='whiteStripe'&&side)hp+=sideObj(side).bait.filter(x=>x.faceDown).length*Number(p.value||100);
     if(side){
       const mirrors=fc.attachments.filter(a=>def(a).effect==='greenMirror').length;
       if(mirrors)hp+=(sideObj(side).bait.length>=6?800:400)*mirrors*factor;
@@ -218,6 +243,8 @@
     if(p?.type==='fungusPower'&&fc.attachments.length>0)b+=Number(p.value||100);
     if(p?.type==='aphidFavorite'&&side)b+=faceUpBait(side).filter(x=>def(x).type==='insect'&&/アブラムシ/.test(def(x).name)).length*Number(p.value||100);
     if(p?.type==='cicadaParasite'&&side&&fieldActive(side).some(x=>x!==fc&&isCicadaCard(x.inst)))b+=Number(p.value||100);
+    if(p?.type==='whiteStripe'&&side)b+=sideObj(side).bait.filter(x=>x.faceDown).length*Number(p.value||100);
+    if(p?.type==='sumatraNature'&&side&&baitHasRGB(side))b+=Number(p.value||800);
     if(side){
       const mirrors=fc.attachments.filter(a=>def(a).effect==='greenMirror').length;
       if(mirrors)b+=(sideObj(side).bait.length>=6?800:400)*mirrors*factor;
@@ -257,7 +284,7 @@
     return list;
   }
   function oncePerEntryEffect(effect){
-    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce','sourceAttackLockPersistent','dragonMantisFist','superPainNeedle'].includes(effect);
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce','sourceAttackLockPersistent','dragonMantisFist','superPainNeedle','colorlessTargetOnce','charmingWing','antennaWhip','spellTaxTwoNext'].includes(effect);
   }
   function baitCardColor(inst){
     if(!inst||inst.faceDown)return null;
@@ -326,7 +353,7 @@
   function enhancementTargetLegal(fc,inst){
     if(!fc||!inst)return false;
     const e=def(inst)?.effect;
-    if(e==='spear400'||e==='spear800')return !insectHasTechniqueEffect(fc);
+    if(e==='spear400'||e==='spear800'||e==='victoryBlade'||e==='auspiciousBlade')return !insectHasTechniqueEffect(fc);
     if(e==='redSword')return effectiveColor(fc)==='red';
     if(e==='blueJade')return effectiveColor(fc)==='blue';
     if(e==='greenMirror')return effectiveColor(fc)==='green';
@@ -388,6 +415,12 @@
       if(p?.type==='ancientFossil'){
         cost-=sideObj(side).discard.filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='ancientFossil').length;
       }
+      if(p?.type==='livingFossil'){
+        cost-=sideObj(side).discard.filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='livingFossil').length;
+      }
+      if(p?.type==='colorBlessing')cost-=distinctFaceUpInsectBaitColors(side).size;
+      if(p?.type==='redDragonflyCost'&&fieldActive(side).some(fc=>fieldDef(fc).name==='アキアカネ'))cost-=1;
+      if(p?.type==='yamatoPurple')cost-=Math.floor(sideObj(side).bait.filter(x=>x.faceDown).length/2);
       if(p?.type==='waterLarva')cost-=Math.floor(faceUpColorCount(other(side),'blue')/3);
       if(p?.type==='faceDownBaitDiscount')cost-=Math.floor(sideObj(other(side)).bait.filter(x=>x.faceDown).length/2);
       if(p?.type==='dewBlessing')cost-=sideObj(side).discard.filter(x=>def(x).type==='enhance').length;
@@ -396,6 +429,10 @@
       if(effectiveTechniqueCount(side,inst)>=2)cost+=activeIntimidateCount();
     }else if(c.type==='spell'){
       cost+=currentSpellTax(side,c);
+      if(c.effect==='eternalCocoon'){
+        const colors=new Set(sideObj(side).bait.filter(isFaceUpBait).map(x=>baitCardColor(x)).filter(Boolean));
+        for(const col of ['red','blue','green'])if(colors.has(col))cost-=1;
+      }
     }else if(c.type==='enhance'){
       cost-=currentEnhanceDiscount(side);
       if(/甲冑/.test(c.name))cost-=faceUpBait(side).filter(x=>def(x).effect==='smallKabutoArmor').length*2;
@@ -443,6 +480,9 @@
     if(attack.dynamic==='field100')return fieldActive(side).length*100;
     if(attack.dynamic==='greenField300')return fieldActive(side).filter(x=>effectiveColor(x)==='green').length*300;
     if(attack.dynamic==='antField200')return fieldActive(side).filter(x=>fieldDef(x).name.includes('アリ')).length*200;
+    if(attack.dynamic==='poisonDiscard300')return s.discard.filter(x=>def(x).type==='insect'&&poisonTechniqueOnInstance(x)).length*300;
+    if(attack.dynamic==='poisonDiscard200')return s.discard.filter(x=>def(x).type==='insect'&&poisonTechniqueOnInstance(x)).length*200;
+    if(attack.dynamic==='waspField100')return fieldActive(side).filter(x=>/バチ/.test(fieldDef(x).name)).length*100;
     return Number(attack.power||0);
   }
   function attackPower(side,fc,attack){return Math.max(0,dynamicBasePower(side,fc,attack)+attackBonus(fc));}
@@ -482,6 +522,15 @@
     if(attack.effect==='requiresEnhance'&&fc.attachments.length===0)return false;
     if(attack.effect==='doubleTerritory'&&fc.attachments.length===0)return false;
     if(attack.effect==='carnivore'&&sideObj(side).discard.filter(x=>def(x).type==='insect').length<5)return false;
+    if(attack.effect==='needsTwoEnemy'&&fieldActive(other(side)).length<2)return false;
+    if(attack.effect==='longArmMusou'){
+      const targets=attackableTargets(side);
+      if(!targets.some((x,i)=>targets.some((y,j)=>j!==i&&effectiveColor(x)===effectiveColor(y))))return false;
+    }
+    if(attack.effect==='hawkEye'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>!!passiveOfField(x)))return false;
+    if(attack.effect==='maxCostTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>Number(fieldDef(x).cost||0)<=Number(attack.maxCost??1)))return false;
+    if(attack.effect==='bounceLowCost'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>Number(fieldDef(x).cost||0)<=Number(attack.maxCost??1)))return false;
+    if(attack.effect==='colorlessTargetOnce'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>effectiveColor(x)==='colorless'))return false;
     if(attack.effect==='highCostTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>Number(fieldDef(x).cost||0)>=Number(attack.minCost||5)))return false;
     if(attack.effect==='damagedTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>x.damage>0))return false;
     if(attack.effect==='cicadaChorus'&&fieldActive(side).filter(x=>isCicadaCard(x.inst)).length<2)return false;
@@ -742,7 +791,7 @@
   }
 
   async function startGame(deckKey, firstSide){
-    const cpuKey=(deckKey==='random1'||deckKey==='random2'||deckKey==='random3'||deckKey==='random4'||deckKey==='random5'||deckKey==='random6')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
+    const cpuKey=(deckKey==='random1'||deckKey==='random2'||deckKey==='random3'||deckKey==='random4'||deckKey==='random5'||deckKey==='random6'||deckKey==='random7')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
     uidCounter=1;
     state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false,
       enhanceDiscount:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
@@ -751,6 +800,9 @@
       flowerDance:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
       attackTax:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
       moonlight:{player:{active:false,turnSeq:0},cpu:{active:false,turnSeq:0}},
+      cardCounter:{player:{spellTurn:0,enhanceTurn:0},cpu:{spellTurn:0,enhanceTurn:0}},
+      jewelLegacy:{player:{turnSeq:0},cpu:{turnSeq:0}},
+      firstSpellTax:{player:{turnSeq:0,count:0,used:false},cpu:{turnSeq:0,count:0,used:false}},
       resolvingSpellSide:null,
       noFlyOutSide:null,noFlyOutTurn:0};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
@@ -2633,6 +2685,9 @@
     if(attack.effect==='targetHasEnhance')targets=targets.filter(fc=>fc.attachments.length>0);
     if(attack.effect==='highCostTarget')targets=targets.filter(fc=>Number(fieldDef(fc).cost||0)>=Number(attack.minCost||5));
     if(attack.effect==='damagedTarget')targets=targets.filter(fc=>fc.damage>0);
+    if(attack.effect==='hawkEye')targets=targets.filter(fc=>!!passiveOfField(fc));
+    if(attack.effect==='maxCostTarget'||attack.effect==='bounceLowCost')targets=targets.filter(fc=>Number(fieldDef(fc).cost||0)<=Number(attack.maxCost??1));
+    if(attack.effect==='colorlessTargetOnce')targets=targets.filter(fc=>effectiveColor(fc)==='colorless');
     return targets;
   }
   async function performReverseSwap(side,fc,attack){

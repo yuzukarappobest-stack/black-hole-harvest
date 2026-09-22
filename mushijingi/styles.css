@@ -117,3 +117,5 @@ button{font:inherit}.hidden{display:none!important}
 .mini-card-row .game-card.has-art .card-art,.game-card.mini-card.has-art .card-art{height:28px;margin:1px 0}
 .mini-card-row .game-card.has-art .attack-line,.mini-card-row .game-card.has-art .card-effect,.mini-card-row .game-card.has-art .attach-line,
 .game-card.mini-card.has-art .attack-line,.game-card.mini-card.has-art .card-effect,.game-card.mini-card.has-art .attach-line{display:none}
+
+.deck-choice.random2{background:linear-gradient(145deg,#4e315f,#24182d)}

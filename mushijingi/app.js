@@ -1074,7 +1074,13 @@
       }else{
         const ok=await resolveSpell(side,inst,c);if(!ok)return false;
       }
-      events.emit(EVENT.CARD_RESOLVED,action);render();return true;
+      events.emit(EVENT.CARD_RESOLVED,action);render();
+      if(state.forceEndAfterResolve){
+        state.forceEndAfterResolve=false;
+        state.busy=false;
+        await endTurn();
+      }
+      return true;
     }finally{state.busy=false;render();}
   }
 
@@ -1120,6 +1126,7 @@
       const pick=await chooseAttachment(side,fieldActive(side),'強化カードがついている虫を選んでください。');if(!pick)return false;
       const dests=fieldActive(side).filter(x=>x!==pick.source&&canAttachEnhancement(x,pick.attachment));if(!dests.length)return false;
       const dest=await chooseOwnedField(side,'つけ替える先の虫を選んでください。',dests);if(!dest)return false;
+      if(def(pick.attachment).effect==='imitation'&&!await configureImitation(side,pick.attachment,dest))return false;
       paySpell(side,inst,c);removeInstance(pick.source.attachments,pick.attachment);dest.attachments.push(pick.attachment);
       log(`「${def(pick.attachment).name}」を「${fieldDef(dest).name}」につけ替えた。`);
     }else if(c.effect==='addTerritory'){
@@ -1187,7 +1194,7 @@
       await putInsectOnField(side,incoming,{noAttackThisTurn:true,summonedBySpell:true});
       log(`「${def(incoming).name}」と「${fieldDef(outgoing).name}」を入れ替えた。`);
     }else if(c.effect==='destroyEnhance'){
-      const choices=fieldActive(opp).filter(fc=>legalSpellTarget(fc)&&fc.attachments.length);
+      const choices=spellTargetCandidates(side,opp).filter(fc=>fc.attachments.length);
       const source=side==='player'?await chooseField('強化カードを破壊する相手の虫を選んでください。',choices,true):choices[0];
       if(!source)return false;
       const att=side==='player'?await chooseInstances('破壊する強化カードを選んでください。',source.attachments):source.attachments[0];if(!att)return false;
@@ -1322,6 +1329,126 @@
       const rec=state.grasshopperAmbush[side];
       if(s.territory.length===0){rec.active=false;rec.ended=true;}
       else if(!rec.ended){rec.active=true;log(`「飛蝗の待ち伏せ」！ 縄張りが0になるまでバッタ科・イナゴ科に＜とびだす＞を付与。`);}
+    }else if(c.effect==='youngReincarnation'){
+      const adults=fieldActive(side).filter(fc=>!fieldDef(fc).name.includes('（幼虫）')&&s.discard.some(x=>def(x).type==='insect'&&def(x).name===matchingLarvaName(fieldDef(fc).name)));
+      if(!adults.length)return false;
+      const adult=await chooseOwnedField(side,'対応する幼虫を呼ぶ成虫を選んでください。',adults);if(!adult)return false;
+      const larvae=s.discard.filter(x=>def(x).type==='insect'&&def(x).name===matchingLarvaName(fieldDef(adult).name));
+      const larva=await chooseOwnedInstance(side,'場に出す幼虫を選んでください。',larvae);if(!larva)return false;
+      if(!paySpell(side,inst,c))return false;
+      removeInstance(s.discard,larva);await putInsectOnField(side,larva,{noAttackThisTurn:true,summonedBySpell:true});
+      log(`「若虫の転生」で「${def(larva).name}」を場に出した。`);
+    }else if(c.effect==='ghostSwap'){
+      const fields=spellTargetCandidates(side,opp),baits=faceUpBait(opp).filter(x=>def(x).type==='insect');
+      if(!fields.length||!baits.length)return false;
+      const outgoing=side==='player'?await chooseField('エサ場へ送る相手の虫を選んでください。',fields,true):fields[0];if(!outgoing)return false;
+      const incoming=await chooseOwnedInstance(side,'相手の場へ出すエサの虫を選んでください。',baits);if(!incoming)return false;
+      if(!paySpell(side,inst,c))return false;
+      sideObj(opp).field=sideObj(opp).field.filter(x=>x!==outgoing);
+      discardAttachmentsToOwners(outgoing,opp,'swap');sendToOwnerBait(outgoing.inst,opp);
+      events.emit(EVENT.CARD_LEFT_FIELD,{state,side:opp,fieldCard:outgoing,reason:'swap'});
+      removeInstance(sideObj(opp).bait,incoming);await putInsectOnField(opp,incoming,{summonedBySpell:true});
+      log(`「怨霊の虫送り」で「${fieldDef(outgoing).name}」と「${def(incoming).name}」を入れ替えた。`);
+    }else if(c.effect==='polarEvolution'){
+      const larvae=fieldActive(side).filter(fc=>fieldDef(fc).name.includes('（幼虫）')&&s.discard.some(x=>def(x).type==='insect'&&def(x).name===baseAdultName(fieldDef(fc).name)));
+      if(!larvae.length)return false;
+      const larva=await chooseOwnedField(side,'羽化させる幼虫を選んでください。',larvae);if(!larva)return false;
+      const adults=s.discard.filter(x=>def(x).type==='insect'&&def(x).name===baseAdultName(fieldDef(larva).name));
+      const adult=await chooseOwnedInstance(side,'場に出す成虫を選んでください。',adults);if(!adult)return false;
+      if(!paySpell(side,inst,c))return false;
+      removeInstance(s.discard,adult);
+      s.field=s.field.filter(x=>x!==larva);discardAttachmentsToOwners(larva,side,'swap');sendToOwnerDiscard(larva.inst,side);
+      events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:larva,reason:'swap'});
+      await putInsectOnField(side,adult,{summonedBySpell:true});
+      log(`「極夜の羽化」で「${fieldDef(larva).name}」と「${def(adult).name}」を入れ替えた。`);
+    }else if(c.effect==='kusanagiInferno'){
+      if(!paySpell(side,inst,c))return false;
+      for(const owner of ['player','cpu']){
+        for(const fc of [...fieldActive(owner)])await attemptDestroyFieldCard(owner,fc,'effect',null);
+      }
+      state.forceEndAfterResolve=true;
+      log('「草薙の劫火」で表向きの虫をすべて破壊した。ターンを終了する。');
+    }else if(c.effect==='whiteAntHarvest'){
+      const list=faceUpBait(side).filter(x=>def(x).type==='enhance');if(!list.length)return false;
+      if(!paySpell(side,inst,c))return false;
+      let left=2;
+      while(left>0){
+        const avail=faceUpBait(side).filter(x=>def(x).type==='enhance');if(!avail.length)break;
+        let pick=avail[0];
+        if(side==='player'){
+          const opts=avail.map(x=>({value:x.uid,title:def(x).name,detail:'手札に戻す'}));opts.push({value:null,title:'ここで終了',detail:''});
+          const uid=await choose(opts,'手札に戻す強化カードを選んでください。','白蟻の収穫');if(uid===null)break;pick=avail.find(x=>x.uid===uid);
+        }
+        if(!pick)break;removeInstance(s.bait,pick);s.hand.push(pick);left--;
+      }
+      log('「白蟻の収穫」で強化カードを手札に戻した。');
+    }else if(c.effect==='leafcutterWork'){
+      const list=faceUpBait(side);if(!list.length)return false;
+      chosen=await chooseOwnedInstance(side,'手札に戻すエサを選んでください。',list);if(!chosen)return false;
+      const cost=effectiveCardCost(side,inst);if(!spendCost(side,inst,cost))return false;
+      removeHand(s,inst);removeInstance(s.bait,chosen);s.hand.push(chosen);inst.faceDown=false;s.bait.push(inst);
+      log(`「葉切蟻の野良仕事」で「${def(chosen).name}」を手札へ戻し、この術をエサ場へ置いた（このターンのコストは増えない）。`);
+    }else if(c.effect==='spellShield'){
+      const list=fieldActive(side);if(!list.length)return false;
+      target=await chooseOwnedField(side,'術カードから守る虫を選んでください。',list);if(!target)return false;
+      if(!paySpell(side,inst,c))return false;
+      target.spellShieldUntilTurnSeq=nextOpponentTurnSeq(side);
+      log(`「${fieldDef(target).name}」は次の相手ターン終了時まで相手の術カードの対象にならない。`);
+    }else if(c.effect==='swordDanceAttach'){
+      if(!paySpell(side,inst,c))return false;
+      let attached=0;
+      while(attached<2){
+        const avail=faceUpBait(side).filter(x=>eligibleSwordDanceEnhance(x));
+        if(!avail.length)break;
+        let enhancement=avail[0];
+        if(side==='player'){
+          const opts=avail.map(x=>({value:x.uid,title:def(x).name,detail:'場の虫につける'}));if(attached>0)opts.push({value:null,title:'ここで終了',detail:''});
+          const uid=await choose(opts,'エサ場からつける強化カードを選んでください。','剣舞天翔の刹那');if(uid===null)break;enhancement=avail.find(x=>x.uid===uid);
+        }
+        if(!enhancement)break;
+        const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,enhancement));
+        if(def(enhancement).effect==='imitation'&&allOwnEnhancements(side).length===0){
+          if(side==='player'){removeInstance(s.bait,enhancement);s.bait.push(enhancement);break;}else break;
+        }
+        if(!targets.length)break;
+        const dest=await chooseOwnedField(side,'強化カードをつける虫を選んでください。',targets);if(!dest)break;
+        if(def(enhancement).effect==='imitation'&&!await configureImitation(side,enhancement,dest))break;
+        removeInstance(s.bait,enhancement);dest.attachments.push(enhancement);
+        if(def(enhancement).effect==='changeColor'){
+          const col=side==='player'?await chooseSimple('色を選んでください。',[['red','赤'],['blue','青'],['green','緑']]):bestColorAgainstCPU(dest,other(side));
+          dest.changedColor=col||effectiveColor(dest);
+        }
+        if(def(enhancement).effect==='secretBook')enhancement.protectTurn=nextOpponentTurnSeq(side);
+        attached++;
+      }
+      log(`「剣舞天翔の刹那」で強化カードを${attached}枚つけた。`);
+    }else if(c.effect==='sameNameBurn'){
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
+      const first=side==='player'?await chooseField('500ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!first)return false;
+      const name=fieldDef(first).name;if(!paySpell(side,inst,c))return false;
+      const firstDmg=await dealDamage(opp,first,500,{source:inst,sourceSide:side,kind:'spell'});
+      log(`「伏魔の蟲噛み」で「${name}」に${firstDmg}ダメージ。`);
+      if(first.damage>=maxHp(first)&&sideObj(opp).field.includes(first))await attemptDestroyFieldCard(opp,first,'effect',null);
+      const same=spellTargetCandidates(side,opp).filter(fc=>fc!==first&&fieldDef(fc).name===name);
+      if(same.length){
+        let use=true;if(side==='player')use=await confirmYesNo(`同名の「${name}」にも500ダメージを与えますか？`,'伏魔の蟲噛み');
+        if(use){
+          const second=side==='player'?await chooseField('追加でダメージを与える虫を選んでください。',same,true):same[0];
+          if(second){const dmg=await dealDamage(opp,second,500,{source:inst,sourceSide:side,kind:'spell'});if(second.damage>=maxHp(second))await attemptDestroyFieldCard(opp,second,'effect',null);log(`同名の「${fieldDef(second).name}」にも${dmg}ダメージ。`);}
+        }
+      }
+    }else if(c.effect==='sacrificeEnhanceBurn'){
+      const pick=await chooseOwnEnhancement(side,'破壊する自分の強化カードを選んでください。');if(!pick)return false;
+      if(!paySpell(side,inst,c))return false;
+      destroyAttachment(pick.fc,pick.att,side,'effect');log(`「${def(pick.att).name}」を破壊した。`);
+      const choices=spellTargetCandidates(side,opp);
+      if(choices.length){
+        let use=true;if(side==='player')use=await confirmYesNo('相手の虫に700ダメージを与えますか？','捨て身の兜投げ');
+        if(use){
+          target=side==='player'?await chooseField('700ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);
+          if(target){const dmg=await dealDamage(opp,target,700,{source:inst,sourceSide:side,kind:'spell'});if(target.damage>=maxHp(target))await attemptDestroyFieldCard(opp,target,'effect',null);log(`「捨て身の兜投げ」で「${fieldDef(target).name}」に${dmg}ダメージ。`);}
+        }
+      }
     }else return false;
 
     if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用`);}
@@ -1414,9 +1541,10 @@
   }
   async function moveEnhanceByAttack(side,fc){
     if(!fc.attachments.length)return;
-    const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const att=await chooseOwnedInstance(side,'つけ替える強化カードを選んでください。',fc.attachments);if(!att)return;
+    const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
+    if(def(att).effect==='imitation'&&!await configureImitation(side,att,dest))return;
     removeInstance(fc.attachments,att);dest.attachments.push(att);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
   }
   async function chooseOwnEnhancement(side,text){

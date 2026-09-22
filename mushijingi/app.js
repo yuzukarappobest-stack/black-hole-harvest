@@ -37,10 +37,12 @@
   function other(side){ return side==='player'?'cpu':'player'; }
   function fieldActive(side){ return sideObj(side).field.filter(x=>!x.hidden); }
   function cardTypeLabel(card){ return typeJa[card.type] || ''; }
+  function nextOpponentTurnSeq(side){
+    return state.turn===side?state.turnSeq+1:state.turnSeq+2;
+  }
   function newFieldCard(inst){
-    const c=def(inst);
     return Engine.createFieldState(inst,{
-      mimicTurn:['mimic','thornMimic'].includes(c.passive?.type)?state.turnSeq+1:0,
+      mimicTurn:0,
       persistentDamage:0,
       temporaryDestroyTurn:0,
       cannotAttackTurn:0,
@@ -606,7 +608,7 @@
     }
 
     if(p.type==='whiteShell'){
-      fc.whiteShellTurn=state.turnSeq+1;
+      fc.whiteShellTurn=nextOpponentTurnSeq(side);
       return;
     }
 
@@ -663,6 +665,7 @@
   async function putInsectOnField(side,inst,options={}){
     inst.baitColor=null;inst.baitColorTurn=0;
     const fc=newFieldCard(inst);
+    if(['mimic','thornMimic'].includes(fieldDef(fc).passive?.type))fc.mimicTurn=nextOpponentTurnSeq(side);
     if(options.temporary)fc.temporaryDestroyTurn=state.turnSeq;
     if(options.noAttackThisTurn)fc.cannotAttackTurn=state.turnSeq;
     if(options.puppet)fc.puppetDestroyTurn=state.turnSeq;
@@ -927,7 +930,7 @@
             const col=side==='player'?await chooseSimple('色を選んでください。',[['red','赤'],['blue','青'],['green','緑']]):bestColorAgainstCPU(target,other(side));
             target.changedColor=col||effectiveColor(target);
           }
-          if(c.effect==='secretBook')inst.protectTurn=state.turnSeq+1;
+          if(c.effect==='secretBook')inst.protectTurn=nextOpponentTurnSeq(side);
           log(`${sideName(side)}は「${c.name}」を「${fieldDef(target).name}」につけた（コスト${cost}）。`);
           if(side==='cpu'){render();await cpuNotice(`「${c.name}」を「${fieldDef(target).name}」につけた`);}
         }
@@ -1127,7 +1130,7 @@
       const list=fieldActive(side);if(!list.length)return false;
       target=await chooseOwnedField(side,'裏向きにする自分の虫を選んでください。',list);if(!target)return false;
       if(!paySpell(side,inst,c))return false;
-      target.hidden=true;target.hiddenUntilTurnSeq=state.turnSeq+1;
+      target.hidden=true;target.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);
       log(`「${fieldDef(target).name}」を次の相手ターン終了時まで裏向きにした。`);
     }else if(c.effect==='breathRelease'){
       const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
@@ -1180,7 +1183,8 @@
     }else if(c.effect==='grasshopperAmbush'){
       if(!paySpell(side,inst,c))return false;
       const rec=state.grasshopperAmbush[side];
-      if(!rec.ended){rec.active=true;log(`「飛蝗の待ち伏せ」！ 縄張りが0になるまでバッタ科・イナゴ科に＜とびだす＞を付与。`);}
+      if(s.territory.length===0){rec.active=false;rec.ended=true;}
+      else if(!rec.ended){rec.active=true;log(`「飛蝗の待ち伏せ」！ 縄張りが0になるまでバッタ科・イナゴ科に＜とびだす＞を付与。`);}
     }else return false;
 
     if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用`);}
@@ -1271,7 +1275,7 @@
       log(`「${fieldDef(fc).name}」は「${fieldDef(chosen).name}」の色を擬態した。`);
     }
     if(attack.effect==='spiderWeb'){
-      fc.spiderWebTurn=state.turnSeq+1;fc.spiderWebUsedTurn=0;
+      fc.spiderWebTurn=nextOpponentTurnSeq(side);fc.spiderWebUsedTurn=0;
       log(`「${fieldDef(fc).name}」は蜘蛛の巣を張った。`);
     }
     if(attack.effect==='nextOwnAttack'){
@@ -1316,7 +1320,7 @@
   }
   async function finishAttackSpecialState(side,fc,attack){
     if(attack.effect==='hideUntilOpponentEnd'&&sideObj(side).field.includes(fc)){
-      fc.hidden=true;fc.hiddenUntilTurnSeq=state.turnSeq+1;
+      fc.hidden=true;fc.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);
       log(`「${fieldDef(fc).name}」は＜かくれる＞で次の相手ターン終了時まで裏向きになった。`);
     }
   }

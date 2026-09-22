@@ -168,3 +168,9 @@ button{font:inherit}.hidden{display:none!important}
 @media(max-width:700px){
   .start-actions{grid-template-columns:1fr}.builder-head{flex-direction:column}.builder-savebar{grid-template-columns:1fr 1fr}.builder-name-field{grid-column:1/-1}.builder-btn{min-height:42px}.builder-filters{grid-template-columns:1fr 1fr}.builder-filters input{grid-column:1/-1}.card-catalog{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none}.catalog-card{min-height:154px}.catalog-card img{height:96px}
 }
+
+/* Deck builder sorting */
+#cardSort{font-weight:800;border-color:#8a7741;background:#1b2118;color:#ffe28a}
+@media(min-width:701px){
+  .builder-filters{grid-template-columns:minmax(150px,1.5fr) repeat(4,minmax(105px,.8fr));max-width:900px}
+}

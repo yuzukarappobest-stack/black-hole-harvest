@@ -311,7 +311,7 @@
       wrap.innerHTML='<div class="builder-empty">下のカード一覧からカードを追加してね。</div>';
       return;
     }
-    const ids=[...new Set(builderIds)].sort((a,b)=>a-b);
+    const ids=[...new Set(builderIds)].sort((a,b)=>compareBuilderCards(cards[a],cards[b]));
     for(const id of ids){
       const card=cards[id],count=builderExactCount(id);
       const row=document.createElement('div');row.className='builder-deck-row';
@@ -321,18 +321,49 @@
       wrap.appendChild(row);
     }
   }
+  const japaneseCardCollator = new Intl.Collator('ja', {
+    usage:'sort',
+    sensitivity:'base',
+    numeric:true,
+    ignorePunctuation:true
+  });
+  function cardSetOrder(card){
+    if(card.set==='starter')return 0;
+    const match=String(card.set||'').match(/^booster(\d+)$/);
+    return match?Number(match[1]):99;
+  }
+  function compareBuilderCards(a,b,mode=$('cardSort')?.value||'kana'){
+    if(mode==='costAsc'){
+      return Number(a.cost||0)-Number(b.cost||0)
+        || japaneseCardCollator.compare(a.name,b.name)
+        || a.id-b.id;
+    }
+    if(mode==='costDesc'){
+      return Number(b.cost||0)-Number(a.cost||0)
+        || japaneseCardCollator.compare(a.name,b.name)
+        || a.id-b.id;
+    }
+    if(mode==='set'){
+      return cardSetOrder(a)-cardSetOrder(b)
+        || a.id-b.id;
+    }
+    return japaneseCardCollator.compare(a.name,b.name)
+      || cardSetOrder(a)-cardSetOrder(b)
+      || a.id-b.id;
+  }
   function filteredCatalogCards(){
     const q=String($('cardSearchInput')?.value||'').trim().toLowerCase();
     const set=$('cardSetFilter')?.value||'all';
     const type=$('cardTypeFilter')?.value||'all';
     const color=$('cardColorFilter')?.value||'all';
+    const sortMode=$('cardSort')?.value||'kana';
     return Object.values(cards).filter(Boolean).filter(card=>{
       if(set!=='all'&&card.set!==set)return false;
       if(type!=='all'&&card.type!==type)return false;
       if(color!=='all'&&(card.type!=='insect'||card.color!==color))return false;
       if(q&&!String(card.name||'').toLowerCase().includes(q))return false;
       return true;
-    }).sort((a,b)=>a.id-b.id);
+    }).sort((a,b)=>compareBuilderCards(a,b,sortMode));
   }
   function renderCardCatalog(){
     const wrap=$('cardCatalog');if(!wrap)return;
@@ -4467,6 +4498,10 @@
   for(const id of ['cardSetFilter','cardTypeFilter','cardColorFilter']){
     $(id).addEventListener('change',()=>renderCardCatalog());
   }
+  $('cardSort').addEventListener('change',()=>{
+    renderCardCatalog();
+    renderBuilderDeckList();
+  });
   $('cardSearchInput').addEventListener('input',()=>renderCardCatalog());
 
   document.querySelectorAll('#startScreen .deck-choice[data-deck]').forEach(button=>{

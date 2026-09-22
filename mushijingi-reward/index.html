@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes" />
   <meta name="theme-color" content="#172117" />
   <title>蟲神器 SOLO - 学習ごほうび</title>
-  <link rel="stylesheet" href="./styles.css?v=12" />
+  <link rel="stylesheet" href="./styles.css?v=13" />
 </head>
 <body>
   <div id="app">
@@ -169,6 +169,12 @@
                 <option value="green">緑</option>
                 <option value="colorless">無色</option>
               </select>
+              <select id="cardSort">
+                <option value="kana" selected>50音順</option>
+                <option value="set">弾順</option>
+                <option value="costAsc">コスト低い順</option>
+                <option value="costDesc">コスト高い順</option>
+              </select>
             </div>
           </div>
           <div id="cardCatalog" class="card-catalog"></div>
@@ -300,8 +306,8 @@
     </div>
   </div>
 
-  <script src="./cards.js?v=12"></script>
-  <script src="./engine.js?v=12"></script>
-  <script src="./app.js?v=12"></script>
+  <script src="./cards.js?v=13"></script>
+  <script src="./engine.js?v=13"></script>
+  <script src="./app.js?v=13"></script>
 </body>
 </html>

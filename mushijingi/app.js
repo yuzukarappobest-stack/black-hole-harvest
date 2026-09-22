@@ -708,7 +708,8 @@
       if(def(a).effect==='silverThread'&&a.uid!==options.skipThreadUid)threadUids.push(a.uid);
     }
     fc.attachments=[];
-    for(const uid of threadUids)resolveSilverThreadDestroyed(uid);
+    if(reason==='attack'&&threadUids.length)fc.pendingSilverThreadUids=[...(fc.pendingSilverThreadUids||[]),...threadUids];
+    else for(const uid of threadUids)resolveSilverThreadDestroyed(uid);
   }
   function destroyAttachment(source,att,controllerSide,reason='effect'){
     if(!source||!att)return false;
@@ -786,7 +787,11 @@
       }
     }
 
-    if(!attacker||!sideObj(attackerSide).field.includes(attacker))return;
+    if(!attacker||!sideObj(attackerSide).field.includes(attacker)){
+      for(const uid of target.pendingSilverThreadUids||[])resolveSilverThreadDestroyed(uid);
+      target.pendingSilverThreadUids=[];
+      return;
+    }
     const poison=p?.type==='poisonMist';
     const revenge=hasAttachment(target,'revenge');
     if(!poison&&!revenge)return;
@@ -806,6 +811,8 @@
       log(`「針金虫の道連れ」で「${fieldDef(attacker).name}」を破壊！`);
       await attemptDestroyFieldCard(attackerSide,attacker,'effect',null);
     }
+    for(const uid of target.pendingSilverThreadUids||[])resolveSilverThreadDestroyed(uid);
+    target.pendingSilverThreadUids=[];
   }
 
   async function sacrificeTwoForRiock(side){
@@ -1188,7 +1195,8 @@
   }
 
   async function dealDamage(targetSide,target,amount,ctx={}){
-    let actual=Math.max(0,Number(amount||0));
+    const incoming=Math.max(0,Number(amount||0));
+    let actual=incoming;
     const p=fieldDef(target).passive;
 
     if(ctx.kind==='attack'&&p?.type==='poisonBody'&&String(ctx.attack?.name||'').includes('毒')){
@@ -1208,7 +1216,7 @@
       log(`「蜘蛛の巣」で「${fieldDef(target).name}」への最初のダメージを0にした。`);
     }
 
-    if(actual>0&&ctx.kind==='attack'){
+    if(incoming>0&&ctx.kind==='attack'){
       const cuts=target.attachments.filter(a=>def(a).effect==='zeroAttackDamageOnce');
       if(cuts.length){
         target.attachments=target.attachments.filter(a=>def(a).effect!=='zeroAttackDamageOnce');

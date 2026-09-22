@@ -3,6 +3,12 @@
 
   const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
   const GAME_ID = "mushijingi-reward";
+  const CUSTOM_DECKS_KEY = "mushijingiCustomDecks:v1";
+  const CUSTOM_DECK_SIZE = 20;
+  const CUSTOM_DECK_MAX_COPIES = 2;
+  const BATTLE_ACCESS_KEY = MINI_GAME_ACCESS_PREFIX + GAME_ID;
+  let battleAccessAvailable = sessionStorage.getItem(BATTLE_ACCESS_KEY) === "1";
+  let battleAccessConsumed = false;
 
   function getLearningUrl() {
     const saved = sessionStorage.getItem("miniGameReturnUrl");
@@ -15,20 +21,26 @@
     window.location.replace(getLearningUrl());
   }
 
-  function requireMiniGameAccess() {
-    const key = MINI_GAME_ACCESS_PREFIX + GAME_ID;
-    if (sessionStorage.getItem(key) === "1") {
-      sessionStorage.removeItem(key);
-      return true;
-    }
-    returnToLearning();
-    return false;
+  function hasBattleAccess() {
+    return battleAccessAvailable && !battleAccessConsumed;
   }
 
-  if (!requireMiniGameAccess()) return;
+  function consumeBattleAccess() {
+    if (!hasBattleAccess()) return false;
+    sessionStorage.removeItem(BATTLE_ACCESS_KEY);
+    battleAccessAvailable = false;
+    battleAccessConsumed = true;
+    refreshBattleGate();
+    return true;
+  }
 
   window.addEventListener("pageshow", (event) => {
-    if (event.persisted) returnToLearning();
+    if (event.persisted && battleAccessConsumed) {
+      returnToLearning();
+      return;
+    }
+    battleAccessAvailable = sessionStorage.getItem(BATTLE_ACCESS_KEY) === "1";
+    refreshBattleGate();
   });
 
   const {cards, decks} = window.MUSHI_DATA;
@@ -38,11 +50,15 @@
   const events = Engine.createEventBus();
   const $ = (id) => document.getElementById(id);
   const startScreen = $('startScreen');
+  const deckBuilderScreen = $('deckBuilderScreen');
   const gameScreen = $('gameScreen');
   const modal = $('modal');
   let uidCounter = 1;
   let state = null;
   let modalResolver = null;
+  let customDecks = [];
+  let builderDeckId = null;
+  let builderIds = [];
 
   const colorJa = {red:'赤', blue:'青', green:'緑', colorless:'無色'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
@@ -94,20 +110,94 @@
   function dangerSenseActive(){
     return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='dangerSense'));
   }
+  function safeParseCustomDecks() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(CUSTOM_DECKS_KEY) || "[]");
+      if (!Array.isArray(raw)) return [];
+      return raw.map((deck, index) => {
+        const ids = Array.isArray(deck?.ids) ? deck.ids.map(Number).filter(id => cards[id]) : [];
+        const limited = [];
+        const nameCounts = new Map();
+        for (const id of ids) {
+          if (limited.length >= CUSTOM_DECK_SIZE) break;
+          const name = cards[id]?.name;
+          if (!name) continue;
+          const n = nameCounts.get(name) || 0;
+          if (n >= CUSTOM_DECK_MAX_COPIES) continue;
+          nameCounts.set(name, n + 1);
+          limited.push(id);
+        }
+        return {
+          id: String(deck?.id || `legacy-${index + 1}`),
+          name: String(deck?.name || `自作デッキ ${index + 1}`).slice(0, 24),
+          ids: limited,
+          updatedAt: Number(deck?.updatedAt || 0)
+        };
+      }).filter(deck => deck.ids.length > 0);
+    } catch (error) {
+      return [];
+    }
+  }
+  function persistCustomDecks() {
+    try {
+      localStorage.setItem(CUSTOM_DECKS_KEY, JSON.stringify(customDecks));
+      return true;
+    } catch (error) {
+      setBuilderNotice('このブラウザではデッキを保存できませんでした。', true);
+      return false;
+    }
+  }
+  function customDeckRef(id) { return `custom:${id}`; }
+  function customDeckById(id) { return customDecks.find(deck => deck.id === String(id)) || null; }
+  function customDeckFromRef(ref) {
+    if (!String(ref || '').startsWith('custom:')) return null;
+    return customDeckById(String(ref).slice(7));
+  }
+  function resolveDeckDefinition(ref) {
+    if (decks[ref]) return { ...decks[ref], ref, custom:false };
+    const custom = customDeckFromRef(ref);
+    if (!custom) return null;
+    return { name:custom.name, ids:[...custom.ids], ref, custom:true };
+  }
+  function deckIsBattleReady(deck) {
+    if (!deck) return false;
+    if (deck.randomCount) return Number(deck.randomCount) === CUSTOM_DECK_SIZE && deck.ids.length >= CUSTOM_DECK_SIZE;
+    return Array.isArray(deck.ids) && deck.ids.length === CUSTOM_DECK_SIZE && deck.ids.every(id => !!cards[id]);
+  }
+  function battleDeckOptions() {
+    const builtIn = Object.entries(decks).map(([ref, deck]) => ({
+      ref,
+      name:deck.name,
+      detail:deck.randomCount ? `${deck.ids.length}種からランダム20枚` : '固定20枚'
+    }));
+    const custom = customDecks.filter(deck => deckIsBattleReady(deck)).map(deck => ({
+      ref:customDeckRef(deck.id),
+      name:deck.name,
+      detail:'保存した自作デッキ・20枚'
+    }));
+    return [...builtIn, ...custom];
+  }
+  function newCustomDeckId() {
+    return `deck-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+  }
+
   function shuffled(list) {
     const a=[...list];
     for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
     return a;
   }
-  function makeSide(deckKey,isCPU){
+  function makeSide(deckRef,isCPU){
     const owner=isCPU?'cpu':'player';
-    const deckDef=decks[deckKey];
-    const ids=deckDef.randomCount ? shuffled(deckDef.ids).slice(0,deckDef.randomCount) : deckDef.ids;
+    const deckDef=resolveDeckDefinition(deckRef);
+    if(!deckDef||!deckIsBattleReady(deckDef))throw new Error(`Invalid deck: ${deckRef}`);
+    const ids=deckDef.randomCount ? shuffled(deckDef.ids).slice(0,deckDef.randomCount) : [...deckDef.ids];
     const deck=shuffled(ids.map(id=>instance(id,owner)));
     const territory=deck.splice(0,6);
     const hand=deck.splice(0,4);
-    return Engine.ensureModernZones({deckKey,deckName:deckDef.name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
+    return Engine.ensureModernZones({deckKey:deckRef,deckName:deckDef.name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
   }
+  customDecks = safeParseCustomDecks();
+
   function sideObj(side){ return state[side]; }
   function other(side){ return side==='player'?'cpu':'player'; }
   function fieldActive(side){ return sideObj(side).field.filter(x=>!x.hidden); }
@@ -159,6 +249,180 @@
   function message(text){ $('messageBox').textContent=text; }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+  function setBuilderNotice(text='', isError=false) {
+    const el=$('builderNotice'); if(!el)return;
+    el.textContent=text;
+    el.classList.toggle('notice-error',!!isError);
+    el.classList.toggle('notice-ok',!!text&&!isError);
+  }
+  function builderExactCount(cardId){return builderIds.filter(id=>id===Number(cardId)).length;}
+  function builderNameCount(cardId){
+    const name=cards[Number(cardId)]?.name;
+    return name?builderIds.filter(id=>cards[id]?.name===name).length:0;
+  }
+  function setLabel(set){
+    if(set==='starter')return 'スターター';
+    const m=String(set||'').match(/^booster(\d+)$/);
+    return m?`第${m[1]}弾`:'第1弾';
+  }
+  function typeLabel(card){return typeJa[card.type]||card.type;}
+  function colorLabel(card){return card.type==='insect'?(colorJa[card.color]||card.color):'—';}
+  function renderSavedDeckSelect(){
+    const select=$('savedDeckSelect');if(!select)return;
+    const current=builderDeckId||'';
+    select.innerHTML='<option value="">新しいデッキ</option>';
+    for(const deck of [...customDecks].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))){
+      const option=document.createElement('option');
+      option.value=deck.id;
+      option.textContent=`${deck.name}（${deck.ids.length}枚）`;
+      select.appendChild(option);
+    }
+    select.value=current;
+    $('deleteDeckBtn').disabled=!builderDeckId;
+  }
+  function renderBuilderStatus(){
+    const count=builderIds.length,remaining=Math.max(0,CUSTOM_DECK_SIZE-count);
+    $('builderCount').textContent=`${count} / ${CUSTOM_DECK_SIZE}枚`;
+    $('builderRuleStatus').textContent=count===CUSTOM_DECK_SIZE?'保存できます':`あと${remaining}枚`;
+    $('saveDeckBtn').disabled=count!==CUSTOM_DECK_SIZE;
+  }
+  function builderCardImage(card){
+    return card.image?`<img src="${escapeHtml(card.image)}" alt="" referrerpolicy="no-referrer" loading="lazy">`:'';
+  }
+  function addBuilderCard(cardId){
+    const id=Number(cardId);
+    if(!cards[id])return;
+    if(builderIds.length>=CUSTOM_DECK_SIZE){setBuilderNotice('デッキは20枚までです。',true);return;}
+    if(builderNameCount(id)>=CUSTOM_DECK_MAX_COPIES){setBuilderNotice('同じ名前のカードは、別弾・別レアリティを合わせて2枚までです。',true);return;}
+    builderIds.push(id);setBuilderNotice('');
+    renderBuilderDeckList();renderCardCatalog();renderBuilderStatus();
+  }
+  function removeBuilderCard(cardId){
+    const id=Number(cardId),index=builderIds.lastIndexOf(id);
+    if(index<0)return;
+    builderIds.splice(index,1);setBuilderNotice('');
+    renderBuilderDeckList();renderCardCatalog();renderBuilderStatus();
+  }
+  function renderBuilderDeckList(){
+    const wrap=$('builderDeckList');if(!wrap)return;
+    wrap.innerHTML='';
+    if(!builderIds.length){
+      wrap.innerHTML='<div class="builder-empty">下のカード一覧からカードを追加してね。</div>';
+      return;
+    }
+    const ids=[...new Set(builderIds)].sort((a,b)=>a-b);
+    for(const id of ids){
+      const card=cards[id],count=builderExactCount(id);
+      const row=document.createElement('div');row.className='builder-deck-row';
+      row.innerHTML=`${builderCardImage(card)}<div><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(setLabel(card.set))} / ${escapeHtml(typeLabel(card))} / コスト ${card.cost}</small></div><div class="builder-qty"><button type="button" data-remove="${id}" aria-label="1枚減らす">−</button><b>${count}</b><button type="button" data-add="${id}" aria-label="1枚増やす" ${builderNameCount(id)>=CUSTOM_DECK_MAX_COPIES||builderIds.length>=CUSTOM_DECK_SIZE?'disabled':''}>＋</button></div>`;
+      row.querySelector('[data-remove]').addEventListener('click',()=>removeBuilderCard(id));
+      row.querySelector('[data-add]').addEventListener('click',()=>addBuilderCard(id));
+      wrap.appendChild(row);
+    }
+  }
+  function filteredCatalogCards(){
+    const q=String($('cardSearchInput')?.value||'').trim().toLowerCase();
+    const set=$('cardSetFilter')?.value||'all';
+    const type=$('cardTypeFilter')?.value||'all';
+    const color=$('cardColorFilter')?.value||'all';
+    return Object.values(cards).filter(Boolean).filter(card=>{
+      if(set!=='all'&&card.set!==set)return false;
+      if(type!=='all'&&card.type!==type)return false;
+      if(color!=='all'&&(card.type!=='insect'||card.color!==color))return false;
+      if(q&&!String(card.name||'').toLowerCase().includes(q))return false;
+      return true;
+    }).sort((a,b)=>a.id-b.id);
+  }
+  function renderCardCatalog(){
+    const wrap=$('cardCatalog');if(!wrap)return;
+    wrap.innerHTML='';
+    for(const card of filteredCatalogCards()){
+      const count=builderExactCount(card.id),disabled=builderNameCount(card.id)>=CUSTOM_DECK_MAX_COPIES||builderIds.length>=CUSTOM_DECK_SIZE;
+      const button=document.createElement('button');
+      button.type='button';button.className='catalog-card';button.disabled=disabled;
+      button.innerHTML=`${count?`<span class="catalog-count">×${count}</span>`:''}${builderCardImage(card)}<strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(setLabel(card.set))} / ${escapeHtml(typeLabel(card))} / ${escapeHtml(colorLabel(card))} / コスト ${card.cost}</small>`;
+      button.addEventListener('click',()=>addBuilderCard(card.id));
+      wrap.appendChild(button);
+    }
+    if(!wrap.children.length)wrap.innerHTML='<div class="builder-empty">条件に合うカードがありません。</div>';
+  }
+  function renderDeckBuilder(){
+    renderSavedDeckSelect();renderBuilderDeckList();renderCardCatalog();renderBuilderStatus();
+  }
+  function newBuilderDeck(){
+    builderDeckId=null;builderIds=[];$('deckNameInput').value='';setBuilderNotice('');
+    renderDeckBuilder();
+  }
+  function loadBuilderDeck(id){
+    const deck=customDeckById(id);
+    if(!deck){newBuilderDeck();return;}
+    builderDeckId=deck.id;builderIds=[...deck.ids];$('deckNameInput').value=deck.name;setBuilderNotice('');
+    renderDeckBuilder();
+  }
+  function saveBuilderDeck(){
+    if(builderIds.length!==CUSTOM_DECK_SIZE){setBuilderNotice('20枚ちょうどにしてから保存してください。',true);return false;}
+    const nameCounts=new Map();
+    for(const id of builderIds){
+      if(!cards[id]){setBuilderNotice('使えないカードが含まれています。',true);return false;}
+      const name=cards[id].name,n=(nameCounts.get(name)||0)+1;nameCounts.set(name,n);
+      if(n>CUSTOM_DECK_MAX_COPIES){setBuilderNotice('同じ名前のカードは、別弾・別レアリティを合わせて2枚までです。',true);return false;}
+    }
+    const name=String($('deckNameInput').value||'').trim().slice(0,24)||`自作デッキ ${customDecks.length+1}`;
+    if(builderDeckId){
+      const deck=customDeckById(builderDeckId);
+      if(!deck)return false;
+      deck.name=name;deck.ids=[...builderIds];deck.updatedAt=Date.now();
+    }else{
+      builderDeckId=newCustomDeckId();
+      customDecks.push({id:builderDeckId,name,ids:[...builderIds],updatedAt:Date.now()});
+    }
+    if(!persistCustomDecks())return false;
+    $('deckNameInput').value=name;
+    setBuilderNotice(`「${name}」を保存しました。`);
+    renderSavedDeckSelect();renderCustomDeckChoices();refreshBattleGate();return true;
+  }
+  function deleteBuilderDeck(){
+    if(!builderDeckId)return;
+    const deck=customDeckById(builderDeckId);if(!deck)return;
+    if(!window.confirm(`「${deck.name}」を削除しますか？`))return;
+    customDecks=customDecks.filter(x=>x.id!==builderDeckId);
+    persistCustomDecks();newBuilderDeck();renderCustomDeckChoices();refreshBattleGate();
+    setBuilderNotice('デッキを削除しました。');
+  }
+  function renderCustomDeckChoices(){
+    const wrap=$('customDeckChoices'),empty=$('noCustomDecks');if(!wrap||!empty)return;
+    wrap.innerHTML='';
+    const ready=customDecks.filter(deck=>deckIsBattleReady(deck));
+    empty.classList.toggle('hidden',ready.length>0);
+    for(const deck of ready){
+      const button=document.createElement('button');
+      button.type='button';button.className='deck-choice custom-deck-choice';
+      button.dataset.deck=customDeckRef(deck.id);
+      button.innerHTML=`<span class="deck-icon">🃏</span><strong>${escapeHtml(deck.name)}</strong><small>自作デッキ・20枚</small>`;
+      button.disabled=!hasBattleAccess();
+      button.addEventListener('click',()=>chooseTurnOrder(button.dataset.deck));
+      wrap.appendChild(button);
+    }
+  }
+  function refreshBattleGate(){
+    const gate=$('battleGate');if(!gate)return;
+    const unlocked=hasBattleAccess();
+    gate.classList.toggle('locked',!unlocked);gate.classList.toggle('unlocked',unlocked);
+    $('battleGateTitle').textContent=unlocked?'✅ CPU対戦できます':'🔒 CPU対戦はロック中';
+    $('battleGateText').textContent=unlocked?'自分のデッキを選んでください。対戦開始時に権利を1回分使います。':'デッキ作りはいつでもできます。CPU対戦には、がくしゅうクリアが必要です。';
+    document.querySelectorAll('#startScreen .deck-choice').forEach(button=>{button.disabled=!unlocked;});
+  }
+  function openDeckBuilder(){
+    hideCpuNotice();hideResultPopup();closeModal(null);state=null;
+    startScreen.classList.add('hidden');gameScreen.classList.add('hidden');deckBuilderScreen.classList.remove('hidden');
+    if(builderDeckId&&!customDeckById(builderDeckId))builderDeckId=null;
+    renderDeckBuilder();
+  }
+  function closeDeckBuilder(){
+    deckBuilderScreen.classList.add('hidden');gameScreen.classList.add('hidden');startScreen.classList.remove('hidden');
+    renderCustomDeckChoices();refreshBattleGate();
+  }
 
   async function cpuNotice(text){
     const popup=$('cpuActionPopup');
@@ -831,7 +1095,7 @@
   function renderActions(){
     const bar=$('actionBar'); bar.innerHTML='';
     if(state.over){
-      const b=btn('もう一度遊ぶ','action-btn',()=>showStart());bar.appendChild(b);return;
+      const b=btn('がくしゅうへ','action-btn',()=>returnToLearning());bar.appendChild(b);return;
     }
     if(state.turn!=='player')return;
     if(state.phase==='set'){
@@ -949,10 +1213,13 @@
     return !fc.attacked;
   }
 
-  async function startGame(deckKey, firstSide){
-    const cpuKey=(deckKey==='random1'||deckKey==='random2'||deckKey==='random3'||deckKey==='random4'||deckKey==='random5'||deckKey==='random6'||deckKey==='random7'||deckKey==='random8')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
+  async function startGame(playerDeckRef, cpuDeckRef, firstSide){
+    if(!hasBattleAccess()){refreshBattleGate();return false;}
+    const playerDeck=resolveDeckDefinition(playerDeckRef),cpuDeck=resolveDeckDefinition(cpuDeckRef);
+    if(!deckIsBattleReady(playerDeck)||!deckIsBattleReady(cpuDeck))return false;
+    if(!consumeBattleAccess())return false;
     uidCounter=1;
-    state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false,
+    state={player:makeSide(playerDeckRef,false),cpu:makeSide(cpuDeckRef,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false,
       enhanceDiscount:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
       spellTax:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
       grasshopperAmbush:{player:{active:false,ended:false},cpu:{active:false,ended:false}},
@@ -968,24 +1235,32 @@
       resolvingSpellSide:null,
       noFlyOutSide:null,noFlyOutTurn:0};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
-    log(`対戦開始！ あなたは「${state.player.deckName}」を使用。`);
+    log(`対戦開始！ あなたは「${state.player.deckName}」、CPUは「${state.cpu.deckName}」を使用。`);
     log(`${state.turn==='player'?'あなた':'CPU'}が先攻です。`);
     render();
     await beginTurn();
   }
-  async function chooseTurnOrder(deckKey){
+  async function chooseTurnOrder(playerDeckRef){
+    if(!hasBattleAccess()){refreshBattleGate();return;}
+    const playerDeck=resolveDeckDefinition(playerDeckRef);if(!deckIsBattleReady(playerDeck))return;
+    const cpuOptions=battleDeckOptions().map(item=>({value:item.ref,title:item.name,detail:item.detail}));
+    cpuOptions.push({value:null,title:'やめる',detail:''});
+    const cpuDeckRef=await choose(cpuOptions,`あなた：${playerDeck.name}\nCPUが使うデッキを選んでください。`,'CPUのデッキ');
+    if(!cpuDeckRef)return;
     const firstSide=await choose([
       {value:'player',title:'先攻',detail:'あなたから開始。先攻1ターン目はドローなし'},
-      {value:'cpu',title:'後攻',detail:'CPUが先攻。あなたは後攻で開始'}
-    ],'先攻・後攻を選んでください。','ターン順');
+      {value:'cpu',title:'後攻',detail:'CPUが先攻。あなたは後攻で開始'},
+      {value:null,title:'やめる',detail:''}
+    ],`あなた：${playerDeck.name}\nCPU：${resolveDeckDefinition(cpuDeckRef).name}`,'先攻・後攻');
     if(!firstSide)return;
-    await startGame(deckKey,firstSide);
+    await startGame(playerDeckRef,cpuDeckRef,firstSide);
   }
 
   function showStart(){
     hideCpuNotice();
     hideResultPopup();
-    state=null; gameScreen.classList.add('hidden'); startScreen.classList.remove('hidden'); closeModal(null);
+    state=null;deckBuilderScreen.classList.add('hidden');gameScreen.classList.add('hidden');startScreen.classList.remove('hidden');closeModal(null);
+    renderCustomDeckChoices();refreshBattleGate();
   }
   async function beginTurn(){
     if(state.over)return;
@@ -4178,7 +4453,37 @@
   async function confirmYesNo(text,title){const v=await choose([{value:true,title:'はい',detail:''},{value:false,title:'いいえ',detail:''}],text,title);return !!v;}
 
   $('resultRestartBtn').addEventListener('click',()=>returnToLearning());
-  window.MUSHI_RUNTIME={engineVersion:Engine.version,events,getState:()=>state,fieldDef};
-  document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>chooseTurnOrder(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>returnToLearning());
+  $('learningBtn').addEventListener('click',()=>returnToLearning());
+  $('deckBuilderBtn').addEventListener('click',()=>openDeckBuilder());
+  $('builderBackBtn').addEventListener('click',()=>closeDeckBuilder());
+  $('newDeckBtn').addEventListener('click',()=>newBuilderDeck());
+  $('saveDeckBtn').addEventListener('click',()=>saveBuilderDeck());
+  $('deleteDeckBtn').addEventListener('click',()=>deleteBuilderDeck());
+  $('savedDeckSelect').addEventListener('change',(event)=>{
+    if(event.target.value)loadBuilderDeck(event.target.value);
+    else newBuilderDeck();
+  });
+  for(const id of ['cardSetFilter','cardTypeFilter','cardColorFilter']){
+    $(id).addEventListener('change',()=>renderCardCatalog());
+  }
+  $('cardSearchInput').addEventListener('input',()=>renderCardCatalog());
+
+  document.querySelectorAll('#startScreen .deck-choice[data-deck]').forEach(button=>{
+    button.addEventListener('click',()=>chooseTurnOrder(button.dataset.deck));
+  });
+
+  window.MUSHI_RUNTIME={
+    engineVersion:Engine.version,
+    events,
+    getState:()=>state,
+    fieldDef,
+    getCustomDecks:()=>customDecks.map(deck=>({...deck,ids:[...deck.ids]})),
+    hasBattleAccess
+  };
+
+  renderCustomDeckChoices();
+  refreshBattleGate();
+  const params=new URLSearchParams(window.location.search);
+  if(params.get('mode')==='builder')openDeckBuilder();
 })();

@@ -86,22 +86,32 @@
   }
 
 
+  function attachmentStatFactor(fc){
+    return fieldDef(fc).passive?.type==='doubleEnhance'?2:1;
+  }
   function maxHp(fc){
-    let hp=fieldDef(fc).hp + Engine.modifierTotal(fc,'hp',state?.turnSeq||0);
+    let hp=fieldDef(fc).hp+Engine.modifierTotal(fc,'hp',state?.turnSeq||0);
+    const factor=attachmentStatFactor(fc);
     for(const a of fc.attachments){
       const e=def(a).effect;
-      if(e==='hp500')hp+=500;
-      if(e==='hp800')hp+=800;
-      if(e==='hpAttack300')hp+=300;
-      if(e==='hpAttack500')hp+=500;
+      if(e==='hp500')hp+=500*factor;
+      if(e==='hp800')hp+=800*factor;
+      if(e==='hpAttack200')hp+=200*factor;
+      if(e==='hpAttack300')hp+=300*factor;
+      if(e==='hpAttack500')hp+=500*factor;
+      if(e==='hpAttack700')hp+=700*factor;
+    }
+    const p=fieldDef(fc).passive;
+    if(p?.type==='bloodPrice'){
+      const side=findFieldSide(fc);if(side)hp-=sideObj(side).territory.length*100;
     }
     return hp;
   }
   function effectiveColor(fc){
-    if(fc.turnColorOverrideTurn===state?.turnSeq && fc.turnColorOverride)return fc.turnColorOverride;
+    if(fc.turnColorOverrideTurn===state?.turnSeq&&fc.turnColorOverride)return fc.turnColorOverride;
     for(let i=fc.attachments.length-1;i>=0;i--){
       const e=def(fc.attachments[i]).effect;
-      if(e==='changeColor' && fc.changedColor)return fc.changedColor;
+      if(e==='changeColor'&&fc.changedColor)return fc.changedColor;
       if(e==='setRed')return 'red';
       if(e==='setBlue')return 'blue';
       if(e==='setGreen')return 'green';
@@ -110,18 +120,21 @@
   }
   function attackBonus(fc){
     let b=(fc.turnAttackBonus||0)+Engine.modifierTotal(fc,'attack',state?.turnSeq||0);
+    const factor=attachmentStatFactor(fc);
     for(const a of fc.attachments){
       const e=def(a).effect;
-      if(e==='attack300')b+=300;
-      if(e==='attack500')b+=500;
-      if(e==='hpAttack300')b+=300;
-      if(e==='hpAttack500')b+=500;
+      if(e==='attack300')b+=300*factor;
+      if(e==='attack500')b+=500*factor;
+      if(e==='hpAttack200')b+=200*factor;
+      if(e==='hpAttack300')b+=300*factor;
+      if(e==='hpAttack500')b+=500*factor;
+      if(e==='hpAttack700')b+=700*factor;
     }
     const p=fieldDef(fc).passive;
-    if(p?.type==='emblem'){
-      const side=findFieldSide(fc);
-      if(side && fieldActive(side).some(x=>x!==fc && fieldDef(x).name===p.partner))b+=Number(p.value||300);
-    }
+    const side=findFieldSide(fc);
+    if(p?.type==='emblem'&&side&&fieldActive(side).some(x=>x!==fc&&fieldDef(x).name===p.partner))b+=Number(p.value||300);
+    if(p?.type==='loneAttack'&&side&&fieldActive(side).length===1)b+=Number(p.value||100);
+    if(p?.type==='bloodPrice'&&side)b-=sideObj(side).territory.length*100;
     if(fc.attackPenaltyTurn===state.turnSeq)b-=fc.attackPenalty||0;
     return b;
   }
@@ -144,6 +157,63 @@
   function oncePerEntryEffect(effect){
     return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer'].includes(effect);
   }
+  function baitCardColor(inst){
+    if(!inst||inst.faceDown)return null;
+    if(inst.baitColorTurn===state?.turnSeq&&inst.baitColor)return inst.baitColor;
+    return def(inst).color||null;
+  }
+  function faceUpColorCount(side,color){
+    return sideObj(side).bait.filter(i=>baitCardColor(i)===color).length;
+  }
+  function activeLowSpellTax(){
+    let count=0;
+    for(const owner of ['player','cpu'])count+=fieldActive(owner).filter(fc=>fieldDef(fc).passive?.type==='spellTaxLow').length;
+    return count;
+  }
+  function currentSpellTax(side,c){
+    if(c.type!=='spell')return 0;
+    let tax=c.cost<=1?activeLowSpellTax():0;
+    const rec=state?.spellTax?.[side];
+    if(rec&&rec.turnSeq===state.turnSeq)tax+=rec.count||0;
+    return tax;
+  }
+  function currentEnhanceDiscount(side){
+    const rec=state?.enhanceDiscount?.[side];
+    return rec&&rec.turnSeq===state.turnSeq?(rec.count||0):0;
+  }
+  function canAttachEnhancement(fc,inst){
+    if(!fc||fc.hidden)return false;
+    const p=fieldDef(fc).passive;
+    if(p?.type==='doubleEnhance'&&fc.attachments.length>=1)return false;
+    return true;
+  }
+  function effectiveCardCost(side,inst,target=null){
+    const c=def(inst);
+    let cost=Number(c.cost||0);
+    if(c.type==='insect'){
+      const p=c.passive;
+      if(p?.type==='aquaticCost'||p?.type==='sapCost')cost-=Math.floor(faceUpColorCount(side,'blue')/2);
+      if(p?.type==='nightFlight'&&fieldActive(side).length===0)cost-=1;
+    }else if(c.type==='spell'){
+      cost+=currentSpellTax(side,c);
+    }else if(c.type==='enhance'){
+      cost-=currentEnhanceDiscount(side);
+      if(target&&fieldDef(target).passive?.type==='enhanceDiscount')cost-=Number(fieldDef(target).passive.value||1);
+    }
+    return Math.max(0,cost);
+  }
+  function consumeEnhanceDiscount(side){
+    const rec=state?.enhanceDiscount?.[side];
+    if(rec&&rec.turnSeq===state.turnSeq)rec.count=0;
+  }
+  function spendCost(side,inst,cost){
+    const s=sideObj(side);
+    if(cost>s.cost)return false;
+    s.cost-=cost;
+    emitCost(side,inst,def(inst),cost);
+    if(def(inst).type==='enhance')consumeEnhanceDiscount(side);
+    return true;
+  }
   function findFieldSide(fc){
     if(!state)return null;
     if(state.player.field.includes(fc))return 'player';
@@ -156,11 +226,14 @@
     if(attack.dynamic==='redBait200')return s.bait.filter(i=>isFaceUpBait(i)&&def(i).type==='insect'&&def(i).color==='red').length*200;
     if(attack.dynamic==='discard100')return s.discard.length*100;
     if(attack.dynamic==='field100')return fieldActive(side).length*100;
+    if(attack.dynamic==='greenField300')return fieldActive(side).filter(x=>effectiveColor(x)==='green').length*300;
     return Number(attack.power||0);
   }
   function attackPower(side,fc,attack){return Math.max(0,dynamicBasePower(side,fc,attack)+attackBonus(fc));}
   function isAttackBlocked(side,fc){
-    if(fieldDef(fc).passive?.type==='foamGuard')return true;
+    const p=fieldDef(fc).passive;
+    if(p?.type==='foamGuard'||p?.type==='cannotAttack')return true;
+    if(p?.type==='greenBaitAttackGate'&&faceUpColorCount(side,'green')<Number(p.value||0))return true;
     if(hasAttachment(fc,'summonWithAttachment'))return true;
     if(fc.cannotAttackTurn===state.turnSeq)return true;
     const locks=fc.attackLocks||[];
@@ -176,6 +249,12 @@
     if(attack.effect==='baitSacrifice' && sideObj(side).bait.filter(isFaceUpBait).length===0)return false;
     if(attack.effect==='hornSkewer'&&attackableTargets(side).length===0)return false;
     if(attack.effect==='mimicColorAttack'&&fieldActive(side).filter(x=>x!==fc).length===0)return false;
+    if(attack.effect==='targetHasEnhance'&&!attackableTargets(side).some(x=>x.attachments.length>0))return false;
+    if(attack.effect==='partnerRequired'&&!fieldActive(side).some(x=>x!==fc&&fieldDef(x).name===attack.partner))return false;
+    if(attack.effect==='reverseSwap'){
+      if(attackableTargets(side).length===0)return false;
+      if(!sideObj(other(side)).bait.some(x=>isFaceUpBait(x)&&def(x).type==='insect'))return false;
+    }
     if(attack.effect==='multiTwo'){
       const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
       const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
@@ -189,7 +268,7 @@
   }
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
-    let candidates=fieldActive(opp).filter(fc=>fc.mimicTurn!==state.turnSeq);
+    let candidates=fieldActive(opp).filter(fc=>fc.mimicTurn!==state.turnSeq&&!fc.attachments.some(a=>def(a).effect==='secretBook'&&a.protectTurn===state.turnSeq));
     const forced=candidates.filter(fc=>['pollen','taunt'].includes(fieldDef(fc).passive?.type)||hasAttachment(fc,'tauntAttachment'));
     if(forced.length)candidates=forced;
     return candidates;
@@ -373,7 +452,11 @@
   async function startGame(deckKey, firstSide){
     const cpuKey=(deckKey==='random1'||deckKey==='random2'||deckKey==='random3')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
     uidCounter=1;
-    state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false};
+    state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false,
+      enhanceDiscount:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
+      spellTax:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
+      grasshopperAmbush:{player:{active:false,ended:false},cpu:{active:false,ended:false}},
+      noFlyOutSide:null,noFlyOutTurn:0};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
     log(`対戦開始！ あなたは「${state.player.deckName}」を使用。`);
     log(`${state.turn==='player'?'あなた':'CPU'}が先攻です。`);

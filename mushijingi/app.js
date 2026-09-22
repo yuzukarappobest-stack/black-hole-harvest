@@ -174,7 +174,8 @@
   function usableAttack(side,fc,attack){
     if(attack.effect==='cannibal' && fieldActive(side).filter(x=>x!==fc).length===0)return false;
     if(attack.effect==='baitSacrifice' && sideObj(side).bait.filter(isFaceUpBait).length===0)return false;
-    if(attack.effect==='hornSkewer' && attackableTargets(side).length===0)return false;
+    if(attack.effect==='hornSkewer'&&attackableTargets(side).length===0)return false;
+    if(attack.effect==='mimicColorAttack'&&fieldActive(side).filter(x=>x!==fc).length===0)return false;
     if(attack.effect==='multiTwo'){
       const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
       const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
@@ -885,8 +886,8 @@
     Engine.addModifier(fc,{stat:'hp',value:Number(value||0),activeFromTurnSeq:state.turnSeq+1,expiresAfterTurnSeq:state.turnSeq+1});
   }
   async function chooseBaitToReturn(side){
-    const s=sideObj(side);if(!s.bait.length)return null;
-    const chosen=await chooseOwnedInstance(side,'手札に戻すエサを選んでください。',s.bait);if(!chosen)return null;
+    const s=sideObj(side),available=s.bait.filter(isFaceUpBait);if(!available.length)return null;
+    const chosen=await chooseOwnedInstance(side,'手札に戻すエサを選んでください。',available);if(!chosen)return null;
     removeInstance(s.bait,chosen);s.hand.push(chosen);log(`${sideName(side)}は「${def(chosen).name}」をエサ場から手札に戻した。`);return chosen;
   }
   async function moveEnhanceByAttack(side,fc){
@@ -896,6 +897,57 @@
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
     removeInstance(fc.attachments,att);dest.attachments.push(att);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
   }
+  async function applyAttackUseSetup(side,fc,attack){
+    if(attack.effect==='mimicColorAttack'){
+      const others=fieldActive(side).filter(x=>x!==fc);if(!others.length)return false;
+      const chosen=await chooseOwnedField(side,'擬態する色の虫を選んでください。',others);if(!chosen)return false;
+      fc.turnColorOverride=effectiveColor(chosen);fc.turnColorOverrideTurn=state.turnSeq;
+      log(`「${fieldDef(fc).name}」は「${fieldDef(chosen).name}」の色を擬態した。`);
+    }
+    if(attack.effect==='spiderWeb'){
+      fc.spiderWebTurn=state.turnSeq+1;fc.spiderWebUsedTurn=0;
+      log(`「${fieldDef(fc).name}」は蜘蛛の巣を張った。`);
+    }
+    if(attack.effect==='nextOwnAttack'){
+      Engine.addModifier(fc,{stat:'attack',value:Number(attack.value||0),activeFromTurnSeq:state.turnSeq+2,expiresAfterTurnSeq:state.turnSeq+2});
+      log(`「${fieldDef(fc).name}」は次の自分のターン攻撃力+${Number(attack.value||0)}。`);
+    }
+    return true;
+  }
+  async function applyAfterTerritoryAttackEffect(side,fc,attack,drew){
+    if(!drew)return;
+    if(attack.effect==='growthOnTerritory'&&sideObj(side).field.includes(fc)){
+      const value=Number(attack.value||0);
+      Engine.addModifier(fc,{stat:'attack',value});
+      Engine.addModifier(fc,{stat:'hp',value});
+      log(`「${fieldDef(fc).name}」の攻撃力と体力が+${value}。`);
+    }
+    if(attack.effect==='flipBaitOnTerritory'){
+      const defender=other(side),available=sideObj(defender).bait.filter(isFaceUpBait);
+      if(!available.length)return;
+      let use=true;
+      if(side==='player')use=await confirmYesNo('相手のエサを1枚裏向きにしますか？','シロガネタックル');
+      if(!use)return;
+      const chosen=side==='player'?await chooseInstances('裏向きにする相手のエサを選んでください。',available):available[0];
+      if(chosen){chosen.faceDown=true;log(`「${def(chosen).name}」を裏向きのエサにした。`);}
+    }
+  }
+  async function finishAttackSpecialState(side,fc,attack){
+    if(attack.effect==='hideUntilOpponentEnd'&&sideObj(side).field.includes(fc)){
+      fc.hidden=true;fc.hiddenUntilTurnSeq=state.turnSeq+1;
+      log(`「${fieldDef(fc).name}」は＜かくれる＞で次の相手ターン終了時まで裏向きになった。`);
+    }
+  }
+  async function resolveDestroyedAttackTarget(side,fc,target,attack){
+    const defender=other(side);
+    if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
+    await resolveAttackDestructionReaction(defender,target,fc);
+    const suppress=attack.effect==='blockFlyOutAttack';
+    const drew=await takeTerritory(defender,false,{attacker:fc,suppressFlyOut:suppress});
+    await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
+    return drew;
+  }
+
   async function performAttack(side,fc,attack){
     if(state.over||fc.hidden||isAttackBlocked(side,fc))return false;
     const isChainAttack=state.chain?.side===side&&state.chain?.uid===fc.inst.uid;
@@ -904,46 +956,58 @@
     if(attack.effect==='cannibal'){
       const sacrifices=fieldActive(side).filter(x=>x!==fc);if(!sacrifices.length)return false;
       const sac=await chooseOwnedField(side,'「共食い」で破壊する自分の虫を選んでください。',sacrifices);if(!sac)return false;
-      sacrificeName=fieldDef(sac).name;destroyFieldCard(side,sac,'sacrifice',null);log(`${sideName(side)}は共食いのため「${sacrificeName}」を破壊した。`);
+      sacrificeName=fieldDef(sac).name;destroyFieldCard(side,sac,'sacrifice',null);
+      log(`${sideName(side)}は共食いのため「${sacrificeName}」を破壊した。`);
     }
     if(attack.effect==='baitSacrifice'){
-      const bait=await chooseOwnedInstance(side,'「イナゴの大群」で破壊するエサを選んでください。',sideObj(side).bait);if(!bait)return false;
-      removeInstance(sideObj(side).bait,bait);sideObj(side).discard.push(bait);log(`「${def(bait).name}」をエサ場から破壊した。`);
+      const available=sideObj(side).bait.filter(isFaceUpBait);if(!available.length)return false;
+      const bait=await chooseOwnedInstance(side,'「イナゴの大群」で破壊するエサを選んでください。',available);if(!bait)return false;
+      removeInstance(sideObj(side).bait,bait);sendToOwnerDiscard(bait,side);log(`「${def(bait).name}」をエサ場から破壊した。`);
     }
+
+    if(!await applyAttackUseSetup(side,fc,attack))return false;
 
     if(attack.effect==='multiTwo'){
       const candidates=attackableTargets(side);if(candidates.length<2)return false;
       let targets;
       if(side==='player'){
-        const first=await chooseField('テナガ攻撃の1体目を選んでください。',candidates,true);if(!first)return false;
-        const second=await chooseField('テナガ攻撃の2体目を選んでください。',candidates.filter(x=>x!==first),true);if(!second)return false;
+        const first=await chooseField(`${attack.name}の1体目を選んでください。`,candidates,true);if(!first)return false;
+        const second=await chooseField(`${attack.name}の2体目を選んでください。`,candidates.filter(x=>x!==first),true);if(!second)return false;
         targets=[first,second];
       }else targets=[...candidates].sort((a,b)=>def(b.inst).cost-def(a.inst).cost).slice(0,2);
       fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,targets,attack});
       for(const target of targets){
         if(!sideObj(side).field.includes(fc))break;
         const {dmg,mult}=await applyAttackDamage(side,fc,target,attack,attackPower(side,fc,attack));
-        log(`「${fieldDef(fc).name}」のテナガ攻撃 → 「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
-        if(target.damage>=maxHp(target)){
-          const destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
-          if(destroyed){
-            await resolveAttackDestructionReaction(other(side),target,fc);
-            if(side==='cpu'){render();await cpuNotice(`テナガ攻撃 → 「${fieldDef(target).name}」を破壊`);}
-            await takeTerritory(other(side),false,{attacker:fc});
-          }
+        log(`「${fieldDef(fc).name}」の「${attack.name}」→「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
+        let destroyed=false;
+        if(target.poisonBubbleTurn===state.turnSeq&&sideObj(other(side)).field.includes(target)){
+          destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
+          if(destroyed)log('＜毒の泡＞の効果で破壊された。');
+        }else if(target.damage>=maxHp(target)){
+          destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
         }
+        if(destroyed)await resolveDestroyedAttackTarget(side,fc,target,attack);
       }
-      render();return true;
+      await finishAttackSpecialState(side,fc,attack);render();return true;
     }
 
     let targets=attackableTargets(side),target=null;
+    if(attack.effect==='hornSkewer'&&!targets.length)return false;
     if(targets.length){
-      target=side==='player'?await chooseField(`${attack.name}の攻撃先を選んでください。`,targets,true):chooseAttackTargetCPU(fc,attack,targets);
+      if(attack.effect==='blindAttack'&&targets.length>1){
+        target=side==='cpu'
+          ? await chooseField('盲目攻撃を受ける虫を選んでください。',targets,false)
+          : chooseAttackTargetCPU(fc,attack,targets);
+      }else{
+        target=side==='player'?await chooseField(`${attack.name}の攻撃先を選んでください。`,targets,true):chooseAttackTargetCPU(fc,attack,targets);
+      }
       if(!target)return false;
     }
+
     events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target,attack});
     fc.attacked=true;
-    if(['oncePerEntry','bounceOnce'].includes(attack.effect))fc.usedAttacks.add(attack.name);
+    if(oncePerEntryEffect(attack.effect))fc.usedAttacks.add(attack.name);
 
     if(!target){
       log(`${sideName(side)}の「${fieldDef(fc).name}」が${attack.name}で直接攻撃！`);
@@ -952,12 +1016,15 @@
       if(attack.effect==='directBaitReturn')await chooseBaitToReturn(other(side));
       if(attack.effect==='hpNextTurn')await applyNextTurnHp(fc,attack.value);
       if(attack.effect==='selfDestruct'&&sideObj(side).field.includes(fc))await attemptDestroyFieldCard(side,fc,'effect',null);
-      await takeTerritory(other(side),true,{attacker:fc});
+      const drew=await takeTerritory(other(side),true,{attacker:fc,suppressFlyOut:attack.effect==='blockFlyOutAttack'});
+      await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
     }else if(attack.effect==='flip'){
-      target.hidden=true;log(`${sideName(side)}の「すくい投げ」！ 「${fieldDef(target).name}」をターン終了まで裏返した。`);
+      target.hidden=true;target.hiddenUntilTurnSeq=state.turnSeq;
+      log(`${sideName(side)}の「すくい投げ」！ 「${fieldDef(target).name}」をターン終了まで裏返した。`);
       cpuAttackSummary=`「${fieldDef(fc).name}」の「すくい投げ」→「${fieldDef(target).name}」を裏返した`;
     }else if(attack.effect==='bounceOnce'){
-      const name=fieldDef(target).name;leaveFieldToHand(other(side),target);log(`「${name}」を手札に戻した。`);
+      const name=fieldDef(target).name;leaveFieldToHand(other(side),target);
+      log(`「${name}」を手札に戻した。`);
       cpuAttackSummary=`「${fieldDef(fc).name}」のヘラクレス投げ → 「${name}」を手札へ`;
     }else{
       if(attack.effect==='rainbowColor'){
@@ -971,24 +1038,42 @@
       if(attack.effect==='stinkHorn'){target.attackPenaltyTurn=state.turnSeq+1;target.attackPenalty=Number(attack.value||400);}
       if(attack.effect==='hpNextTurn')await applyNextTurnHp(fc,attack.value);
 
+      let destroyed=false;
       const base=attackPower(side,fc,attack);
-      const {dmg,mult}=await applyAttackDamage(side,fc,target,attack,base);
-      log(`${sideName(side)}の「${fieldDef(fc).name}」が「${fieldDef(target).name}」へ${attack.name}！ ${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
-      cpuAttackSummary=`「${fieldDef(fc).name}」の「${attack.name}」→「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}`;
-      if(sacrificeName)cpuAttackSummary+=` / 「${sacrificeName}」を共食い`;
-
-      if(attack.effect==='selfDestruct'&&sideObj(side).field.includes(fc))await attemptDestroyFieldCard(side,fc,'effect',null);
-
-      if(target.damage>=maxHp(target)){
-        const destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
+      if(attack.effect==='hornSkewer'&&target.damage>0&&base>=100){
+        destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
         if(destroyed){
+          log(`「${fieldDef(fc).name}」のツノ串刺し！ ダメージを与える前に「${fieldDef(target).name}」を破壊した。`);
+          await resolveDestroyedAttackTarget(side,fc,target,attack);
+        }
+      }
+
+      if(!destroyed&&sideObj(other(side)).field.includes(target)){
+        const {dmg,mult}=await applyAttackDamage(side,fc,target,attack,base);
+        log(`${sideName(side)}の「${fieldDef(fc).name}」が「${fieldDef(target).name}」へ${attack.name}！ ${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
+        cpuAttackSummary=`「${fieldDef(fc).name}」の「${attack.name}」→「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}`;
+        if(sacrificeName)cpuAttackSummary+=` / 「${sacrificeName}」を共食い`;
+
+        if(attack.effect==='selfDestruct'&&sideObj(side).field.includes(fc))await attemptDestroyFieldCard(side,fc,'effect',null);
+
+        if(target.poisonBubbleTurn===state.turnSeq&&sideObj(other(side)).field.includes(target)){
+          destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
+          if(destroyed)log('＜毒の泡＞の効果で破壊された。');
+        }else if(target.damage>=maxHp(target)){
+          destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
+        }
+
+        if(destroyed){
+          if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
           await resolveAttackDestructionReaction(other(side),target,fc);
           if(side==='cpu'){render();await cpuNotice(cpuAttackSummary+' → 破壊');cpuAttackSummary='';}
-          await takeTerritory(other(side),false,{attacker:fc});
+          const drew=await takeTerritory(other(side),false,{attacker:fc,suppressFlyOut:attack.effect==='blockFlyOutAttack'});
+          await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
         }
       }
     }
 
+    await finishAttackSpecialState(side,fc,attack);
     render();
     if(side==='cpu'&&cpuAttackSummary)await cpuNotice(cpuAttackSummary);
     if(state.over)return true;

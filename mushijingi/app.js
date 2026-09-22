@@ -74,28 +74,79 @@
 
   function maxHp(fc){
     let hp=fieldDef(fc).hp + Engine.modifierTotal(fc,'hp',state?.turnSeq||0);
-    for(const a of fc.attachments){ if(def(a).effect==='hp500') hp+=500; }
+    for(const a of fc.attachments){
+      const e=def(a).effect;
+      if(e==='hp500')hp+=500;
+      if(e==='hp800')hp+=800;
+    }
     return hp;
   }
   function effectiveColor(fc){
-    for(let i=fc.attachments.length-1;i>=0;i--){const a=def(fc.attachments[i]);if(a.effect==='changeColor' && fc.changedColor)return fc.changedColor;}
+    if(fc.turnColorOverrideTurn===state?.turnSeq && fc.turnColorOverride)return fc.turnColorOverride;
+    for(let i=fc.attachments.length-1;i>=0;i--){
+      const e=def(fc.attachments[i]).effect;
+      if(e==='changeColor' && fc.changedColor)return fc.changedColor;
+      if(e==='setRed')return 'red';
+      if(e==='setBlue')return 'blue';
+      if(e==='setGreen')return 'green';
+    }
     return fieldDef(fc).color;
   }
   function attackBonus(fc){
     let b=(fc.turnAttackBonus||0)+Engine.modifierTotal(fc,'attack',state?.turnSeq||0);
-    for(const a of fc.attachments){ if(def(a).effect==='attack300') b+=300; }
-    if(fc.attackPenaltyTurn===state.turnSeq) b-=fc.attackPenalty||0;
+    for(const a of fc.attachments){
+      const e=def(a).effect;
+      if(e==='attack300')b+=300;
+      if(e==='attack500')b+=500;
+    }
+    const p=fieldDef(fc).passive;
+    if(p?.type==='emblem'){
+      const side=findFieldSide(fc);
+      if(side && fieldActive(side).some(x=>x!==fc && fieldDef(x).name===p.partner))b+=Number(p.value||300);
+    }
+    if(fc.attackPenaltyTurn===state.turnSeq)b-=fc.attackPenalty||0;
     return b;
   }
   function hasAttachment(fc,effect){ return fc.attachments.some(a=>def(a).effect===effect); }
+  function findFieldSide(fc){
+    if(!state)return null;
+    if(state.player.field.includes(fc))return 'player';
+    if(state.cpu.field.includes(fc))return 'cpu';
+    return null;
+  }
+  function dynamicBasePower(side,fc,attack){
+    if(!attack.dynamic)return Number(attack.power||0);
+    const s=sideObj(side);
+    if(attack.dynamic==='redBait200')return s.bait.filter(i=>def(i).type==='insect'&&def(i).color==='red').length*200;
+    if(attack.dynamic==='discard100')return s.discard.length*100;
+    if(attack.dynamic==='field100')return fieldActive(side).length*100;
+    return Number(attack.power||0);
+  }
+  function attackPower(side,fc,attack){return Math.max(0,dynamicBasePower(side,fc,attack)+attackBonus(fc));}
+  function isAttackBlocked(side,fc){
+    if(fc.cannotAttackTurn===state.turnSeq)return true;
+    const locks=fc.attackLocks||[];
+    for(const lock of locks){
+      if(lock.turnSeq!==state.turnSeq)continue;
+      const src=sideObj(lock.sourceSide)?.field.find(x=>x.inst.uid===lock.sourceUid);
+      if(src && !src.hidden)return true;
+    }
+    return false;
+  }
+  function usableAttack(side,fc,attack){
+    if(attack.effect==='cannibal' && fieldActive(side).filter(x=>x!==fc).length===0)return false;
+    if(attack.effect==='baitSacrifice' && sideObj(side).bait.length===0)return false;
+    if(attack.effect==='multiTwo' && attackableTargets(side).length<2)return false;
+    return true;
+  }
   function weaknessMultiplier(attackerColor, defenderColor){
     return (attackerColor==='red'&&defenderColor==='green') || (attackerColor==='blue'&&defenderColor==='red') || (attackerColor==='green'&&defenderColor==='blue') ? 2 : 1;
   }
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
     let candidates=fieldActive(opp).filter(fc=>fc.mimicTurn!==state.turnSeq);
-    const pollen=candidates.filter(fc=>fieldDef(fc).passive?.type==='pollen');
-    if(pollen.length) candidates=pollen;
+    const forced=candidates.filter(fc=>['pollen','taunt'].includes(fieldDef(fc).passive?.type)||hasAttachment(fc,'tauntAttachment'));
+    if(forced.length)candidates=forced;
     return candidates;
   }
   function opponentHasFieldInsect(side){ return fieldActive(other(side)).length>0; }
@@ -189,7 +240,7 @@
     const meta=c.type==='insect' ? `<span>${colorJa[fc?effectiveColor(fc):c.color]}</span><span>HP ${fc?Math.max(0,maxHp(fc)-fc.damage):c.hp}/${fc?maxHp(fc):c.hp}</span>` : `<span>${cardTypeLabel(c)}</span>`;
     let body='';
     if(c.type==='insect'){
-      body=c.attacks.map(a=>`<div class="attack-line"><b>${escapeHtml(a.name)} ${Math.max(0,a.power+(fc?attackBonus(fc):0))}</b>${a.text?`<div>${escapeHtml(a.text)}</div>`:''}</div>`).join('');
+      body=c.attacks.map(a=>`<div class="attack-line"><b>${escapeHtml(a.name)} ${fc?attackPower(opt.side||findFieldSide(fc),fc,a):Math.max(0,Number(a.power||0))}</b>${a.text?`<div>${escapeHtml(a.text)}</div>`:''}</div>`).join('');
       if(c.passive) body+=`<div class="card-effect">${escapeHtml(c.passive.text)}</div>`;
     } else body=`<div class="card-effect">${escapeHtml(c.effectText)}</div>`;
     let status='';
@@ -227,16 +278,31 @@
     const s=sideObj(side),c=def(inst);
     if(state.phase==='set') return !s.setDone;
     if(state.phase!=='main' || state.chain) return false;
+    if(c.type==='insect' && c.passive?.type==='altSacrifice2')return c.cost<=s.cost || fieldActive(side).length>=2;
     if(c.cost>s.cost)return false;
-    if(c.type==='insect') return true;
+    if(c.type==='insect')return true;
     if(c.type==='enhance') return fieldActive(side).length>0;
     if(c.effect==='recoverInsect') return s.discard.some(x=>def(x).type==='insect');
-    if(c.effect==='burn600') return fieldActive(other(side)).length>0;
+    if(c.effect==='burn600'||c.effect==='destroyOpponent')return fieldActive(other(side)).length>0;
+    if(c.effect==='readyAttack')return fieldActive(side).some(fc=>fc.attacked);
+    if(c.effect==='baitToHand'||c.effect==='baitTempSummon')return s.bait.some(x=>def(x).type==='insect');
+    if(c.effect==='baitRushTwo')return s.bait.some(x=>def(x).type==='insect');
+    if(c.effect==='moveEnhance')return fieldActive(side).length>=2 && fieldActive(side).some(fc=>fc.attachments.length);
+    if(c.effect==='destroyEnhance')return fieldActive(other(side)).some(fc=>fc.attachments.length);
+    if(c.effect==='blockAttackNext')return fieldActive(other(side)).length>0;
+    if(c.effect==='swapDiscardField')return s.discard.some(x=>def(x).type==='insect')&&fieldActive(side).length>0;
+    if(c.effect==='sameCostSwap')return s.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect'&&fieldActive(side).some(fc=>def(fc.inst).cost===def(x).cost));
+    if(c.effect==='handTempSummon')return s.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect');
     return true;
   }
   function canAttack(fc){
-    if(state.phase!=='main' || state.turn!=='player' || fc.hidden)return false;
-    if(state.chain?.side==='player') return state.chain.uid===fc.inst.uid;
+    if(state.phase!=='main'||state.turn!=='player'||fc.hidden||isAttackBlocked('player',fc))return false;
+    if(state.chain?.side==='player')return state.chain.uid===fc.inst.uid;
+    return !fc.attacked;
+  }
+  function canAttackSide(side,fc){
+    if(fc.hidden||isAttackBlocked(side,fc))return false;
+    if(state.chain?.side===side)return state.chain.uid===fc.inst.uid;
     return !fc.attacked;
   }
 
@@ -372,11 +438,11 @@
     if(state.busy||state.turn!=='player'||state.phase!=='main')return;
     const fc=state.player.field.find(x=>x.inst.uid===uid); if(!fc||!canAttack(fc))return;
     const c=fieldDef(fc);
-    let attacks=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
+    let attacks=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)) && !(a.effect==='bounceOnce'&&fc.usedAttacks.has(a.name)) && usableAttack('player',fc,a));
     if(state.chain?.side==='player' && state.chain.uid===fc.inst.uid && state.chain.kind==='mantisCombo'){
       attacks=attacks.filter(a=>a.effect==='mantisCombo');
     }
-    const options=attacks.map((a,i)=>({value:i,title:`${a.name} ${Math.max(0,a.power+attackBonus(fc))}`,detail:a.text||'攻撃'}));
+    const options=attacks.map((a,i)=>({value:i,title:`${a.name} ${attackPower('player',fc,a)}`,detail:a.text||'攻撃'}));
     options.push({value:null,title:'やめる',detail:''});
     const idx=await choose(options,'使う技を選んでください。','虫の攻撃');
     if(idx===null)return;
@@ -402,7 +468,7 @@
     events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target,attack});
     fc.attacked=true;
     if(attack.effect==='oncePerEntry')fc.usedAttacks.add(attack.name);
-    const base=Math.max(0,attack.power+attackBonus(fc));
+    const base=attackPower('cpu',fc,attack);
     if(!target){
       log(`${sideName(side)}の「${fieldDef(fc).name}」が${attack.name}で直接攻撃！`);
       cpuAttackSummary=`「${fieldDef(fc).name}」の「${attack.name}」で直接攻撃`;
@@ -545,7 +611,7 @@
         || usable.find(x=>def(x).type==='enhance')
         || usable.find(x=>def(x).type==='spell');
       if(spellFirst){acted=await playCardFromHand('cpu',spellFirst); if(acted){render();continue;}}
-      const attacker=fieldActive('cpu').find(fc=>!fc.attacked);
+      const attacker=fieldActive('cpu').find(fc=>canAttackSide('cpu',fc));
       if(attacker){
         const at=chooseAttackCPU(attacker); if(at){await performAttack('cpu',attacker,at);acted=true;render();continue;} else attacker.attacked=true;
       }
@@ -554,19 +620,32 @@
     if(!state.over){state.busy=false;await endTurn();}
   }
   function canUseHandCardCPU(inst){
-    const c=def(inst),s=state.cpu;if(c.cost>s.cost)return false;if(c.type==='insect')return true;if(c.type==='enhance')return fieldActive('cpu').length>0;
-    if(c.effect==='recoverInsect')return s.discard.some(x=>def(x).type==='insect');if(c.effect==='burn600')return fieldActive('player').length>0;return true;
+    const c=def(inst),s=state.cpu;
+    if(c.type==='insect'&&c.passive?.type==='altSacrifice2')return c.cost<=s.cost||fieldActive('cpu').length>=2;
+    if(c.cost>s.cost)return false;
+    if(c.type==='insect')return true;
+    if(c.type==='enhance')return fieldActive('cpu').length>0;
+    if(c.effect==='recoverInsect')return s.discard.some(x=>def(x).type==='insect');
+    if(c.effect==='burn600'||c.effect==='destroyOpponent'||c.effect==='blockAttackNext')return fieldActive('player').length>0;
+    if(c.effect==='readyAttack')return fieldActive('cpu').some(fc=>fc.attacked);
+    if(['baitToHand','baitTempSummon','baitRushTwo'].includes(c.effect))return s.bait.some(x=>def(x).type==='insect');
+    if(c.effect==='moveEnhance')return fieldActive('cpu').length>=2&&fieldActive('cpu').some(fc=>fc.attachments.length);
+    if(c.effect==='destroyEnhance')return fieldActive('player').some(fc=>fc.attachments.length);
+    if(c.effect==='swapDiscardField')return s.discard.some(x=>def(x).type==='insect')&&fieldActive('cpu').length>0;
+    if(c.effect==='sameCostSwap')return s.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect'&&fieldActive('cpu').some(fc=>def(fc.inst).cost===def(x).cost));
+    if(c.effect==='handTempSummon')return s.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect');
+    return true;
   }
   function chooseBaitCPU(hand){
-    const score=i=>{const c=def(i);let v=c.cost*1.2;if(c.type==='insect')v+=(c.hp/500)+(Math.max(...c.attacks.map(a=>a.power))/300);if(c.effect==='baitBoost')v-=2;if(c.effect==='allAttack200')v-=.5;return v;};
+    const score=i=>{const c=def(i);let v=c.cost*1.2;if(c.type==='insect')v+=(c.hp/500)+(Math.max(...c.attacks.map(a=>Number(a.power||0)))/300);if(c.effect==='baitBoost')v-=2;if(c.effect==='allAttack200')v-=.5;return v;};
     return [...hand].sort((a,b)=>score(a)-score(b))[0];
   }
   function chooseAttackCPU(fc){
-    const c=fieldDef(fc); let ats=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
+    const c=fieldDef(fc); let ats=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name))&&!(a.effect==='bounceOnce'&&fc.usedAttacks.has(a.name))&&usableAttack('cpu',fc,a));
     if(c.id===7){const cann=ats.find(a=>a.effect==='cannibal');if(cann && fieldActive('cpu').length>1)return cann;return ats.find(a=>a.effect==='mantisCombo')||ats[0];}
     if(c.id===40 && fieldActive('player').length===1 && fieldActive('cpu').filter(x=>!x.attacked).length>1)return ats.find(a=>a.effect==='flip')||ats[0];
     if(c.id===79 && fieldActive('player').some(x=>Math.max(...def(x.inst).attacks.map(a=>a.power))>=500))return ats.find(a=>a.effect==='stinkHorn')||ats[0];
-    return [...ats].sort((a,b)=>b.power-a.power)[0];
+    return [...ats].sort((a,b)=>attackPower('cpu',fc,b)-attackPower('cpu',fc,a))[0];
   }
   function chooseMantisSecondAttackCPU(fc){return fieldDef(fc).attacks.find(a=>a.effect==='mantisCombo')||null;}
   function chooseAttackTargetCPU(fc,attack,targets){

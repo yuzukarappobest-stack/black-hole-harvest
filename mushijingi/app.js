@@ -441,37 +441,86 @@
     if(!list.length)return null;
     return side==='player'?await chooseField(text,list,true):[...list].sort((a,b)=>def(b.inst).cost-def(a.inst).cost)[0];
   }
+  function isCicadaCard(inst){
+    return ['ミンミンゼミ','ヒグラシ','クマゼミ','アブラゼミ','テイオウゼミ','エゾゼミ','ツクツクボウシ','チッチゼミ'].includes(def(inst).name);
+  }
   async function handleInsectEntered(side,fc){
     const p=fieldDef(fc).passive;
-    if(p?.type!=='honey')return;
-    const hand=sideObj(side).hand;
-    if(!hand.length)return;
-    let use=true;
-    if(side==='player')use=await confirmYesNo('＜蜜をためる＞を使って、手札1枚をエサにしますか？','蜜をためる');
-    if(!use)return;
-    const chosen=await chooseOwnedInstance(side,'エサにする手札を選んでください。',hand);
-    if(!chosen)return;
-    Engine.moveCard(sideObj(side),chosen,ZONE.HAND,ZONE.BAIT);
-    events.emit(EVENT.CARD_MOVED,{state,side,card:chosen,from:ZONE.HAND,to:ZONE.BAIT});
-    log(`${sideName(side)}は＜蜜をためる＞で「${def(chosen).name}」をエサにした（このターンのコストは増えない）。`);
-    if(side==='cpu'){render();await cpuNotice(`＜蜜をためる＞ → 「${def(chosen).name}」をエサにした`);}
+    if(!p)return;
+
+    if(p.type==='honey'){
+      const hand=sideObj(side).hand;
+      if(!hand.length)return;
+      let use=true;
+      if(side==='player')use=await confirmYesNo('＜蜜をためる＞を使って、手札1枚をエサにしますか？','蜜をためる');
+      if(!use)return;
+      const chosen=await chooseOwnedInstance(side,'エサにする手札を選んでください。',hand);
+      if(!chosen)return;
+      Engine.moveCard(sideObj(side),chosen,ZONE.HAND,ZONE.BAIT);
+      chosen.faceDown=false;
+      events.emit(EVENT.CARD_MOVED,{state,side,card:chosen,from:ZONE.HAND,to:ZONE.BAIT});
+      log(`${sideName(side)}は＜蜜をためる＞で「${def(chosen).name}」をエサにした（このターンのコストは増えない）。`);
+      if(side==='cpu'){render();await cpuNotice(`＜蜜をためる＞ → 「${def(chosen).name}」をエサにした`);}
+      return;
+    }
+
+    if(p.type==='jadeColor'){
+      let col=null;
+      if(side==='player'){
+        col=await choose([
+          {value:'blue',title:'青にする',detail:'このターンのみ'},
+          {value:'green',title:'緑にする',detail:'このターンのみ'},
+          {value:null,title:'変えない',detail:'赤のまま'}
+        ],'＜翡翠色＞ このターンの色を選べます。','翡翠色');
+      }else{
+        const opp=fieldActive(other(side))[0];
+        if(opp){
+          const oc=effectiveColor(opp);
+          col=oc==='red'?'blue':oc==='blue'?'green':'blue';
+        }
+      }
+      if(col){
+        fc.turnColorOverride=col;fc.turnColorOverrideTurn=state.turnSeq;
+        log(`＜翡翠色＞ 「${fieldDef(fc).name}」はこのターン${colorJa[col]}になった。`);
+      }
+      return;
+    }
+
+    if(p.type==='cicadaEmperor'){
+      const choices=sideObj(side).discard.filter(isCicadaCard);
+      if(!choices.length)return;
+      let use=true;
+      if(side==='player')use=await confirmYesNo('＜セミの帝王＞で捨て札のセミ科の虫を場に出しますか？','セミの帝王');
+      if(!use)return;
+      const chosen=await chooseOwnedInstance(side,'場に出すセミ科の虫を選んでください。',choices);
+      if(!chosen)return;
+      removeInstance(sideObj(side).discard,chosen);
+      const summoned=await putInsectOnField(side,chosen,{noAttackThisTurn:true});
+      log(`＜セミの帝王＞ 「${fieldDef(summoned).name}」を捨て札から場に出した。`);
+      if(side==='cpu'){render();await cpuNotice(`＜セミの帝王＞ → 「${fieldDef(summoned).name}」を場に出した`);}
+    }
   }
   async function putInsectOnField(side,inst,options={}){
     const fc=newFieldCard(inst);
     if(options.temporary)fc.temporaryDestroyTurn=state.turnSeq;
     if(options.noAttackThisTurn)fc.cannotAttackTurn=state.turnSeq;
+    if(options.puppet)fc.puppetDestroyTurn=state.turnSeq;
+    if(options.attachments)fc.attachments.push(...options.attachments);
     sideObj(side).field.push(fc);
     events.emit(EVENT.INSECT_ENTERED,{state,side,fieldCard:fc,card:inst});
     await handleInsectEntered(side,fc);
     return fc;
   }
+  function discardAttachmentsToOwners(fc,controllerSide){
+    for(const a of fc.attachments)sendToOwnerDiscard(a,controllerSide);
+  }
   function leaveFieldToHand(side,fc){
     const s=sideObj(side);if(!s.field.includes(fc))return false;
     s.field=s.field.filter(x=>x!==fc);
-    s.discard.push(...fc.attachments);
-    s.hand.push(fc.inst);
+    discardAttachmentsToOwners(fc,side);
+    sendToOwnerHand(fc.inst,side);
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason:'return'});
-    log(`「${fieldDef(fc).name}」が手札に戻った。`);
+    log(`「${fieldDef(fc).name}」が持ち主の手札に戻った。`);
     return true;
   }
   function leaveFieldToDiscard(side,fc,reason='effect'){
@@ -482,10 +531,9 @@
     const armorIndex=fc.attachments.findIndex(a=>def(a).effect==='substituteArmor');
     if(armorIndex>=0){
       const [armor]=fc.attachments.splice(armorIndex,1);
-      s.discard.push(armor);
+      sendToOwnerDiscard(armor,side);
       fc.damage=fc.persistentDamage||0;
       log(`「空蝉の皮鎧」が「${fieldDef(fc).name}」の破壊を防いだ！`);
-      // 毒のキバなど「回復しないダメージ」が致死量なら、公式裁定どおり改めて破壊する。
       if(fc.damage>=maxHp(fc)){
         destroyFieldCard(side,fc,reason,attacker);
         return true;
@@ -498,15 +546,37 @@
   function destroyFieldCard(side,fc,reason,attacker){
     const s=sideObj(side);if(!s.field.includes(fc))return false;
     s.field=s.field.filter(x=>x!==fc);
-    s.discard.push(fc.inst,...fc.attachments);
+    sendToOwnerDiscard(fc.inst,side);
+    discardAttachmentsToOwners(fc,side);
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason,attacker});
     events.emit(EVENT.INSECT_DESTROYED,{state,side,fieldCard:fc,reason,attacker});
     log(`「${fieldDef(fc).name}」が破壊された。`);
     return true;
   }
+  async function captureDestroyedInsect(side,target){
+    const owner=ownerSideOf(target.inst,other(side));
+    const pile=sideObj(owner).discard;
+    const inst=removeInstance(pile,target.inst);
+    if(!inst)return null;
+    const fc=await putInsectOnField(side,inst,{puppet:true});
+    log(`＜操り針＞ 「${fieldDef(fc).name}」を${sideName(side)}の場に出した。ターン終了時に破壊される。`);
+    return fc;
+  }
   async function resolveAttackDestructionReaction(defenderSide,target,attacker){
-    if(!attacker||!sideObj(other(defenderSide)).field.includes(attacker))return;
-    const poison=fieldDef(target).passive?.type==='poisonMist';
+    const attackerSide=other(defenderSide);
+    const p=fieldDef(target).passive;
+
+    if(attacker&&sideObj(attackerSide).field.includes(attacker)&&p?.type==='poisonBubble'){
+      attacker.poisonBubbleTurn=state.turnSeq+1;
+      log(`＜毒の泡＞ 「${fieldDef(attacker).name}」に毒の泡がついた。`);
+    }
+    if(attacker&&sideObj(attackerSide).field.includes(attacker)&&p?.type==='toxicRevenge'){
+      log(`＜トウワタ毒＞ 「${fieldDef(attacker).name}」を破壊！`);
+      await attemptDestroyFieldCard(attackerSide,attacker,'effect',null);
+    }
+
+    if(!attacker||!sideObj(attackerSide).field.includes(attacker))return;
+    const poison=p?.type==='poisonMist';
     const revenge=hasAttachment(target,'revenge');
     if(!poison&&!revenge)return;
     let action=poison?'poison':'revenge';
@@ -518,15 +588,15 @@
         ],'同時に使える効果があります。1つ選んでください。','破壊時効果');
       }else action='revenge';
     }
-    const attackerSide=other(defenderSide);
     if(action==='poison'&&sideObj(attackerSide).field.includes(attacker)){
-      log(`＜毒霧噴射＞！ 「${fieldDef(attacker).name}」を手札に戻した。`);
+      log(`＜毒霧噴射＞！ 「${fieldDef(attacker).name}」を持ち主の手札に戻した。`);
       leaveFieldToHand(attackerSide,attacker);
     }else if(action==='revenge'&&sideObj(attackerSide).field.includes(attacker)){
       log(`「針金虫の道連れ」で「${fieldDef(attacker).name}」を破壊！`);
       await attemptDestroyFieldCard(attackerSide,attacker,'effect',null);
     }
   }
+
   async function sacrificeTwoForRiock(side){
     const candidates=fieldActive(side);
     if(candidates.length<2)return false;

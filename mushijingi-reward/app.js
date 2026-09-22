@@ -1583,6 +1583,11 @@
     if(reason==='attack'&&threadUids.length)fc.pendingSilverThreadUids=[...(fc.pendingSilverThreadUids||[]),...threadUids];
     else for(const uid of threadUids)resolveSilverThreadDestroyed(uid);
   }
+  function refreshCordycepsSuppression(fc){
+    if(!fc)return;
+    fc.cordycepsSuppressed=hasAttachment(fc,'puppetCordyceps');
+    applyShadowMirrorOverride(fc);
+  }
   function revealHairpinTarget(att){
     if(!att?.hairpinTargetUid)return;
     for(const side of ['player','cpu']){
@@ -2273,7 +2278,7 @@
       const dest=await chooseOwnedField(side,'つけ替える先の虫を選んでください。',dests);if(!dest)return false;
       if(def(pick.attachment).effect==='imitation'&&!await configureImitation(side,pick.attachment,dest))return false;
       paySpell(side,inst,c);removeInstance(pick.source.attachments,pick.attachment);dest.attachments.push(pick.attachment);
-      if(def(pick.attachment).effect==='shadowDoubleMirror'){applyShadowMirrorOverride(pick.source);applyShadowMirrorOverride(dest);}
+      if(def(pick.attachment).effect==='shadowDoubleMirror'||def(pick.attachment).effect==='puppetCordyceps'){refreshCordycepsSuppression(pick.source);refreshCordycepsSuppression(dest);}
       log(`「${def(pick.attachment).name}」を「${fieldDef(dest).name}」につけ替えた。`);
     }else if(c.effect==='addTerritory'){
       if(!paySpell(side,inst,c,false))return false;inst.faceUpTerritory=true;s.territory.push(inst);
@@ -3015,7 +3020,7 @@
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
     if(def(att).effect==='imitation'&&!await configureImitation(side,att,dest))return;
     removeInstance(fc.attachments,att);dest.attachments.push(att);
-    if(def(att).effect==='shadowDoubleMirror'){applyShadowMirrorOverride(fc);applyShadowMirrorOverride(dest);}
+    if(def(att).effect==='shadowDoubleMirror'||def(att).effect==='puppetCordyceps'){refreshCordycepsSuppression(fc);refreshCordycepsSuppression(dest);}
     enforceAttachmentLegality(fc,side);enforceAttachmentLegality(dest,side);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
   }
   async function chooseOwnEnhancement(side,text){
@@ -3364,7 +3369,7 @@
         const att=side==='player'?await chooseOwnedInstance(side,'手札に戻す強化カードを選んでください。',target.attachments):target.attachments[0];
         if(att){
           removeInstance(target.attachments,att);revealHairpinTarget(att);sendToOwnerHand(att,other(side));
-          if(def(att).effect==='shadowDoubleMirror')applyShadowMirrorOverride(target);
+          if(def(att).effect==='shadowDoubleMirror'||def(att).effect==='puppetCordyceps')refreshCordycepsSuppression(target);
           enforceAttachmentLegality(target,other(side));log(`「カブト戻し」で「${def(att).name}」を持ち主の手札に戻した。`);
         }
       }

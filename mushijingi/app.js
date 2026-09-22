@@ -257,8 +257,6 @@
       if(attackableTargets(side).length===0)return false;
       if(!sideObj(other(side)).bait.some(x=>isFaceUpBait(x)&&def(x).type==='insect'))return false;
     }
-    if(attack.effect==='reverseSwap')return performReverseSwap(side,fc,attack);
-
     if(attack.effect==='multiTwo'){
       const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
       const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
@@ -1408,6 +1406,8 @@
       removeInstance(sideObj(side).bait,bait);sendToOwnerDiscard(bait,side);log(`「${def(bait).name}」をエサ場から破壊した。`);
     }
 
+    if(attack.effect==='reverseSwap')return performReverseSwap(side,fc,attack);
+
     if(attack.effect==='multiTwo'){
       const candidates=attackableTargets(side);if(candidates.length<2)return false;
       let targets;
@@ -1429,7 +1429,10 @@
         }else if(target.damage>=maxHp(target)){
           destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
         }
-        if(destroyed)await resolveDestroyedAttackTarget(side,fc,target,attack);
+        if(destroyed){
+          if(side==='cpu'){render();await cpuNotice(`${attack.name} → 「${fieldDef(target).name}」を破壊`);}
+          await resolveDestroyedAttackTarget(side,fc,target,attack);
+        }
       }
       await finishAttackSpecialState(side,fc,attack);render();return true;
     }
@@ -1507,11 +1510,8 @@
         }
 
         if(destroyed){
-          if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
-          await resolveAttackDestructionReaction(other(side),target,fc);
           if(side==='cpu'){render();await cpuNotice(cpuAttackSummary+' → 破壊');cpuAttackSummary='';}
-          const drew=await takeTerritory(other(side),false,{attacker:fc,suppressFlyOut:attack.effect==='blockFlyOutAttack'});
-          await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
+          await resolveDestroyedAttackTarget(side,fc,target,attack);
         }
       }
     }

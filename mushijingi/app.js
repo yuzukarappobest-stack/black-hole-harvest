@@ -155,7 +155,7 @@
   function isFaceUpBait(inst){return !inst.faceDown;}
   function legalSpellTarget(fc){return fieldDef(fc).passive?.type!=='foamGuard';}
   function oncePerEntryEffect(effect){
-    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer'].includes(effect);
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory'].includes(effect);
   }
   function baitCardColor(inst){
     if(!inst||inst.faceDown)return null;
@@ -255,6 +255,8 @@
       if(attackableTargets(side).length===0)return false;
       if(!sideObj(other(side)).bait.some(x=>isFaceUpBait(x)&&def(x).type==='insect'))return false;
     }
+    if(attack.effect==='reverseSwap')return performReverseSwap(side,fc,attack);
+
     if(attack.effect==='multiTwo'){
       const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
       const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
@@ -1256,6 +1258,17 @@
       Engine.addModifier(fc,{stat:'attack',value:Number(attack.value||0),activeFromTurnSeq:state.turnSeq+2,expiresAfterTurnSeq:state.turnSeq+2});
       log(`「${fieldDef(fc).name}」は次の自分のターン攻撃力+${Number(attack.value||0)}。`);
     }
+    if(attack.effect==='weakPoison'){
+      const defender=other(side),available=sideObj(defender).bait.filter(isFaceUpBait);
+      if(available.length){
+        let use=true;
+        if(side==='player')use=await confirmYesNo('＜弱毒針＞で相手のエサを1枚裏向きにしますか？','弱毒針');
+        if(use){
+          const chosen=side==='player'?await chooseInstances('裏向きにする相手のエサを選んでください。',available):available[0];
+          if(chosen){chosen.faceDown=true;log(`＜弱毒針＞ 「${def(chosen).name}」をダメージ前に裏向きにした。`);}
+        }
+      }
+    }
     return true;
   }
   async function applyAfterTerritoryAttackEffect(side,fc,attack,drew){
@@ -1268,12 +1281,17 @@
     }
     if(attack.effect==='flipBaitOnTerritory'){
       const defender=other(side),available=sideObj(defender).bait.filter(isFaceUpBait);
-      if(!available.length)return;
-      let use=true;
-      if(side==='player')use=await confirmYesNo('相手のエサを1枚裏向きにしますか？','シロガネタックル');
-      if(!use)return;
-      const chosen=side==='player'?await chooseInstances('裏向きにする相手のエサを選んでください。',available):available[0];
-      if(chosen){chosen.faceDown=true;log(`「${def(chosen).name}」を裏向きのエサにした。`);}
+      if(available.length){
+        let use=true;
+        if(side==='player')use=await confirmYesNo('相手のエサを1枚裏向きにしますか？','シロガネタックル');
+        if(use){
+          const chosen=side==='player'?await chooseInstances('裏向きにする相手のエサを選んでください。',available):available[0];
+          if(chosen){chosen.faceDown=true;log(`「${def(chosen).name}」を裏向きのエサにした。`);}
+        }
+      }
+    }
+    if(attack.effect==='handDiscardAfterTerritory'){
+      await discardOneHand(other(side),'激痛針で捨てる手札を選んでください。');
     }
   }
   async function finishAttackSpecialState(side,fc,attack){
@@ -1283,13 +1301,70 @@
     }
   }
   async function resolveDestroyedAttackTarget(side,fc,target,attack){
-    const defender=other(side);
+    const defender=other(side),p=fieldDef(target).passive;
+
+    // 操り針 is the turn-player effect and takes priority over 宝石昆虫.
     if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
     await resolveAttackDestructionReaction(defender,target,fc);
-    const suppress=attack.effect==='blockFlyOutAttack';
-    const drew=await takeTerritory(defender,false,{attacker:fc,suppressFlyOut:suppress});
-    await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
+
+    // 魔王のツノ is before the territory draw.
+    if(p?.type==='demonHorn')await discardOneHand(side,'＜魔王のツノ＞で捨てる手札を選んでください。');
+
+    let shouldDraw=true;
+    if(p?.type==='skipTerritoryChoice'){
+      if(defender==='player'){
+        shouldDraw=!(await confirmYesNo('＜毒蛾の毛針＞で縄張りを引かないことを選びますか？','毒蛾の毛針'));
+      }
+    }
+
+    let drew=false;
+    if(shouldDraw){
+      const suppress=attack.effect==='blockFlyOutAttack';
+      drew=await takeTerritory(defender,false,{attacker:fc,suppressFlyOut:suppress});
+      await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
+    }else log(`${sideName(defender)}は＜毒蛾の毛針＞で縄張りを引かなかった。`);
     return drew;
+  }
+
+  function attackTargetsForTechnique(side,attack){
+    let targets=attackableTargets(side);
+    if(attack.effect==='targetHasEnhance')targets=targets.filter(fc=>fc.attachments.length>0);
+    return targets;
+  }
+  async function performReverseSwap(side,fc,attack){
+    const defender=other(side);
+    const fieldChoices=attackableTargets(side);
+    const baitChoices=sideObj(defender).bait.filter(x=>isFaceUpBait(x)&&def(x).type==='insect');
+    if(!fieldChoices.length||!baitChoices.length)return false;
+
+    const outgoing=side==='player'
+      ? await chooseField('逆立ち返しでエサ場へ送る相手の虫を選んでください。',fieldChoices,true)
+      : chooseAttackTargetCPU(fc,attack,fieldChoices);
+    if(!outgoing)return false;
+    const incoming=await chooseOwnedInstance(side,'逆立ち返しで場に出す相手のエサの虫を選んでください。',baitChoices);
+    if(!incoming)return false;
+
+    if(!await applyAttackUseSetup(side,fc,attack))return false;
+    fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target:outgoing,attack});
+
+    sideObj(defender).field=sideObj(defender).field.filter(x=>x!==outgoing);
+    discardAttachmentsToOwners(outgoing,defender,'swap');
+    sendToOwnerBait(outgoing.inst,defender);
+    events.emit(EVENT.CARD_LEFT_FIELD,{state,side:defender,fieldCard:outgoing,reason:'swap'});
+    removeInstance(sideObj(defender).bait,incoming);
+    const newTarget=await putInsectOnField(defender,incoming);
+    log(`「逆立ち返し」で「${fieldDef(outgoing).name}」とエサの「${def(incoming).name}」を入れ替えた。`);
+
+    if(sideObj(defender).field.includes(newTarget)){
+      const base=attackPower(side,fc,attack);
+      const {dmg,mult}=await applyAttackDamage(side,fc,newTarget,attack,base);
+      log(`逆立ち返しの処理後、「${fieldDef(newTarget).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
+      if(newTarget.damage>=maxHp(newTarget)){
+        const destroyed=await attemptDestroyFieldCard(defender,newTarget,'attack',fc);
+        if(destroyed)await resolveDestroyedAttackTarget(side,fc,newTarget,attack);
+      }
+    }
+    render();return true;
   }
 
   async function performAttack(side,fc,attack){
@@ -1335,7 +1410,7 @@
       await finishAttackSpecialState(side,fc,attack);render();return true;
     }
 
-    let targets=attackableTargets(side),target=null;
+    let targets=attackTargetsForTechnique(side,attack),target=null;
     if(attack.effect==='hornSkewer'&&!targets.length)return false;
     if(targets.length){
       if(attack.effect==='blindAttack'&&targets.length>1){

@@ -329,7 +329,7 @@
   }
 
   async function startGame(deckKey, firstSide){
-    const cpuKey=deckKey==='random1'?'random1':(deckKey==='kabuto'?'mantis':'kabuto');
+    const cpuKey=(deckKey==='random1'||deckKey==='random2')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
     uidCounter=1;
     state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');

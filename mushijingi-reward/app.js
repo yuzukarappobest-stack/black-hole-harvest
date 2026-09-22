@@ -507,6 +507,16 @@
     }
     return false;
   }
+  function counterThreatened(side,inst){
+    const c=def(inst);
+    if(c.type==='enhance')return activeUseCounter(side,'enhance');
+    if(c.type!=='spell')return false;
+    if(activeUseCounter(side,'spell'))return true;
+    const opp=other(side);
+    if(fieldActive(opp).some(fc=>passiveOfField(fc)?.type==='superClairvoyance'))return true;
+    if(effectiveCardCost(side,inst)<=1&&fieldActive(opp).some(fc=>passiveOfField(fc)?.type==='clairvoyance'))return true;
+    return false;
+  }
   async function prepaySpellForCounter(side,inst,c){
     const s=sideObj(side);
     if(c.effect==='bloodPact'&&s.territory.length>=2){
@@ -936,9 +946,24 @@
     if(state.phase==='set'){
       Engine.moveCard(s,inst,ZONE.HAND,ZONE.BAIT); s.setDone=true;
       events.emit(EVENT.CARD_MOVED,{side:'player',card:inst,from:ZONE.HAND,to:ZONE.BAIT});
-      log(`あなたは「${def(inst).name}」をエサにしました。`); finishSetPhase(); return;
+      log(`あなたは「${def(inst).name}」をエサにしました。`);
+      await resolveGoldenDungBait('player',inst);
+      finishSetPhase(); return;
     }
     if(state.phase==='main' && canUseHandCard('player',inst)) await playCardFromHand('player',inst);
+  }
+
+  async function resolveGoldenDungBait(side,inst){
+    if(passiveOfInst(inst)?.type!=='goldenDungBeetle')return false;
+    const choices=sideObj(side).discard.filter(x=>def(x).type==='insect');if(!choices.length)return false;
+    let use=side==='cpu'?true:await confirmYesNo('＜黄金虫＞で、このオオセンチコガネを捨て札の虫と入れ替えますか？','黄金虫');
+    if(!use)return false;
+    const chosen=await chooseOwnedInstance(side,'表向きのエサにする捨て札の虫を選んでください。',choices);if(!chosen)return false;
+    if(!removeInstance(sideObj(side).bait,inst))return false;
+    removeInstance(sideObj(side).discard,chosen);
+    sendToOwnerDiscard(inst,side);chosen.faceDown=false;sideObj(side).bait.push(chosen);
+    log(`＜黄金虫＞ 「${def(inst).name}」と捨て札の「${def(chosen).name}」を入れ替えた。`);
+    return true;
   }
 
   function finishSetPhase(){
@@ -1675,6 +1700,7 @@
     const second=await chooseOwnedInstance(side,'白銀蜘蛛の糸で場に出す虫（2つ目）',choices.filter(x=>x.uid!==first.uid));if(!second)return false;
     const cost=effectiveCardCost(side,inst);
     if(!spendCost(side,inst,cost))return false;
+    if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);ss.discard.push(inst);log(`「${c.name}」は打ち消された。`);return true;}
     removeHand(ss,inst);removeInstance(ss.discard,first);removeInstance(ss.discard,second);
     let attachTo=first;
     if(side==='player'){
@@ -1696,6 +1722,7 @@
     const chosen=await chooseOwnedInstance(side,'「黒銀蜘蛛の糸」で場に出す虫を選んでください。',choices);if(!chosen)return false;
     if(!fromTerritory){
       const cost=effectiveCardCost(side,inst);if(!spendCost(side,inst,cost))return false;
+      if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);ss.discard.push(inst);log(`「${c.name}」は打ち消された。`);return true;}
       removeHand(ss,inst);
     }
     removeInstance(ss.discard,chosen);
@@ -1771,6 +1798,7 @@
           const insects=ss.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect');if(!insects.length)return false;
           const chosen=await chooseOwnedInstance(side,'「口寄せの時蛹」で場に出す虫を選んでください。',insects);if(!chosen)return false;
           const cost=effectiveCardCost(side,inst);if(!spendCost(side,inst,cost))return false;
+          if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);ss.discard.push(inst);log(`「${c.name}」は打ち消された。`);return true;}
           removeHand(ss,inst);removeHand(ss,chosen);inst.expireTurn=state.turnSeq+1;
           const fc=await putInsectOnField(side,chosen,{attachments:[inst],summonedByTimePupa:true});
           log(`「口寄せの時蛹」で「${fieldDef(fc).name}」を場に出した。時蛹がある間は攻撃できない。`);
@@ -1780,16 +1808,39 @@
           if(!targets.length)return false;
           const target=await chooseOwnedField(side,`「${c.name}」をつける虫を選んでください。`,targets);if(!target)return false;
           if(c.effect==='imitation'&&!await configureImitation(side,inst,target))return false;
-          const cost=effectiveCardCost(side,inst,target);if(!spendCost(side,inst,cost))return false;
+          let cost=effectiveCardCost(side,inst,target);
+          if(c.effect==='grudgeJinbaori'){
+            let flipped=0;
+            while(sideObj(side).bait.some(isFaceUpBait)){
+              let use;
+              if(side==='cpu')use=flipped<cost;
+              else use=await confirmYesNo(`「怨念の陣羽織」で表向きのエサを裏向きにしますか？ 現在の軽減：${flipped}`,'怨念の陣羽織');
+              if(!use)break;
+              const choices=sideObj(side).bait.filter(isFaceUpBait),chosen=await chooseOwnedInstance(side,'裏向きにするエサを選んでください。',choices);if(!chosen)break;
+              chosen.faceDown=true;flipped++;
+            }
+            cost=Math.max(0,cost-flipped);
+          }
+          if(!spendCost(side,inst,cost))return false;
+          if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);ss.discard.push(inst);log(`「${c.name}」は打ち消された。`);return true;}
           removeHand(ss,inst);target.attachments.push(inst);
           await configureAttachedCard(side,target,inst);
           log(`${sideName(side)}は「${c.name}」を「${fieldDef(target).name}」につけた（コスト${cost}）。`);
           if(side==='cpu'){render();await cpuNotice(`「${c.name}」を「${fieldDef(target).name}」につけた`);}
         }
       }else{
+        let prepaid=false,paidCost=null;
+        if(counterThreatened(side,inst)){
+          paidCost=await prepaySpellForCounter(side,inst,c);if(paidCost===null)return false;prepaid=true;
+          if(await shouldCounterCardUse(side,inst,paidCost)){
+            removeHand(ss,inst);if(!ss.discard.includes(inst))ss.discard.push(inst);
+            clearPrepaid(inst);log(`「${c.name}」は打ち消された。`);
+            return true;
+          }
+        }
         state.resolvingSpellSide=side;
         let ok=false;
-        try{ok=await resolveSpell(side,inst,c);}finally{state.resolvingSpellSide=null;}
+        try{ok=await resolveSpell(side,inst,c);}finally{state.resolvingSpellSide=null;if(prepaid)clearPrepaid(inst);}
         if(!ok)return false;
       }
       await resolveStateBasedDestructions('effect');
@@ -1963,6 +2014,9 @@
       const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       const normalCost=effectiveCardCost(side,inst);
+      if(inst.prepaidUse){
+        removeHand(s,inst);if(!s.discard.includes(inst))s.discard.push(inst);
+      }else{
       let useTerritory=s.territory.length>=2&&normalCost>s.cost;
       if(side==='player'&&s.territory.length>=2&&normalCost<=s.cost){
         const pay=await choose([
@@ -1984,6 +2038,7 @@
         removeHand(s,inst);s.discard.push(inst);emitCost(side,inst,c,'縄張り2枚');
       }else{
         if(normalCost>s.cost||!paySpell(side,inst,c))return false;
+      }
       }
       await attemptDestroyFieldCard(opp,target,'effect',null);
     }else if(c.effect==='drawOwnTerritory'){
@@ -3268,7 +3323,9 @@
     if(state.over)return; const s=state.cpu;
     message('CPUが考えています…');
     if(s.hand.length){
-      const bait=chooseBaitCPU(s.hand); Engine.moveCard(s,bait,ZONE.HAND,ZONE.BAIT);events.emit(EVENT.CARD_MOVED,{side:'cpu',card:bait,from:ZONE.HAND,to:ZONE.BAIT});log(`CPUは「${def(bait).name}」をエサにした。`);render();await cpuNotice(`「${def(bait).name}」をエサ場に置いた`);
+      const bait=chooseBaitCPU(s.hand); Engine.moveCard(s,bait,ZONE.HAND,ZONE.BAIT);events.emit(EVENT.CARD_MOVED,{side:'cpu',card:bait,from:ZONE.HAND,to:ZONE.BAIT});log(`CPUは「${def(bait).name}」をエサにした。`);
+      await resolveGoldenDungBait('cpu',bait);
+      render();await cpuNotice(`「${def(bait).name}」をエサ場に置いた`);
     }
     s.cost=s.bait.length; state.phase='main';render();
     let guard=0;

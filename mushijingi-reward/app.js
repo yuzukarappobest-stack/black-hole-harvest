@@ -290,15 +290,15 @@
     return inst?.owner==='player'||inst?.owner==='cpu'?inst.owner:fallback;
   }
   function sendToOwnerDiscard(inst,fallback){
-    inst.discardFaceDown=false;
+    inst.faceDown=false;inst.discardFaceDown=false;
     sideObj(ownerSideOf(inst,fallback)).discard.push(inst);
   }
   function sendToOwnerDiscardFaceDown(inst,fallback){
-    inst.discardFaceDown=true;
+    inst.faceDown=false;inst.discardFaceDown=true;
     sideObj(ownerSideOf(inst,fallback)).discard.push(inst);
   }
   function sendToOwnerHand(inst,fallback){
-    inst.discardFaceDown=false;
+    inst.faceDown=false;inst.discardFaceDown=false;
     sideObj(ownerSideOf(inst,fallback)).hand.push(inst);
   }
   function sendToOwnerBait(inst,fallback){
@@ -1020,7 +1020,7 @@
   async function onHandCard(uid){
     if(state.busy)return; const s=state.player; const inst=s.hand.find(x=>x.uid===uid); if(!inst)return;
     if(state.phase==='set'){
-      Engine.moveCard(s,inst,ZONE.HAND,ZONE.BAIT); s.setDone=true;
+      inst.faceDown=false;inst.discardFaceDown=false;Engine.moveCard(s,inst,ZONE.HAND,ZONE.BAIT); s.setDone=true;
       events.emit(EVENT.CARD_MOVED,{side:'player',card:inst,from:ZONE.HAND,to:ZONE.BAIT});
       log(`あなたは「${def(inst).name}」をエサにしました。`);
       await resolveGoldenDungBait('player',inst);
@@ -4080,7 +4080,7 @@
     if(state.over)return; const s=state.cpu;
     message('CPUが考えています…');
     if(s.hand.length){
-      const bait=chooseBaitCPU(s.hand); Engine.moveCard(s,bait,ZONE.HAND,ZONE.BAIT);events.emit(EVENT.CARD_MOVED,{side:'cpu',card:bait,from:ZONE.HAND,to:ZONE.BAIT});log(`CPUは「${def(bait).name}」をエサにした。`);
+      const bait=chooseBaitCPU(s.hand); bait.faceDown=false;bait.discardFaceDown=false;Engine.moveCard(s,bait,ZONE.HAND,ZONE.BAIT);events.emit(EVENT.CARD_MOVED,{side:'cpu',card:bait,from:ZONE.HAND,to:ZONE.BAIT});log(`CPUは「${def(bait).name}」をエサにした。`);
       await resolveGoldenDungBait('cpu',bait);
       render();await cpuNotice(`「${def(bait).name}」をエサ場に置いた`);
     }

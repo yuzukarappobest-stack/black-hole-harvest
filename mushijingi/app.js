@@ -46,7 +46,13 @@
       cannotAttackTurn:0,
       attackLocks:[],
       turnColorOverride:null,
-      turnColorOverrideTurn:0
+      turnColorOverrideTurn:0,
+      hiddenUntilTurnSeq:0,
+      damageShieldUsedTurn:0,
+      spiderWebTurn:0,
+      spiderWebUsedTurn:0,
+      poisonBubbleTurn:0,
+      puppetDestroyTurn:0
     });
   }
   function log(text){
@@ -86,6 +92,8 @@
       const e=def(a).effect;
       if(e==='hp500')hp+=500;
       if(e==='hp800')hp+=800;
+      if(e==='hpAttack300')hp+=300;
+      if(e==='hpAttack500')hp+=500;
     }
     return hp;
   }
@@ -106,6 +114,8 @@
       const e=def(a).effect;
       if(e==='attack300')b+=300;
       if(e==='attack500')b+=500;
+      if(e==='hpAttack300')b+=300;
+      if(e==='hpAttack500')b+=500;
     }
     const p=fieldDef(fc).passive;
     if(p?.type==='emblem'){
@@ -116,6 +126,24 @@
     return b;
   }
   function hasAttachment(fc,effect){ return fc.attachments.some(a=>def(a).effect===effect); }
+  function ownerSideOf(inst,fallback){
+    return inst?.owner==='player'||inst?.owner==='cpu'?inst.owner:fallback;
+  }
+  function sendToOwnerDiscard(inst,fallback){
+    sideObj(ownerSideOf(inst,fallback)).discard.push(inst);
+  }
+  function sendToOwnerHand(inst,fallback){
+    sideObj(ownerSideOf(inst,fallback)).hand.push(inst);
+  }
+  function sendToOwnerBait(inst,fallback){
+    inst.faceDown=false;
+    sideObj(ownerSideOf(inst,fallback)).bait.push(inst);
+  }
+  function isFaceUpBait(inst){return !inst.faceDown;}
+  function legalSpellTarget(fc){return fieldDef(fc).passive?.type!=='foamGuard';}
+  function oncePerEntryEffect(effect){
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer'].includes(effect);
+  }
   function findFieldSide(fc){
     if(!state)return null;
     if(state.player.field.includes(fc))return 'player';
@@ -125,13 +153,15 @@
   function dynamicBasePower(side,fc,attack){
     if(!attack.dynamic)return Number(attack.power||0);
     const s=sideObj(side);
-    if(attack.dynamic==='redBait200')return s.bait.filter(i=>def(i).type==='insect'&&def(i).color==='red').length*200;
+    if(attack.dynamic==='redBait200')return s.bait.filter(i=>isFaceUpBait(i)&&def(i).type==='insect'&&def(i).color==='red').length*200;
     if(attack.dynamic==='discard100')return s.discard.length*100;
     if(attack.dynamic==='field100')return fieldActive(side).length*100;
     return Number(attack.power||0);
   }
   function attackPower(side,fc,attack){return Math.max(0,dynamicBasePower(side,fc,attack)+attackBonus(fc));}
   function isAttackBlocked(side,fc){
+    if(fieldDef(fc).passive?.type==='foamGuard')return true;
+    if(hasAttachment(fc,'summonWithAttachment'))return true;
     if(fc.cannotAttackTurn===state.turnSeq)return true;
     const locks=fc.attackLocks||[];
     for(const lock of locks){
@@ -143,7 +173,8 @@
   }
   function usableAttack(side,fc,attack){
     if(attack.effect==='cannibal' && fieldActive(side).filter(x=>x!==fc).length===0)return false;
-    if(attack.effect==='baitSacrifice' && sideObj(side).bait.length===0)return false;
+    if(attack.effect==='baitSacrifice' && sideObj(side).bait.filter(isFaceUpBait).length===0)return false;
+    if(attack.effect==='hornSkewer' && attackableTargets(side).length===0)return false;
     if(attack.effect==='multiTwo'){
       const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
       const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
@@ -225,7 +256,7 @@
     const el=$(side==='player'?'playerBaitVisual':'cpuBaitVisual');el.innerHTML='';
     const items=sideObj(side).bait;
     if(!items.length){el.appendChild(emptyZone('まだありません'));return;}
-    items.forEach(inst=>el.appendChild(cardElement(inst,{mini:true})));
+    items.forEach(inst=>el.appendChild(inst.faceDown?cardBack():cardElement(inst,{mini:true})));
   }
   function renderCpuHand(){
     const el=$('cpuHandVisual');el.innerHTML='';
@@ -267,6 +298,7 @@
       if(fc.mimicTurn===state.turnSeq) status+='擬態中 '; if(fc.attackPenaltyTurn===state.turnSeq) status+=`攻撃-${fc.attackPenalty} `;
       if(fc.turnAttackBonus)status+=`攻撃+${fc.turnAttackBonus} `;
       if(fc.persistentDamage)status+=`回復しないダメージ ${fc.persistentDamage} `;
+      if(fc.poisonBubbleTurn===state.turnSeq)status+='毒の泡 ';
       if(isAttackBlocked(opt.side||findFieldSide(fc),fc))status+='攻撃不可 ';
     }
     const attaches=fc?.attachments.length?`<div class="attach-line">強化: ${fc.attachments.map(a=>escapeHtml(def(a).name)).join(' / ')}</div>`:'';

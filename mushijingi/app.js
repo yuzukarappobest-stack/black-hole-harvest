@@ -787,14 +787,52 @@
     await performAttack('player',fc,attacks[idx]);
   }
 
+  async function dealDamage(targetSide,target,amount,ctx={}){
+    let actual=Math.max(0,Number(amount||0));
+    const p=fieldDef(target).passive;
+
+    if(ctx.kind==='attack'&&p?.type==='poisonBody'&&String(ctx.attack?.name||'').includes('毒')){
+      actual=0;
+      log(`＜毒の体＞ 「${fieldDef(target).name}」は毒の技のダメージを0にした。`);
+    }
+
+    if(actual>0&&p?.type==='undyingDance'&&target.damageShieldUsedTurn!==state.turnSeq){
+      target.damageShieldUsedTurn=state.turnSeq;
+      actual=0;
+      log(`＜不死蝶の舞＞ 「${fieldDef(target).name}」がこのターン最初のダメージを0にした。`);
+    }
+
+    if(actual>0&&target.spiderWebTurn===state.turnSeq&&target.spiderWebUsedTurn!==state.turnSeq){
+      target.spiderWebUsedTurn=state.turnSeq;
+      actual=0;
+      log(`「蜘蛛の巣」で「${fieldDef(target).name}」への最初のダメージを0にした。`);
+    }
+
+    if(actual>0&&ctx.kind==='attack'){
+      const cuts=target.attachments.filter(a=>def(a).effect==='zeroAttackDamageOnce');
+      if(cuts.length){
+        target.attachments=target.attachments.filter(a=>def(a).effect!=='zeroAttackDamageOnce');
+        for(const a of cuts)sendToOwnerDiscard(a,targetSide);
+        actual=0;
+        log(`「蚰蜒の足切り」で「${fieldDef(target).name}」への攻撃ダメージを0にした。`);
+      }
+    }
+
+    events.emit(EVENT.BEFORE_DAMAGE,{state,target,targetSide,amount:actual,...ctx});
+    target.damage+=actual;
+    if(ctx.kind==='attack'&&ctx.attack?.effect==='persistentDamage'&&actual>0){
+      target.persistentDamage=(target.persistentDamage||0)+actual;
+    }
+    events.emit(EVENT.AFTER_DAMAGE,{state,target,targetSide,amount:actual,...ctx});
+    return actual;
+  }
+
   async function applyAttackDamage(side,fc,target,attack,base){
-    const mult=weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
-    const dmg=base*mult;
-    events.emit(EVENT.BEFORE_DAMAGE,{state,source:fc,sourceSide:side,target,amount:dmg,kind:'attack',attack});
-    target.damage+=dmg;
-    if(attack.effect==='persistentDamage')target.persistentDamage=(target.persistentDamage||0)+dmg;
-    events.emit(EVENT.AFTER_DAMAGE,{state,source:fc,sourceSide:side,target,amount:dmg,kind:'attack',attack});
-    return {dmg,mult};
+    const defenderSide=other(side);
+    const mult=hasAttachment(target,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
+    const proposed=base*mult;
+    const dmg=await dealDamage(defenderSide,target,proposed,{source:fc,sourceSide:side,kind:'attack',attack});
+    return {dmg,mult:proposed===0?1:mult};
   }
   async function applyNextTurnHp(fc,value){
     Engine.addModifier(fc,{stat:'hp',value:Number(value||0),activeFromTurnSeq:state.turnSeq+1,expiresAfterTurnSeq:state.turnSeq+1});
@@ -1023,7 +1061,7 @@
   function chooseAttackTargetCPU(fc,attack,targets){
     const base=attackPower('cpu',fc,attack);
     return [...targets].sort((a,b)=>{
-      const da=base*weaknessMultiplier(effectiveColor(fc),effectiveColor(a)); const db=base*weaknessMultiplier(effectiveColor(fc),effectiveColor(b));
+      const da=base*(hasAttachment(a,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(a))); const db=base*(hasAttachment(b,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(b)));
       const ka=da>=maxHp(a)-a.damage?10000:0, kb=db>=maxHp(b)-b.damage?10000:0;
       return (kb+def(b.inst).cost*100-(maxHp(b)-b.damage))-(ka+def(a.inst).cost*100-(maxHp(a)-a.damage));
     })[0];

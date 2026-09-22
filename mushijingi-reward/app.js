@@ -237,7 +237,7 @@
     if(p?.type==='aphidFavorite'&&side)hp+=faceUpBait(side).filter(x=>def(x).type==='insect'&&/アブラムシ/.test(def(x).name)).length*Number(p.value||100);
     if(p?.type==='cicadaParasite'&&side&&fieldActive(side).some(x=>x!==fc&&isCicadaCard(x.inst)))hp+=Number(p.value||100);
     if(p?.type==='whiteStripe'&&side)hp+=sideObj(side).bait.filter(x=>x.faceDown).length*Number(p.value||100);
-    if(p?.type==='colony'&&side)hp+=visibleDiscard(side).filter(x=>x.discardFaceDown).length*Number(p.value||200);
+    if(p?.type==='colony'&&side)hp+=sideObj(side).discard.filter(x=>x.discardFaceDown).length*Number(p.value||200);
     if(side){
       const mirrors=fc.attachments.filter(a=>def(a).effect==='greenMirror').length;
       if(mirrors)hp+=(sideObj(side).bait.length>=6?800:400)*mirrors*factor;
@@ -250,6 +250,7 @@
       const e=def(fc.attachments[i]).effect;
       if(e==='changeColor'&&fc.changedColor)return fc.changedColor;
       if(e==='stickChange'&&fc.attachments[i].chosenColor)return fc.attachments[i].chosenColor;
+      if(e==='jewelColorCopy'&&fc.attachments[i].copyColor)return fc.attachments[i].copyColor;
       if(e==='setRed')return 'red';
       if(e==='setBlue')return 'blue';
       if(e==='setGreen')return 'green';
@@ -275,7 +276,7 @@
     if(p?.type==='aphidFavorite'&&side)b+=faceUpBait(side).filter(x=>def(x).type==='insect'&&/アブラムシ/.test(def(x).name)).length*Number(p.value||100);
     if(p?.type==='cicadaParasite'&&side&&fieldActive(side).some(x=>x!==fc&&isCicadaCard(x.inst)))b+=Number(p.value||100);
     if(p?.type==='whiteStripe'&&side)b+=sideObj(side).bait.filter(x=>x.faceDown).length*Number(p.value||100);
-    if(p?.type==='colony'&&side)b+=visibleDiscard(side).filter(x=>x.discardFaceDown).length*Number(p.value||200);
+    if(p?.type==='colony'&&side)b+=sideObj(side).discard.filter(x=>x.discardFaceDown).length*Number(p.value||200);
     if(p?.type==='sumatraNature'&&side&&baitHasRGB(side))b+=Number(p.value||800);
     if(side){
       const mirrors=fc.attachments.filter(a=>def(a).effect==='greenMirror').length;
@@ -322,7 +323,7 @@
     return list;
   }
   function oncePerEntryEffect(effect){
-    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce','sourceAttackLockPersistent','dragonMantisFist','superPainNeedle','colorlessTargetOnce','kingHorn','charmingWing','antennaWhip','spellTaxTwoNext'].includes(effect);
+    return ['oncePerEntry','bounceOnce','hideUntilOpponentEnd','mimicColorAttack','hornSkewer','weakPoison','handDiscardAfterTerritory','banditArm','baitFlipOnce','sourceAttackLockPersistent','dragonMantisFist','superPainNeedle','colorlessTargetOnce','kingHorn','charmingWing','antennaWhip','spellTaxTwoNext','spiritAway'].includes(effect);
   }
   function baitCardColor(inst){
     if(!inst||inst.faceDown)return null;
@@ -683,6 +684,7 @@
       ['pollen','taunt'].includes(passiveOfField(fc)?.type)||
       cicadaParasiteActive(fc)||
       hasAttachment(fc,'tauntAttachment')||
+      hasAttachment(fc,'shadowDoubleMirror')||
       fc.forcedAttackTargetTurn===state.turnSeq
     );
     let candidates=active.filter(fc=>{
@@ -757,7 +759,7 @@
   function renderPile(id,items,faceUp){
     const el=$(id); el.innerHTML='';
     if(!items.length){el.appendChild(emptyZone('0枚'));return;}
-    if(faceUp) el.appendChild(cardElement(items[items.length-1],{mini:true}));
+    if(faceUp) el.appendChild(items[items.length-1].discardFaceDown?cardBack():cardElement(items[items.length-1],{mini:true}));
     else el.appendChild(cardBack());
     const n=document.createElement('span');n.className='pile-count';n.textContent=items.length;el.appendChild(n);
   }
@@ -862,6 +864,8 @@
     }
 
     if(c.type==='enhance'){
+      if(c.effect==='shadowDoubleMirror'||c.effect==='jewelColorCopy')return effectiveCardCost(side,inst)<=ss.cost&&fieldActive(side).length>=2;
+      if(c.effect==='puppetCordyceps')return !discardSummonBlocked()&&effectiveCardCost(side,inst)<=ss.cost&&visibleDiscardFrom(ss).some(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=3);
       if(c.effect==='silverThread')return effectiveCardCost(side,inst)<=ss.cost&&visibleDiscardFrom(ss).filter(x=>def(x).type==='insect').length>=2;
       if(c.effect==='blackSilverThread')return effectiveCardCost(side,inst)<=ss.cost&&visibleDiscardFrom(ss).some(x=>def(x).type==='insect');
       if(c.effect==='summonWithAttachment')return effectiveCardCost(side,inst)<=ss.cost&&ss.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect');
@@ -1060,7 +1064,7 @@
     return side==='player'?await chooseField(text,list,true):[...list].sort((a,b)=>def(b.inst).cost-def(a.inst).cost)[0];
   }
   function isCicadaCard(inst){
-    return ['ミンミンゼミ','ヒグラシ','クマゼミ','アブラゼミ','テイオウゼミ','エゾゼミ','ツクツクボウシ','チッチゼミ','クロテイオウゼミ','ニイニイゼミ','ハルゼミ','ジュウシチネンゼミ'].includes(def(inst).name);
+    return ['ミンミンゼミ','ヒグラシ','クマゼミ','アブラゼミ','テイオウゼミ','エゾゼミ','ツクツクボウシ','チッチゼミ','クロテイオウゼミ','ニイニイゼミ','ハルゼミ','ジュウシチネンゼミ','ジュウサンネンゼミ'].includes(def(inst).name);
   }
   async function configureAttachedCard(side,fc,att,options={}){
     const e=def(att).effect;
@@ -1630,6 +1634,10 @@
     if(!removeInstance(source.attachments,att))return false;
     revealHairpinTarget(att);
     sendToOwnerDiscard(att,controllerSide);
+    if(def(att).effect==='puppetCordyceps'&&sideObj(controllerSide).field.includes(source)){
+      log(`「傀儡の冬虫夏草」が破壊されたため「${fieldDef(source).name}」を破壊する。`);
+      if(!consumeArmorSynchronously(controllerSide,source))destroyFieldCard(controllerSide,source,'effect',null);
+    }
     if(def(att).effect==='silverThread')resolveSilverThreadDestroyed(att.uid);
     destroyImitationsOf(att.uid);
     if(def(att).effect==='shadowDoubleMirror')applyShadowMirrorOverride(source);
@@ -1981,6 +1989,49 @@
     return true;
   }
 
+  async function useTwinReferenceEnhancement(side,inst,c){
+    const ss=sideObj(side),fields=fieldActive(side);if(fields.length<2)return false;
+    const first=await chooseOwnedField(side,'参照する2体のうち1体目を選んでください。',fields);if(!first)return false;
+    const second=await chooseOwnedField(side,'2体目を選んでください。',fields.filter(x=>x!==first));if(!second)return false;
+    let host=first,source=second;
+    if(side==='player'){
+      const pick=await choose([
+        {value:first.inst.uid,title:fieldDef(first).name,detail:'この虫に装着する'},
+        {value:second.inst.uid,title:fieldDef(second).name,detail:'この虫に装着する'}
+      ],`「${c.name}」をどちらにつけますか？`,c.name);
+      if(pick===null)return false;if(pick===second.inst.uid){host=second;source=first;}
+    }
+    const cost=effectiveCardCost(side,inst,host);if(!spendCost(side,inst,cost))return false;
+    if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);sendToOwnerDiscard(inst,side);log(`「${c.name}」は打ち消された。`);return true;}
+    removeHand(ss,inst);
+    if(c.effect==='shadowDoubleMirror'){
+      const base=def(source.inst);
+      inst.shadowSourceUid=source.inst.uid;
+      inst.shadowCopy={name:base.name,color:base.color,hp:base.hp,attacks:(base.attacks||[]).map(a=>({...a})),passive:base.passive?{...base.passive}:null};
+      host.attachments.push(inst);applyShadowMirrorOverride(host);
+    }else{
+      inst.colorSourceUid=source.inst.uid;inst.copyColor=def(source.inst).color;
+      host.attachments.push(inst);
+    }
+    await configureAttachedCard(side,host,inst,{paidOwnCost:true});
+    log(`${sideName(side)}は「${c.name}」を「${fieldDef(host).name}」につけた。`);
+    return true;
+  }
+  async function usePuppetCordyceps(side,inst,c){
+    if(discardSummonBlocked())return false;
+    const ss=sideObj(side),choices=visibleDiscardFrom(ss).filter(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=3);if(!choices.length)return false;
+    const chosen=await chooseOwnedInstance(side,'「傀儡の冬虫夏草」で場に出す虫を選んでください。',choices);if(!chosen)return false;
+    const cost=effectiveCardCost(side,inst);if(!spendCost(side,inst,cost))return false;
+    if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);sendToOwnerDiscard(inst,side);log(`「${c.name}」は打ち消された。`);return true;}
+    removeHand(ss,inst);removeInstance(ss.discard,chosen);
+    const fc=await putInsectOnField(side,chosen,{attachments:[inst]});
+    const base=def(chosen);
+    Engine.setCardOverrides(fc,{attacks:(base.attacks||[]).map(a=>({...a,effect:null,text:''})),passive:null});
+    fc.suppressKeywords=true;
+    log(`「傀儡の冬虫夏草」で「${base.name}」を場に出した。技の効果を失い、体力と攻撃力-100。`);
+    return true;
+  }
+
   async function playCardFromHand(side,inst){
     const ss=sideObj(side),c=def(inst);
     let alt=null;
@@ -2054,7 +2105,11 @@
         log(`${sideName(side)}は「${c.name}」を場に出した（コスト${alt?'代替':normalCost}）。`);
         if(side==='cpu'){render();await cpuNotice(`「${c.name}」を場に出した`);}
       }else if(c.type==='enhance'){
-        if(c.effect==='silverThread'){
+        if(c.effect==='shadowDoubleMirror'||c.effect==='jewelColorCopy'){
+          if(!await useTwinReferenceEnhancement(side,inst,c))return false;
+        }else if(c.effect==='puppetCordyceps'){
+          if(!await usePuppetCordyceps(side,inst,c))return false;
+        }else if(c.effect==='silverThread'){
           if(!await summonWithSilverThread(side,inst,c))return false;
         }else if(c.effect==='blackSilverThread'){
           if(!await summonWithBlackSilverThread(side,inst,c,false))return false;
@@ -2091,7 +2146,7 @@
           if(!spendCost(side,inst,cost))return false;
           if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);ss.discard.push(inst);log(`「${c.name}」は打ち消された。`);return true;}
           removeHand(ss,inst);target.attachments.push(inst);
-          await configureAttachedCard(side,target,inst);
+          await configureAttachedCard(side,target,inst,{paidOwnCost:true});
           log(`${sideName(side)}は「${c.name}」を「${fieldDef(target).name}」につけた（コスト${cost}）。`);
           if(side==='cpu'){render();await cpuNotice(`「${c.name}」を「${fieldDef(target).name}」につけた`);}
         }
@@ -2170,6 +2225,7 @@
       const dest=await chooseOwnedField(side,'つけ替える先の虫を選んでください。',dests);if(!dest)return false;
       if(def(pick.attachment).effect==='imitation'&&!await configureImitation(side,pick.attachment,dest))return false;
       paySpell(side,inst,c);removeInstance(pick.source.attachments,pick.attachment);dest.attachments.push(pick.attachment);
+      if(def(pick.attachment).effect==='shadowDoubleMirror'){applyShadowMirrorOverride(pick.source);applyShadowMirrorOverride(dest);}
       log(`「${def(pick.attachment).name}」を「${fieldDef(dest).name}」につけ替えた。`);
     }else if(c.effect==='addTerritory'){
       if(!paySpell(side,inst,c,false))return false;inst.faceUpTerritory=true;s.territory.push(inst);
@@ -2831,7 +2887,9 @@
     const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
     if(def(att).effect==='imitation'&&!await configureImitation(side,att,dest))return;
-    removeInstance(fc.attachments,att);dest.attachments.push(att);enforceAttachmentLegality(fc,side);enforceAttachmentLegality(dest,side);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
+    removeInstance(fc.attachments,att);dest.attachments.push(att);
+    if(def(att).effect==='shadowDoubleMirror'){applyShadowMirrorOverride(fc);applyShadowMirrorOverride(dest);}
+    enforceAttachmentLegality(fc,side);enforceAttachmentLegality(dest,side);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
   }
   async function chooseOwnEnhancement(side,text){
     const all=allOwnEnhancements(side);if(!all.length)return null;

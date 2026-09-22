@@ -965,8 +965,6 @@
       removeInstance(sideObj(side).bait,bait);sendToOwnerDiscard(bait,side);log(`「${def(bait).name}」をエサ場から破壊した。`);
     }
 
-    if(!await applyAttackUseSetup(side,fc,attack))return false;
-
     if(attack.effect==='multiTwo'){
       const candidates=attackableTargets(side);if(candidates.length<2)return false;
       let targets;
@@ -975,6 +973,7 @@
         const second=await chooseField(`${attack.name}の2体目を選んでください。`,candidates.filter(x=>x!==first),true);if(!second)return false;
         targets=[first,second];
       }else targets=[...candidates].sort((a,b)=>def(b.inst).cost-def(a.inst).cost).slice(0,2);
+      if(!await applyAttackUseSetup(side,fc,attack))return false;
       fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,targets,attack});
       for(const target of targets){
         if(!sideObj(side).field.includes(fc))break;
@@ -1005,6 +1004,7 @@
       if(!target)return false;
     }
 
+    if(!await applyAttackUseSetup(side,fc,attack))return false;
     events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target,attack});
     fc.attacked=true;
     if(oncePerEntryEffect(attack.effect))fc.usedAttacks.add(attack.name);

@@ -123,3 +123,19 @@ button{font:inherit}.hidden{display:none!important}
 .deck-choice.random3{background:linear-gradient(145deg,#24584b,#172e28)}
 
 .deck-choice.random4{background:linear-gradient(145deg,#6b5a31,#302818)}
+
+/* Starter deck art crops: show only the illustration area from card images. */
+.card-art.crop-insect img,
+.card-art.crop-special img{
+  width:126%;
+  height:auto;
+  max-width:none;
+  object-fit:unset;
+  transform-origin:top left;
+}
+.card-art.crop-insect img{transform:translate(-10%,-18%)}
+.card-art.crop-special img{transform:translate(-10%,-16%)}
+.mini-card-row .card-art.crop-insect img,
+.game-card.mini-card .card-art.crop-insect img{transform:translate(-10%,-18%)}
+.mini-card-row .card-art.crop-special img,
+.game-card.mini-card .card-art.crop-special img{transform:translate(-10%,-16%)}

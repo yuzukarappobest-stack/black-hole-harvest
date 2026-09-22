@@ -364,6 +364,56 @@ window.MUSHI_DATA = (() => {
   cards[463]=spell(463,'伏魔の蟲噛み',1,'相手の虫1つに500ダメージ。同じ名前の別の虫がいれば、さらに1つ選び500ダメージを与えてよい。','sameNameBurn','booster4');
   cards[464]=spell(464,'捨て身の兜投げ',0,'自分の強化カード1枚を破壊する。そうしたなら相手の虫1つに700ダメージを与えてよい。','sacrificeEnhanceBurn','booster4');
 
+  // ===== 学習版スターターデッキ画像 =====
+  // mushijingi.com のカード画像をブラウザで取得し、UI側でイラスト部分をクロップ表示する。
+  cards[6].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=6.jpg&width=336';
+  cards[6].imageCrop='insect';
+  cards[7].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=7.jpg&width=336';
+  cards[7].imageCrop='insect';
+  cards[11].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=11.jpg&width=336';
+  cards[11].imageCrop='insect';
+  cards[22].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=22.jpg&width=336';
+  cards[22].imageCrop='insect';
+  cards[24].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=24.jpg&width=336';
+  cards[24].imageCrop='insect';
+  cards[30].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=30.jpg&width=336';
+  cards[30].imageCrop='insect';
+  cards[44].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=44.jpg&width=336';
+  cards[44].imageCrop='insect';
+  cards[47].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=47.jpg&width=336';
+  cards[47].imageCrop='insect';
+  cards[63].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=63.jpg&width=336';
+  cards[63].imageCrop='insect';
+  cards[64].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=64.jpg&width=336';
+  cards[64].imageCrop='insect';
+  cards[71].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=71.jpg&width=336';
+  cards[71].imageCrop='insect';
+  cards[79].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=79.jpg&width=336';
+  cards[79].imageCrop='insect';
+  cards[80].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=80.jpg&width=336';
+  cards[80].imageCrop='insect';
+  cards[91].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=91.jpg&width=336';
+  cards[91].imageCrop='insect';
+  cards[95].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=95.jpg&width=336';
+  cards[95].imageCrop='insect';
+  cards[101].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=101.jpg&width=336';
+  cards[101].imageCrop='special';
+  cards[106].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=106.jpg&width=336';
+  cards[106].imageCrop='special';
+  cards[107].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=107.jpg&width=336';
+  cards[107].imageCrop='special';
+  cards[108].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=108.jpg&width=336';
+  cards[108].imageCrop='special';
+  cards[118].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=118.jpg&width=336';
+  cards[118].imageCrop='special';
+  cards[124].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=124.jpg&width=336';
+  cards[124].imageCrop='special';
+  cards[127].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=127.jpg&width=336';
+  cards[127].imageCrop='special';
+  cards[129].image='https://mushijingi.com/images/card/thumbnail.php?height=450&src=129.jpg&width=336';
+  cards[129].imageCrop='special';
+  // ===== 学習版スターターデッキ画像ここまで =====
+
   const booster1Ids=Object.values(cards).filter(c=>c.set==='booster1').map(c=>c.id).sort((a,b)=>a-b);
   const booster2Ids=Object.values(cards).filter(c=>c.set==='booster2').map(c=>c.id).sort((a,b)=>a-b);
   const booster3Ids=Object.values(cards).filter(c=>c.set==='booster3').map(c=>c.id).sort((a,b)=>a-b);

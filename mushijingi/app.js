@@ -206,6 +206,15 @@
   function faceUpColorCount(side,color){
     return sideObj(side).bait.filter(i=>baitCardColor(i)===color).length;
   }
+  function allOwnEnhancements(side){
+    return fieldActive(side).flatMap(fc=>fc.attachments.map(att=>({fc,att})));
+  }
+  function eligibleSwordDanceEnhance(inst){
+    return def(inst).type==='enhance'&&!['summonWithAttachment','silverThread'].includes(def(inst).effect);
+  }
+  function baseAdultName(name){return String(name).replace('（幼虫）','');}
+  function matchingLarvaName(adult){return adult+'（幼虫）';}
+
   function activeLowSpellTax(){
     let count=0;
     for(const owner of ['player','cpu'])count+=fieldActive(owner).filter(fc=>passiveOfField(fc)?.type==='spellTaxLow').length;
@@ -494,21 +503,22 @@
 
     if(c.type==='insect'){
       const cost=effectiveCardCost(side,inst);
-      if(c.passive?.type==='altSacrifice2')return cost<=ss.cost||fieldActive(side).length>=2;
-      if(c.passive?.type==='larvaSacrificeSummon')return cost<=ss.cost||fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
+      if(passiveOfInst(inst)?.type==='altSacrifice2')return cost<=ss.cost||fieldActive(side).length>=2;
+      if(passiveOfInst(inst)?.type==='larvaSacrificeSummon')return cost<=ss.cost||fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
       return cost<=ss.cost;
     }
 
     if(c.type==='enhance'){
       if(c.effect==='silverThread')return effectiveCardCost(side,inst)<=ss.cost&&ss.discard.filter(x=>def(x).type==='insect').length>=2;
       if(c.effect==='summonWithAttachment')return effectiveCardCost(side,inst)<=ss.cost&&ss.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect');
+      if(c.effect==='imitation'&&allOwnEnhancements(side).length===0)return false;
       const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,inst));
       return targets.some(fc=>effectiveCardCost(side,inst,fc)<=ss.cost);
     }
 
     const cost=effectiveCardCost(side,inst);
     const opp=other(side);
-    const legalOpp=fieldActive(opp).filter(legalSpellTarget);
+    const legalOpp=spellTargetCandidates(side,opp);
     if(c.effect==='bloodPact'){
       if(!legalOpp.length)return false;
       return cost<=ss.cost||ss.territory.length>=2;
@@ -530,6 +540,15 @@
     if(c.effect==='queenBeeSummon')return ss.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect'&&def(x).name.includes('バチ'));
     if(c.effect==='drawOwnTerritory')return ss.territory.length>0;
     if(c.effect==='flipOwnBaitUp')return ss.bait.some(x=>x.faceDown);
+    if(c.effect==='youngReincarnation')return fieldActive(side).some(fc=>!fieldDef(fc).name.includes('（幼虫）')&&ss.discard.some(x=>def(x).type==='insect'&&def(x).name===matchingLarvaName(fieldDef(fc).name)));
+    if(c.effect==='ghostSwap')return legalOpp.length>0&&faceUpBait(opp).some(x=>def(x).type==='insect');
+    if(c.effect==='polarEvolution')return fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）')&&ss.discard.some(x=>def(x).type==='insect'&&def(x).name===baseAdultName(fieldDef(fc).name)));
+    if(c.effect==='whiteAntHarvest')return faceUpBait(side).some(x=>def(x).type==='enhance');
+    if(c.effect==='leafcutterWork')return faceUpBait(side).length>0;
+    if(c.effect==='spellShield')return fieldActive(side).length>0;
+    if(c.effect==='swordDanceAttach')return fieldActive(side).length>0&&faceUpBait(side).some(x=>eligibleSwordDanceEnhance(x));
+    if(c.effect==='sameNameBurn')return legalOpp.length>0;
+    if(c.effect==='sacrificeEnhanceBurn')return allOwnEnhancements(side).length>0;
     return true;
   }
   function canAttack(fc){
@@ -715,6 +734,22 @@
       const actual=await dealDamage(other(side),target,amount,{source:fc,sourceSide:side,kind:'effect'});
       log(`＜毒霧散布＞ 「${fieldDef(target).name}」に${actual}ダメージ。`);
       if(target.damage>=maxHp(target))await attemptDestroyFieldCard(other(side),target,'effect',null);
+      return;
+    }
+
+    if(p.type==='mandatoryBaitSacrifice'){
+      const available=sideObj(side).bait.filter(isFaceUpBait);
+      if(!available.length){
+        log(`＜狂暴化＞ エサを破壊できないため「${fieldDef(fc).name}」を破壊した。`);
+        await attemptDestroyFieldCard(side,fc,'effect',null);
+        return;
+      }
+      const chosen=await chooseOwnedInstance(side,'＜狂暴化＞で破壊するエサを選んでください。',available);
+      if(!chosen){
+        await attemptDestroyFieldCard(side,fc,'effect',null);return;
+      }
+      removeInstance(sideObj(side).bait,chosen);sendToOwnerDiscard(chosen,side);
+      log(`＜狂暴化＞ 「${def(chosen).name}」をエサ場から破壊した。`);
       return;
     }
 
@@ -941,7 +976,7 @@
     let alt=null;
     const normalCost=effectiveCardCost(side,inst);
 
-    if(c.type==='insect'&&c.passive?.type==='altSacrifice2'){
+    if(c.type==='insect'&&passiveOfInst(inst)?.type==='altSacrifice2'){
       if(normalCost>ss.cost){
         if(fieldActive(side).length<2)return false;
         alt='sac2';
@@ -952,7 +987,7 @@
         ],'リオックをどうやって場に出しますか？','＜エサにする＞');
         if(mode===null)return false;alt=mode==='sac2'?'sac2':null;
       }
-    }else if(c.type==='insect'&&c.passive?.type==='larvaSacrificeSummon'){
+    }else if(c.type==='insect'&&passiveOfInst(inst)?.type==='larvaSacrificeSummon'){
       const hasLarva=fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
       if(normalCost>ss.cost){
         if(!hasLarva)return false;alt='larva';
@@ -1039,7 +1074,7 @@
       log(`${sideName(side)}は「${c.name}」で「${def(chosen).name}」を手札に戻した。`);
     }else if(c.effect==='burn600'||c.effect==='burn1000'){
       const amount=c.effect==='burn1000'?1000:600;
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField(`${amount}ダメージを与える相手の虫を選んでください。`,choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);
       const actual=await dealDamage(opp,target,amount,{source:inst,sourceSide:side,kind:'spell'});
@@ -1082,7 +1117,7 @@
       paySpell(side,inst,c);
       for(const i of picks){removeInstance(s.bait,i);const fc=await putInsectOnField(side,i,{temporary:true,summonedBySpell:true});log(`「${fieldDef(fc).name}」がエサ場から出た。`);}
     }else if(c.effect==='destroyOpponent'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);await attemptDestroyFieldCard(opp,target,'effect',null);
     }else if(c.effect==='topDeckSummon'){
@@ -1129,7 +1164,7 @@
       const att=side==='player'?await chooseInstances('破壊する強化カードを選んでください。',source.attachments):source.attachments[0];if(!att)return false;
       paySpell(side,inst,c);destroyAttachment(source,att,opp,'effect');log(`「${def(att).name}」を破壊した。`);
     }else if(c.effect==='blockAttackNext'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('次のターン攻撃できなくする虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);target.cannotAttackTurn=state.turnSeq+1;log(`「${fieldDef(target).name}」は次のターン攻撃できない。`);
     }else if(c.effect==='evolveLarva'){
@@ -1170,7 +1205,7 @@
       for(const bug of picks){removeHand(s,bug);await putInsectOnField(side,bug,{temporary:true,summonedBySpell:true});}
       log(`「女王蜂の匂い袋」で${picks.length}体を場に出した。`);
     }else if(c.effect==='bloodPact'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('破壊する相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       const normalCost=effectiveCardCost(side,inst);
       let useTerritory=s.territory.length>=2&&normalCost>s.cost;
@@ -1206,7 +1241,7 @@
       target.hidden=true;target.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);
       log(`「${fieldDef(target).name}」を次の相手ターン終了時まで裏向きにした。`);
     }else if(c.effect==='breathRelease'){
-      const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       const base=effectiveCardCost(side,inst);if(base>s.cost)return false;
       const maxExtra=Math.max(0,s.cost-base);
@@ -1279,7 +1314,7 @@
   async function dealDamage(targetSide,target,amount,ctx={}){
     const incoming=Math.max(0,Number(amount||0));
     let actual=incoming;
-    const p=fieldDef(target).passive;
+    const p=passiveOfField(target);
 
     if(ctx.kind==='attack'&&p?.type==='poisonBody'&&String(ctx.attack?.name||'').includes('毒')){
       actual=0;
@@ -1354,6 +1389,17 @@
     if(attack.effect==='nextOwnAttack'){
       Engine.addModifier(fc,{stat:'attack',value:Number(attack.value||0),activeFromTurnSeq:state.turnSeq+2,expiresAfterTurnSeq:state.turnSeq+2});
       log(`「${fieldDef(fc).name}」は次の自分のターン攻撃力+${Number(attack.value||0)}。`);
+    }
+    if(attack.effect==='forcedTargetNext'){
+      fc.forcedAttackTargetTurn=nextOpponentTurnSeq(side);
+      log(`「${fieldDef(fc).name}」の橋渡し。次の相手ターンはこの虫が攻撃先になる。`);
+    }
+    if(attack.effect==='spellTaxNextTurn'){
+      const opp=other(side),turn=nextOpponentTurnSeq(side);
+      const rec=state.spellTax[opp];
+      if(rec.turnSeq!==turn){rec.turnSeq=turn;rec.count=0;}
+      rec.count++;
+      log(`次の${sideName(opp)}のターン、術カードのコストが+1。`);
     }
     if(attack.effect==='weakPoison'){
       const defender=other(side),available=sideObj(defender).bait.filter(isFaceUpBait);
@@ -1644,6 +1690,22 @@
       log('「蜜蝋の壁」は捨て札に置かれた。');render();return true;
     }
 
+    // ＜かばう＞は＜とびだす＞とは別の縄張り誘発。
+    if(c.type==='insect'&&passiveOfInst(drawn)?.type==='cover'){
+      let use=true;
+      if(side==='player')use=await confirmYesNo(`引いた「${c.name}」を＜かばう＞で場に出しますか？`,'かばう');
+      if(use){
+        const fc=await putInsectOnField(side,drawn);
+        if(sideObj(side).field.includes(fc)){
+          fc.forcedAttackTargetTurn=state.turnSeq;
+          fc.coverReturnTurn=state.turnSeq;
+          log(`＜かばう＞！ 「${c.name}」を場に出した。ターン終了時に手札へ戻る。`);
+          if(side==='cpu')await cpuNotice(`縄張りから「${c.name}」が＜かばう＞で場に出た`);
+        }
+        render();return true;
+      }
+    }
+
     // ＜装着＞は縄張りから引いた直後、表向きで存在する自分の虫につけられる。
     if(c.type==='enhance'&&c.territoryAttach){
       const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,drawn));
@@ -1682,6 +1744,15 @@
     state.busy=true;
     try{
       events.emit(EVENT.TURN_END,{state,side:state.turn,turnSeq:state.turnSeq,turnNo:state.turnNo});
+
+      for(const controller of ['player','cpu']){
+        for(const fc of [...sideObj(controller).field]){
+          if(fc.coverReturnTurn===state.turnSeq&&sideObj(controller).field.includes(fc)){
+            log(`＜かばう＞の効果で「${fieldDef(fc).name}」を持ち主の手札へ戻した。`);
+            leaveFieldToHand(controller,fc);
+          }
+        }
+      }
 
       for(const controller of ['player','cpu']){
         for(const fc of [...sideObj(controller).field]){

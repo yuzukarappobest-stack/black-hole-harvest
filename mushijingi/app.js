@@ -702,6 +702,7 @@
   }
   function discardAttachmentsToOwners(fc,controllerSide,reason='effect',options={}){
     const threadUids=[];
+    fc.destroyedAttachmentEffects=[...fc.attachments].map(a=>def(a).effect);
     for(const a of [...fc.attachments]){
       if(def(a).effect==='secretBook'&&reason==='attack')sendToOwnerHand(a,controllerSide);
       else sendToOwnerDiscard(a,controllerSide);
@@ -793,8 +794,12 @@
       return;
     }
     const poison=p?.type==='poisonMist';
-    const revenge=hasAttachment(target,'revenge');
-    if(!poison&&!revenge)return;
+    const revenge=(target.destroyedAttachmentEffects||[]).includes('revenge');
+    if(!poison&&!revenge){
+      for(const uid of target.pendingSilverThreadUids||[])resolveSilverThreadDestroyed(uid);
+      target.pendingSilverThreadUids=[];
+      return;
+    }
     let action=poison?'poison':'revenge';
     if(poison&&revenge){
       if(defenderSide==='player'){

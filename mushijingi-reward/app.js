@@ -81,8 +81,8 @@
     const rec=state?.silkwormGag?.[side];
     return !!(rec&&rec.untilTurnSeq>=state.turnSeq);
   }
-  function visibleDiscard(side){return visibleDiscard(side).filter(x=>!x.discardFaceDown);}
-  function visibleDiscardFrom(ss){return visibleDiscardFrom(ss).filter(x=>!x.discardFaceDown);}
+  function visibleDiscard(side){return sideObj(side).discard.filter(x=>!x.discardFaceDown);}
+  function visibleDiscardFrom(ss){return ss.discard.filter(x=>!x.discardFaceDown);}
   function emperorBaitCount(side){
     if(!state||!side)return 0;
     return sideObj(side).bait.filter(x=>isFaceUpBait(x)&&def(x).type==='insect'&&def(x).passive?.type==='emperorBait'&&!silkwormGagActive(side)&&!warriorSealActive(side)).length;
@@ -517,7 +517,7 @@
       const first=state?.firstSpellTax?.[side];
       if(first&&first.turnSeq===state.turnSeq&&!first.used)first.used=true;
       const sd=state?.nextSpellDiscount?.[side];
-      if(sd&&sd.turnSeq===state.turnSeq&&sd.count>0&&def(inst).effect!=='nextSpellDiscount')sd.count=0;
+      if(sd&&sd.turnSeq===state.turnSeq&&sd.count>0)sd.count=0;
     }
     if(def(inst).type==='enhance')consumeEnhanceDiscount(side);
     return true;
@@ -1594,9 +1594,18 @@
   function applyShadowMirrorOverride(fc){
     const mirrors=fc.attachments.filter(a=>def(a).effect==='shadowDoubleMirror'&&a.shadowCopy);
     const last=mirrors[mirrors.length-1];
-    if(!last){Engine.clearCardOverrides(fc);if(fc.suppressKeywords){fc.suppressKeywords=false;}return;}
+    Engine.clearCardOverrides(fc);
+    if(!last){
+      if(fc.cordycepsSuppressed){
+        const base=def(fc.inst);
+        Engine.setCardOverrides(fc,{attacks:(base.attacks||[]).map(a=>({...a,effect:null,text:''})),passive:null});
+        fc.suppressKeywords=true;
+      }
+      return;
+    }
     const c=last.shadowCopy;
-    Engine.setCardOverrides(fc,{name:c.name,color:c.color,hp:c.hp,attacks:c.attacks,passive:c.passive});
+    const attacks=fc.cordycepsSuppressed?(c.attacks||[]).map(a=>({...a,effect:null,text:''})):(c.attacks||[]);
+    Engine.setCardOverrides(fc,{name:c.name,color:c.color,hp:c.hp,attacks,passive:fc.cordycepsSuppressed?null:c.passive});
   }
   function resolveShadowMirrorSourceLeft(sourceUid){
     for(const side of ['player','cpu'])for(const fc of [...sideObj(side).field]){
@@ -2053,7 +2062,7 @@
     const fc=await putInsectOnField(side,chosen,{attachments:[inst]});
     const base=def(chosen);
     Engine.setCardOverrides(fc,{attacks:(base.attacks||[]).map(a=>({...a,effect:null,text:''})),passive:null});
-    fc.suppressKeywords=true;
+    fc.suppressKeywords=true;fc.cordycepsSuppressed=true;
     log(`「傀儡の冬虫夏草」で「${base.name}」を場に出した。技の効果を失い、体力と攻撃力-100。`);
     return true;
   }
@@ -2226,8 +2235,10 @@
     const remaining=[...active];
     for(let n=0;n<need;n++){
       if(!remaining.length)break;
-      const chosen=await chooseOwnedField(side,'「半死の道連れ」で破壊する自分の虫を選んでください。',remaining);
-      if(!chosen)break;picked.push(chosen);remaining.splice(remaining.indexOf(chosen),1);
+      const chosen=side==='player'
+        ? await chooseField('「半死の道連れ」で破壊する自分の虫を選んでください。',remaining,false)
+        : await chooseOwnedField(side,'「半死の道連れ」で破壊する自分の虫を選んでください。',remaining);
+      if(!chosen)continue;picked.push(chosen);remaining.splice(remaining.indexOf(chosen),1);
     }
     return picked;
   }

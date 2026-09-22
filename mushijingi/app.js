@@ -1090,26 +1090,41 @@
     if(!s.territory.length){
       if(isDirect)finishGame(other(side),`${sideName(side)}の縄張りは0。直接攻撃が通り、${sideName(other(side))}の勝ち！`);
       else log(`${sideName(side)}の縄張りは0なので、縄張りは引きません。`);
-      return;
+      return false;
     }
     if(fieldActive(side).some(fc=>hasAttachment(fc,'noTerritory'))){
-      log(`「不滅の王台」の効果で${sideName(side)}は縄張りを引かない。`);return;
+      log(`「不滅の王台」の効果で${sideName(side)}は縄張りを引かない。`);return false;
     }
     let idx;
     if(side==='player'){
       const opts=s.territory.map((x,i)=>({value:i,title:`縄張り ${i+1}`,detail:x.faceUpTerritory?def(x).name:'裏向きのカード'}));
       idx=await choose(opts,'縄張りを1枚選んで手札に加えます。','縄張り');if(idx===null)idx=0;
     }else idx=Math.floor(Math.random()*s.territory.length);
+
     const [drawn]=s.territory.splice(idx,1),c=def(drawn);
-    events.emit(EVENT.TERRITORY_DRAWN,{state,side,card:drawn,definition:c});log(`${sideName(side)}が縄張りを1枚引いた。`);
-    if(drawn.faceUpTerritory){s.discard.push(drawn);log('「蜜蝋の壁」は捨て札に置かれた。');render();return;}
-    const attacker=options.attacker;
-    const suppressFlyOut=attacker&&sideObj(other(side)).field.includes(attacker)&&hasAttachment(attacker,'blockFlyOut');
-    if(c.type==='insect'&&c.passive?.type==='flyOut'&&!hasFlyOutOnField(side)&&!suppressFlyOut){
-      let use=true;if(side==='player')use=await confirmChoice(`引いたカードは「${c.name}」。＜とびだす＞で場に出しますか？`,'とびだす！');
-      if(use){const fc=await putInsectOnField(side,drawn);log(`＜とびだす＞！ ${sideName(side)}の「${c.name}」が場に出た。`);render();if(side==='cpu')await cpuNotice(`縄張りから「${c.name}」が＜とびだす＞で場に出た`);return;}
+    events.emit(EVENT.TERRITORY_DRAWN,{state,side,card:drawn,definition:c});
+    log(`${sideName(side)}が縄張りを1枚引いた。`);
+
+    if(drawn.faceUpTerritory){
+      sendToOwnerDiscard(drawn,side);
+      log('「蜜蝋の壁」は捨て札に置かれた。');render();return true;
     }
-    s.hand.push(drawn);render();
+
+    const attacker=options.attacker;
+    const attachmentBlock=attacker&&sideObj(other(side)).field.includes(attacker)&&hasAttachment(attacker,'blockFlyOut');
+    const smokeBlock=state.noFlyOutSide===side&&state.noFlyOutTurn===state.turnSeq;
+    const suppressFlyOut=!!options.suppressFlyOut||attachmentBlock||smokeBlock;
+    if(c.type==='insect'&&c.passive?.type==='flyOut'&&!hasFlyOutOnField(side)&&!suppressFlyOut){
+      let use=true;
+      if(side==='player')use=await confirmChoice(`引いたカードは「${c.name}」。＜とびだす＞で場に出しますか？`,'とびだす！');
+      if(use){
+        const fc=await putInsectOnField(side,drawn);
+        log(`＜とびだす＞！ ${sideName(side)}の「${c.name}」が場に出た。`);render();
+        if(side==='cpu')await cpuNotice(`縄張りから「${c.name}」が＜とびだす＞で場に出た`);
+        return true;
+      }
+    }
+    s.hand.push(drawn);render();return true;
   }
 
   async function endTurn(){
@@ -1117,18 +1132,46 @@
     state.busy=true;
     try{
       events.emit(EVENT.TURN_END,{state,side:state.turn,turnSeq:state.turnSeq,turnNo:state.turnNo});
-      for(const owner of ['player','cpu']){
-        for(const fc of [...sideObj(owner).field]){
-          if(fc.temporaryDestroyTurn===state.turnSeq){fc.temporaryDestroyTurn=0;await attemptDestroyFieldCard(owner,fc,'effect',null);}
+
+      for(const controller of ['player','cpu']){
+        for(const fc of [...sideObj(controller).field]){
+          if(!sideObj(controller).field.includes(fc))continue;
+          if(fc.temporaryDestroyTurn===state.turnSeq){
+            fc.temporaryDestroyTurn=0;await attemptDestroyFieldCard(controller,fc,'effect',null);
+            continue;
+          }
+          if(fc.puppetDestroyTurn===state.turnSeq){
+            fc.puppetDestroyTurn=0;await attemptDestroyFieldCard(controller,fc,'effect',null);
+          }
         }
       }
-      for(const owner of ['player','cpu']){
-        for(const fc of sideObj(owner).field){
-          fc.damage=fc.persistentDamage||0;fc.hidden=false;fc.turnAttackBonus=0;
-          if(fc.turnColorOverrideTurn===state.turnSeq){fc.turnColorOverride=null;fc.turnColorOverrideTurn=0;}
+
+      for(const controller of ['player','cpu']){
+        for(const fc of sideObj(controller).field){
+          const expired=fc.attachments.filter(a=>a.expireTurn===state.turnSeq);
+          if(expired.length){
+            fc.attachments=fc.attachments.filter(a=>a.expireTurn!==state.turnSeq);
+            for(const a of expired)sendToOwnerDiscard(a,controller);
+            log(`「${fieldDef(fc).name}」から「口寄せの時蛹」が外れた。`);
+          }
         }
       }
-      sideObj(state.turn).cost=0;state.turn=other(state.turn);state.turnSeq++;state.turnNo++;state.phase='draw';
+
+      for(const controller of ['player','cpu']){
+        for(const fc of sideObj(controller).field){
+          fc.damage=fc.persistentDamage||0;
+          fc.turnAttackBonus=0;
+          if(fc.hidden&&fc.hiddenUntilTurnSeq===state.turnSeq){
+            fc.hidden=false;fc.hiddenUntilTurnSeq=0;
+          }
+          if(fc.turnColorOverrideTurn===state.turnSeq){
+            fc.turnColorOverride=null;fc.turnColorOverrideTurn=0;
+          }
+        }
+      }
+
+      sideObj(state.turn).cost=0;
+      state.turn=other(state.turn);state.turnSeq++;state.turnNo++;state.phase='draw';
       log('ターン終了。通常ダメージが回復しました。');render();await sleep(150);await beginTurn();
     }finally{state.busy=false;render();}
   }

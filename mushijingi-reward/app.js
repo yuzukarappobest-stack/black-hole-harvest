@@ -53,7 +53,7 @@
   function rawFieldPassive(fc){ return fieldDef(fc)?.passive||null; }
   function silenceActive(){
     if(!state)return false;
-    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>!fc.suppressKeywords&&!hasAttachment(fc,'suppressPassive')&&rawFieldPassive(fc)?.type==='silenceAll'));
+    return ['player','cpu'].some(side=>!warriorSealActive(side)&&fieldActive(side).some(fc=>!fc.suppressKeywords&&!hasAttachment(fc,'suppressPassive')&&rawFieldPassive(fc)?.type==='silenceAll'));
   }
   function warriorSealActive(side){
     return !!(state&&side&&fieldActive(side).some(fc=>fc.attachments.some(a=>def(a).effect==='warriorSeal')));
@@ -481,17 +481,24 @@
     if(attack.effect==='requiresEnhance'&&fc.attachments.length===0)return false;
     if(attack.effect==='doubleTerritory'&&fc.attachments.length===0)return false;
     if(attack.effect==='carnivore'&&sideObj(side).discard.filter(x=>def(x).type==='insect').length<5)return false;
+    if(attack.effect==='highCostTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>Number(fieldDef(x).cost||0)>=Number(attack.minCost||5)))return false;
+    if(attack.effect==='damagedTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>x.damage>0))return false;
     if(attack.effect==='cicadaChorus'&&fieldActive(side).filter(x=>isCicadaCard(x.inst)).length<2)return false;
     return true;
   }
   function weaknessMultiplier(attackerColor, defenderColor){
     return (attackerColor==='red'&&defenderColor==='green') || (attackerColor==='blue'&&defenderColor==='red') || (attackerColor==='green'&&defenderColor==='blue') ? 2 : 1;
   }
+  function cicadaParasiteActive(fc){
+    const side=findFieldSide(fc);
+    return passiveOfField(fc)?.type==='cicadaParasite'&&side&&fieldActive(side).some(x=>x!==fc&&isCicadaCard(x.inst));
+  }
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
     const active=fieldActive(opp);
     const forcedRaw=active.filter(fc=>
       ['pollen','taunt'].includes(passiveOfField(fc)?.type)||
+      cicadaParasiteActive(fc)||
       hasAttachment(fc,'tauntAttachment')||
       fc.forcedAttackTargetTurn===state.turnSeq
     );
@@ -716,7 +723,7 @@
     if(c.effect==='armorSmith')return ss.discard.some(x=>def(x).type==='enhance'&&/(甲冑|贋作)/.test(def(x).name));
     if(c.effect==='gongChant')return allOwnEnhancements(side).length>0;
     if(c.effect==='hellSword')return fieldActive(side).some(fc=>fc.attacked&&fc.attachments.length>0);
-    if(c.effect==='fatedShadow')return faceUpBait(side).some(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=ss.cost);
+    if(c.effect==='fatedShadow')return faceUpBait(side).some(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=ss.cost-cost);
     if(c.effect==='flyLarvae')return ss.discard.some(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=1);
     if(c.effect==='lightningStorm'||c.effect==='blastStorm')return legalOpp.length>0;
     if(c.effect==='sacrificeReincarnation')return fieldActive(side).some(fc=>ownerSideOf(fc.inst,side)===side);
@@ -1206,12 +1213,13 @@
   }
   function leaveFieldToHand(side,fc){
     const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    const hadWarriorSeal=hasAttachment(fc,'warriorSeal');
     ss.field=ss.field.filter(x=>x!==fc);
     discardAttachmentsToOwners(fc,side,'return');
     sendToOwnerHand(fc.inst,side);
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason:'return'});
     log(`「${fieldDef(fc).name}」が持ち主の手札に戻った。`);
-    if(rawFieldPassive(fc)?.type==='silenceAll')enforceAllAttachmentLegality();
+    if(rawFieldPassive(fc)?.type==='silenceAll'||hadWarriorSeal)enforceAllAttachmentLegality();
     return true;
   }
   function leaveFieldToDiscard(side,fc,reason='effect'){return destroyFieldCard(side,fc,reason,null);}
@@ -1247,7 +1255,7 @@
     return passiveOfField(fc)?.type==='spiritBody'&&sideObj(side).territory.length>=2&&!fieldActive(side).some(x=>hasAttachment(x,'noTerritory'));
   }
   async function resolveSpiritBody(side,fc,attacker){
-    if(!canSpiritBody(side,fc))return false;
+    if(!canSpiritBody(side,fc))return 'declined';
     let use=true;
     const hasArmor=fc.attachments.some(a=>def(a).effect==='substituteArmor');
     if(side==='player'){
@@ -1255,23 +1263,27 @@
         const mode=await choose([
           {value:'spirit',title:'＜霊体＞',detail:'縄張りを2枚引き、破壊を防ぐ'},
           {value:'armor',title:'空蝉の皮鎧',detail:'甲冑を破壊して防ぐ'},
-          {value:null,title:'防がない',detail:'そのまま破壊される'}
+          {value:'none',title:'防がない',detail:'そのまま破壊される'}
         ],'破壊を防ぐ効果を選んでください。','破壊置換');
-        if(mode==='armor'){consumeArmorSynchronously(side,fc);return true;}
+        if(mode==='armor'){consumeArmorSynchronously(side,fc);return 'prevented';}
+        if(mode==='none'||mode===null)return 'skipArmor';
         use=mode==='spirit';
       }else use=await confirmYesNo('＜霊体＞で縄張りを2枚引き、破壊を防ぎますか？','霊体');
     }else{
-      if(hasArmor){consumeArmorSynchronously(side,fc);return true;}
+      if(hasArmor){consumeArmorSynchronously(side,fc);return 'prevented';}
       use=sideObj(side).territory.length>=3;
     }
-    if(!use)return false;
+    if(!use)return 'declined';
     await takeTerritory(side,false,{effectDraw:true,forceDraw:true,spiritDraw:true});
     await takeTerritory(side,false,{effectDraw:true,forceDraw:true,spiritDraw:true});
-    if(!sideObj(side).field.includes(fc))return true;
+    if(!sideObj(side).field.includes(fc))return 'destroyed';
     fc.damage=fc.persistentDamage||0;
     log(`＜霊体＞ 「${fieldDef(fc).name}」は破壊されず、回復できるダメージを回復した。`);
-    if(fc.damage>=maxHp(fc))await attemptDestroyFieldCard(side,fc,'attack',attacker);
-    return true;
+    if(fc.damage>=maxHp(fc)){
+      const destroyed=await attemptDestroyFieldCard(side,fc,'attack',attacker);
+      return destroyed?'destroyed':'prevented';
+    }
+    return 'prevented';
   }
 
   async function attemptDestroyFieldCard(side,fc,reason,attacker){
@@ -1280,11 +1292,15 @@
       log(`「${fieldDef(fc).name}」は相手の術カードによる破壊を受けない。`);
       return false;
     }
+    let skipArmor=false;
     if(reason==='attack'&&canSpiritBody(side,fc)){
-      const prevented=await resolveSpiritBody(side,fc,attacker);
-      if(prevented)return false;
+      const outcome=await resolveSpiritBody(side,fc,attacker);
+      if(outcome==='prevented')return false;
+      if(outcome==='destroyed')return true;
+      if(outcome==='skipArmor')skipArmor=true;
     }
-    if(consumeArmorSynchronously(side,fc))return false;
+    if(!skipArmor&&consumeArmorSynchronously(side,fc))return false;
+    if(!ss.field.includes(fc))return true;
     destroyFieldCard(side,fc,reason,attacker);
     return true;
   }
@@ -1293,6 +1309,7 @@
     const owner=ownerSideOf(fc.inst,side);
     const beforePassive=passiveOfField(fc);
     const hadEnhancement=fc.attachments.length>0;
+    const hadWarriorSeal=hasAttachment(fc,'warriorSeal');
     fc.preDestroyEnhanceUids=sideObj(owner).discard.filter(x=>def(x).type==='enhance').map(x=>x.uid);
     ss.field=ss.field.filter(x=>x!==fc);
     sendToOwnerDiscard(fc.inst,side);
@@ -1304,7 +1321,7 @@
       const pile=sideObj(owner).discard,card=removeInstance(pile,fc.inst);
       if(card){sideObj(owner).hand.push(card);log(`＜トンボ返り＞ 「${fieldDef(fc).name}」を手札に戻した。`);}
     }
-    if(beforePassive?.type==='silenceAll')enforceAllAttachmentLegality();
+    if(beforePassive?.type==='silenceAll'||hadWarriorSeal)enforceAllAttachmentLegality();
     return true;
   }
   async function captureDestroyedInsect(side,target){
@@ -1586,6 +1603,7 @@
         try{ok=await resolveSpell(side,inst,c);}finally{state.resolvingSpellSide=null;}
         if(!ok)return false;
       }
+      await resolveStateBasedDestructions('effect');
       events.emit(EVENT.CARD_RESOLVED,action);enforceAllAttachmentLegality();render();
       if(state.forceEndAfterResolve){
         state.forceEndAfterResolve=false;
@@ -1958,7 +1976,8 @@
         }
       }
     }else if(c.effect==='fatedShadow'){
-      const choices=faceUpBait(side).filter(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=s.cost);if(!choices.length)return false;
+      const baseCost=effectiveCardCost(side,inst);
+      const choices=faceUpBait(side).filter(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=s.cost-baseCost);if(!choices.length)return false;
       chosen=await chooseOwnedInstance(side,'「宿命の影写し」で場に出すエサの虫を選んでください。',choices);if(!chosen)return false;
       const extra=Number(def(chosen).cost||0);
       if(!paySpell(side,inst,c,false))return false;
@@ -2015,8 +2034,10 @@
       target=await chooseOwnedField(side,'山札の一番下に置く自分の虫を選んでください。',choices);if(!target)return false;
       if(!paySpell(side,inst,c))return false;
       sideObj(side).field=sideObj(side).field.filter(x=>x!==target);
+      const hadSeal=hasAttachment(target,'warriorSeal'),wasSilence=rawFieldPassive(target)?.type==='silenceAll';
       discardAttachmentsToOwners(target,side,'return');
       target.inst.faceDown=true;s.deck.push(target.inst);
+      if(hadSeal||wasSilence)enforceAllAttachmentLegality();
       events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:target,reason:'deck'});
       log(`「贄虫の転生」で「${fieldDef(target).name}」を山札の一番下へ置いた。`);
       let guard=0;
@@ -2163,7 +2184,7 @@
       }else if(p?.type==='spellResistance'){
         const src=ctx.source?.inst||ctx.source;
         const spellName=src&&def(src)?.name;
-        const same=spellName&&['player','cpu'].some(owner=>sideObj(owner).discard.some(x=>def(x).type==='spell'&&def(x).name===spellName));
+        const same=spellName&&['player','cpu'].some(owner=>sideObj(owner).discard.some(x=>x.uid!==src.uid&&def(x).type==='spell'&&def(x).name===spellName));
         if(same){actual=0;log(`＜耐性＞ 「${fieldDef(target).name}」は「${spellName}」のダメージを0にした。`);}
       }
     }
@@ -2342,6 +2363,7 @@
         }
       }
     }
+    await resolveStateBasedDestructions('effect');
     return true;
   }
   async function applyAfterTerritoryAttackEffect(side,fc,attack,drew){
@@ -2421,7 +2443,7 @@
   }
   function canDragonUseCardOnHost(side,inst,host){
     const c=def(inst);
-    if(c.type==='enhance')return !['summonWithAttachment','silverThread','blackSilverThread'].includes(c.effect)&&canAttachEnhancement(host,inst);
+    if(c.type==='enhance')return !['summonWithAttachment','silverThread','blackSilverThread'].includes(c.effect)&&canAttachEnhancement(host,inst)&&(c.effect!=='imitation'||allOwnEnhancements(side).length>0);
     if(c.type!=='spell')return false;
     if(c.effect==='singleAttack500'||c.effect==='hideOwn'||c.effect==='spellShield'||c.effect==='readyAttack')return true;
     if(c.effect==='poisonFollowUp')return host.attacked&&hasPoisonTechnique(host);
@@ -2437,6 +2459,7 @@
     const inst=await chooseOwnedInstance(side,'使用するカードを選んでください。',choices);if(!inst)return false;
     const c=def(inst);removeInstance(sideObj(side).hand,inst);
     if(c.type==='enhance'){
+      if(c.effect==='imitation'&&!await configureImitation(side,inst,host)){sideObj(side).hand.push(inst);return false;}
       host.attachments.push(inst);await configureAttachedCard(side,host,inst);
       log(`「ドラゴン蟷螂拳」で「${c.name}」を「${fieldDef(host).name}」に使用した。`);return true;
     }
@@ -2448,10 +2471,18 @@
     else if(c.effect==='hellSword'){
       const att=await chooseOwnedInstance(side,'破壊する強化カードを選んでください。',host.attachments);if(att){destroyAttachment(host,att,side,'effect');host.attacked=false;}
     }else if(c.effect==='swordDanceAttach'){
-      const avail=faceUpBait(side).filter(x=>canSwordDanceAttach(side,x)&&canAttachEnhancement(host,x));
-      if(avail.length){
-        const first=await chooseOwnedInstance(side,'オオカレエダカマキリにつける強化カードを選んでください。',avail);
-        if(first){removeInstance(sideObj(side).bait,first);host.attachments.push(first);await configureAttachedCard(side,host,first);}
+      let attached=0;
+      const firstAvail=faceUpBait(side).filter(x=>canSwordDanceAttach(side,x)&&canAttachEnhancement(host,x));
+      if(firstAvail.length){
+        const first=await chooseOwnedInstance(side,'オオカレエダカマキリにつける強化カードを選んでください。',firstAvail);
+        if(first){removeInstance(sideObj(side).bait,first);host.attachments.push(first);await configureAttachedCard(side,host,first);attached++;}
+      }
+      if(attached){
+        const avail=faceUpBait(side).filter(x=>canSwordDanceAttach(side,x));
+        if(avail.length){
+          let use=true;if(side==='player')use=await confirmYesNo('剣舞天翔の刹那でもう1枚強化カードをつけますか？','剣舞天翔の刹那');
+          if(use){const second=await chooseOwnedInstance(side,'2枚目の強化カードを選んでください。',avail);if(second){const targets=fieldActive(side).filter(x=>canAttachEnhancement(x,second));if(targets.length){const dest=await chooseOwnedField(side,'2枚目のつけ先を選んでください。',targets);removeInstance(sideObj(side).bait,second);dest.attachments.push(second);await configureAttachedCard(side,dest,second);}}}
+        }
       }
     }
     log(`「ドラゴン蟷螂拳」で「${c.name}」をコストなしで使用した。`);
@@ -2534,6 +2565,7 @@
       }
     }
     await resolveAttackDestructionReaction(defender,target,fc);
+    await resolveStateBasedDestructions('effect');
 
     if(attack.effect==='growthOnKill'&&sideObj(side).field.includes(fc)){
       const value=Number(attack.value||200);Engine.addModifier(fc,{stat:'attack',value});Engine.addModifier(fc,{stat:'hp',value});
@@ -3004,6 +3036,7 @@
         }
       }
       enforceAllAttachmentLegality();
+      await resolveStateBasedDestructions('effect');
 
       sideObj(state.turn).cost=0;
       state.turn=other(state.turn);state.turnSeq++;state.turnNo++;state.phase='draw';

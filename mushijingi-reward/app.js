@@ -388,6 +388,10 @@
     if(side&&!fc.suppressKeywords&&!hasAttachment(fc,'suppressPassive')&&!silenceActive()&&amb?.active&&!amb.ended&&grasshopperFamily(fc.inst))return true;
     return false;
   }
+  function isAntFamily(inst){
+    const name=def(inst)?.name||'';
+    return /アリ/.test(name)&&!/(アリヅカ|アリジゴク|アリバチ)/.test(name);
+  }
   function isWaspFamily(fc){return /バチ/.test(fieldDef(fc)?.name||'');}
   function isLonghornFamily(fc){return /カミキリ/.test(fieldDef(fc)?.name||'');}
   function isDragonflyFamily(fc){return /(トンボ|ヤンマ)/.test(fieldDef(fc)?.name||'');}
@@ -668,6 +672,8 @@
     if(attack.effect==='highCostTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>Number(fieldDef(x).cost||0)>=Number(attack.minCost||5)))return false;
     if(attack.effect==='damagedTarget'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>x.damage>0))return false;
     if(attack.effect==='cicadaChorus'&&fieldActive(side).filter(x=>isCicadaCard(x.inst)).length<2)return false;
+    if(attack.effect==='mantisOrchidDance'&&fc.attachments.length===0)return false;
+    if(attack.effect==='monochromeNeedle'&&fieldActive(other(side)).length>0&&!attackableTargets(side).some(x=>effectiveColor(x)==='colorless'))return false;
     return true;
   }
   function weaknessMultiplier(attackerColor, defenderColor){
@@ -2769,6 +2775,12 @@
         for(const a of fieldDef(otherFc).attacks||[])list.push({...a,borrowedFrom:otherFc.inst.uid});
       }
     }
+    if(passiveOfField(fc)?.type==='antCopy'){
+      for(const otherFc of fieldActive(side)){
+        if(otherFc===fc||Number(def(otherFc.inst).cost||0)>2||!isAntFamily(otherFc.inst))continue;
+        for(const a of fieldDef(otherFc).attacks||[])list.push({...a,borrowedFrom:otherFc.inst.uid});
+      }
+    }
     const seen=new Set();
     return list.filter(a=>{
       const key=`${a.name}|${a.effect||''}|${a.power||0}`;
@@ -2782,6 +2794,7 @@
     const c=fieldDef(fc);
     let attacks=availableAttacks('player',fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('player',fc,a));
     if(state.chain?.side==='player'&&state.chain.uid===fc.inst.uid&&state.chain.kind==='mantisCombo')attacks=attacks.filter(a=>a.effect==='mantisCombo');
+    if(state.chain?.side==='player'&&state.chain.uid===fc.inst.uid&&state.chain.kind==='mantisOrchidDance')attacks=attacks.filter(a=>a.effect==='mantisOrchidDance'&&fc.attachments.length>0);
     const options=attacks.map((a,i)=>({value:i,title:`${a.name} ${attackPower('player',fc,a)}`,detail:a.text||'攻撃'}));
     options.push({value:null,title:'やめる',detail:''});
     const idx=await choose(options,'使う技を選んでください。','虫の攻撃');if(idx===null)return;
@@ -3016,8 +3029,29 @@
     await resolveStateBasedDestructions('effect');
     return true;
   }
+  async function hungryLarvaDiscard(victimSide,sourceSide){
+    const ss=sideObj(victimSide),opts=[];
+    ss.hand.forEach(x=>opts.push({value:`h:${x.uid}`,title:def(x).name,detail:'手札'}));
+    ss.bait.forEach(x=>opts.push({value:`b:${x.uid}`,title:x.faceDown?'裏向きのエサ':def(x).name,detail:'エサ場'}));
+    ss.territory.forEach((x,i)=>opts.push({value:`t:${x.uid}`,title:`縄張り ${i+1}`,detail:'縄張り'}));
+    if(!opts.length)return false;
+    let value;
+    if(victimSide==='player')value=await choose(opts,'＜はらぺこ＞で捨て札に置くカードを1枚選んでください。','はらぺこ');
+    else value=(opts.find(x=>x.value.startsWith('h:'))||opts.find(x=>x.value.startsWith('b:'))||opts[0]).value;
+    if(value==null)return false;
+    const [zone,uidText]=String(value).split(':'),uid=Number(uidText);let card=null;
+    if(zone==='h')card=removeInstance(ss.hand,ss.hand.find(x=>x.uid===uid));
+    else if(zone==='b')card=removeInstance(ss.bait,ss.bait.find(x=>x.uid===uid));
+    else card=removeInstance(ss.territory,ss.territory.find(x=>x.uid===uid));
+    if(card){sendToOwnerDiscard(card,victimSide);log(`＜はらぺこ＞ ${sideName(victimSide)}は1枚を捨て札に置いた。`);return true;}
+    return false;
+  }
+
   async function applyAfterTerritoryAttackEffect(side,fc,attack,drew){
     if(!drew)return;
+    if(sideObj(side).field.includes(fc)&&passiveOfField(fc)?.type==='hungryLarva'&&sideObj(side).bait.length>=6){
+      await hungryLarvaDiscard(other(side),side);
+    }
     if(attack.effect==='corpseEating'){
       const choices=visibleDiscard(other(side)).filter(x=>def(x).type==='insect');
       if(choices.length){
@@ -3186,6 +3220,42 @@
   }
 
   async function finishAttackSpecialState(side,fc,attack){
+    if(attack.effect==='gigasSlasher'&&sideObj(side).field.includes(fc)){
+      fc.gigasLockTurn=state.turnSeq+2;log(`「ギガスラッシャー」により「${fieldDef(fc).name}」は次の自分のターン攻撃できない。`);
+    }
+    if(attack.effect==='hardenNext'&&sideObj(side).field.includes(fc)){
+      fc.hardenTurn=nextOpponentTurnSeq(side);log(`「かたくなる」により次の相手ターン、術の対象にならず弱点2倍を受けない。`);
+    }
+    if(attack.effect==='spiritAway'&&sideObj(side).field.includes(fc)){
+      const choices=fieldActive(side);
+      if(choices.length){
+        const chosen=await chooseOwnedField(side,'「神隠し」で裏向きにする自分の虫を選んでください。',choices);
+        if(chosen){chosen.hidden=true;chosen.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);chosen.spiritAwaySourceUid=fc.inst.uid;log(`「神隠し」で「${fieldDef(chosen).name}」を裏向きにした。`);}
+      }
+    }
+    if(attack.effect==='decomposeDiscard'){
+      let n=0;
+      while(n<2){
+        const choices=visibleDiscard(side);if(!choices.length)break;
+        let use=side==='cpu'?true:await confirmYesNo('「分解」で表向きの捨て札を裏向きにしますか？','分解');if(!use)break;
+        const chosen=await chooseOwnedInstance(side,'裏向きにする捨て札を選んでください。',choices);if(!chosen)break;
+        chosen.discardFaceDown=true;n++;
+      }
+      if(n)log(`「分解」で捨て札を${n}枚裏向きにした。`);
+    }
+    if(attack.effect==='returnEnhanceAfterAttack'&&attack.lastTarget&&sideObj(other(side)).field.includes(attack.lastTarget)&&attack.lastTarget.attachments.length){
+      let use=side==='cpu'?true:await confirmYesNo('「カブト戻し」で相手の強化カードを手札に戻しますか？','カブト戻し');
+      if(use){
+        const target=attack.lastTarget;
+        const att=side==='player'?await chooseOwnedInstance(side,'手札に戻す強化カードを選んでください。',target.attachments):target.attachments[0];
+        if(att){
+          removeInstance(target.attachments,att);revealHairpinTarget(att);sendToOwnerHand(att,other(side));
+          if(def(att).effect==='shadowDoubleMirror')applyShadowMirrorOverride(target);
+          enforceAttachmentLegality(target,other(side));log(`「カブト戻し」で「${def(att).name}」を持ち主の手札に戻した。`);
+        }
+      }
+    }
+
     if(attack.effect==='queenOviposition'&&sideObj(side).field.includes(fc)){
       const choices=faceUpBait(side).filter(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=5&&/バチ/.test(def(x).name));
       if(choices.length){
@@ -3342,7 +3412,7 @@
     if(attack.effect==='damagedTarget')targets=targets.filter(fc=>fc.damage>0);
     if(attack.effect==='hawkEye')targets=targets.filter(fc=>!!passiveOfField(fc));
     if(attack.effect==='maxCostTarget'||attack.effect==='bounceLowCost')targets=targets.filter(fc=>Number(fieldDef(fc).cost||0)<=Number(attack.maxCost??1));
-    if(attack.effect==='colorlessTargetOnce')targets=targets.filter(fc=>effectiveColor(fc)==='colorless');
+    if(attack.effect==='colorlessTargetOnce'||attack.effect==='monochromeNeedle')targets=targets.filter(fc=>effectiveColor(fc)==='colorless');
     return targets;
   }
   async function performReverseSwap(side,fc,attack){
@@ -3411,6 +3481,13 @@
       const pick=await chooseOwnEnhancement(side,'「ゆりかご落とし」で破壊する強化カードを選んでください。');if(!pick)return false;
       destroyAttachment(pick.fc,pick.att,side,'effect');
       log(`「ゆりかご落とし」のため「${def(pick.att).name}」を破壊した。`);
+    }
+
+    if(attack.effect==='materialGather'){
+      fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target:null,attack});
+      log(`「素材集め」！ ダメージ前に「${fieldDef(fc).name}」を破壊する。`);
+      await attemptDestroyFieldCard(side,fc,'effect',null);
+      sideObj(side).cost+=1;log(`${sideName(side)}にコスト1が発生した。`);render();return true;
     }
 
     if(attack.effect==='reverseSwap')return performReverseSwap(side,fc,attack);
@@ -3492,11 +3569,18 @@
     }
 
     if(!await applyAttackUseSetup(side,fc,attack))return false;
+    attack.lastTarget=target||null;
     events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target,attack});
     fc.attacked=true;
     if(target&&attack.effect==='hawkEye')target.hawkEyeSuppressedTurn=state.turnSeq;
     if(target&&attack.effect==='nextDamageDestroy')target.nextDamageDestroy=true;
     if(oncePerEntryEffect(attack.effect))fc.usedAttacks.add(attack.name);
+
+    if(target&&attack.effect==='monochromeNeedle'&&target.damage>0){
+      const destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
+      if(destroyed){log(`「モノクロ針」で「${fieldDef(target).name}」を破壊した。`);await resolveDestroyedAttackTarget(side,fc,target,attack);}
+      await finishAttackSpecialState(side,fc,attack);render();return true;
+    }
 
     if(attack.effect==='paradiseEclosion'){
       const destroyed=await attemptDestroyFieldCard(side,fc,'effect',null);
@@ -3593,6 +3677,10 @@
       state.chain={side,uid:fc.inst.uid,kind:'mantisCombo'};
       if(side==='cpu'){await sleep(300);const nextAttack=chooseMantisSecondAttackCPU(fc);if(nextAttack)await performAttack(side,fc,nextAttack);state.chain=null;}
       else message('カマ連撃！ この虫でもう1度だけ、すぐに攻撃できます。');
+    }else if(!isChainAttack&&attack.effect==='mantisOrchidDance'&&sideObj(side).field.includes(fc)&&fc.attachments.length>0&&opponentHasFieldInsect(side)){
+      state.chain={side,uid:fc.inst.uid,kind:'mantisOrchidDance'};
+      if(side==='cpu'){await sleep(300);const nextAttack=availableAttacks(side,fc).find(a=>a.effect==='mantisOrchidDance'&&usableAttack(side,fc,a));if(nextAttack)await performAttack(side,fc,nextAttack);state.chain=null;}
+      else message('蟷螂蘭舞！ 強化カードがついているなら、もう1度だけ同じ技で攻撃できます。');
     }else if(state.chain?.uid===fc.inst.uid)state.chain=null;
     render();return true;
   }

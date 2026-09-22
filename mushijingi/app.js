@@ -323,12 +323,7 @@
     if(attack.effect==='sacrificeEnhanceAttack'){
       if(!fieldActive(side).some(x=>x.attachments.length>0))return false;
     }
-    if(attack.effect==='multiTwo'){
-      const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
-      const forced=raw.filter(x=>['pollen','taunt'].includes(passiveOfField(x)?.type)||hasAttachment(x,'tauntAttachment'));
-      if(forced.length)return false;
-      if(raw.length<2)return false;
-    }
+    if(attack.effect==='multiTwo'&&attackableTargets(side).length<2)return false;
     return true;
   }
   function weaknessMultiplier(attackerColor, defenderColor){
@@ -337,6 +332,11 @@
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
     const active=fieldActive(opp);
+    const forcedRaw=active.filter(fc=>
+      ['pollen','taunt'].includes(passiveOfField(fc)?.type)||
+      hasAttachment(fc,'tauntAttachment')||
+      fc.forcedAttackTargetTurn===state.turnSeq
+    );
     let candidates=active.filter(fc=>{
       if(fc.mimicTurn===state.turnSeq)return false;
       if(fc.attachments.some(a=>def(a).effect==='secretBook'&&a.protectTurn===state.turnSeq))return false;
@@ -344,12 +344,7 @@
       if(p?.type==='batesMimic'&&active.some(x=>x!==fc))return false;
       return true;
     });
-    const forced=candidates.filter(fc=>
-      ['pollen','taunt'].includes(passiveOfField(fc)?.type)||
-      hasAttachment(fc,'tauntAttachment')||
-      fc.forcedAttackTargetTurn===state.turnSeq
-    );
-    if(forced.length)candidates=forced;
+    if(forcedRaw.length)candidates=candidates.filter(fc=>forcedRaw.includes(fc));
     return candidates;
   }
   function opponentHasFieldInsect(side){ return fieldActive(other(side)).length>0; }

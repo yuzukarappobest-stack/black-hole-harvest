@@ -277,6 +277,13 @@
   }
   function opponentHasFieldInsect(side){ return fieldActive(other(side)).length>0; }
   function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>fieldDef(fc).passive?.type==='flyOut'); }
+  function grasshopperFamily(inst){return /(バッタ|イナゴ)/.test(def(inst).name);}
+  function hasFlyOutAbility(side,inst){
+    if(def(inst).type!=='insect')return false;
+    if(def(inst).passive?.type==='flyOut')return true;
+    const rec=state?.grasshopperAmbush?.[side];
+    return !!(rec?.active&&!rec.ended&&grasshopperFamily(inst));
+  }
 
   function render(){
     if(!state)return;
@@ -959,7 +966,7 @@
       log(`${sideName(side)}の場の虫すべての攻撃力がこのターン+${value}。`);
     }else if(c.effect==='moveEnhance'){
       const pick=await chooseAttachment(side,fieldActive(side),'強化カードがついている虫を選んでください。');if(!pick)return false;
-      const dests=fieldActive(side).filter(x=>x!==pick.source);if(!dests.length)return false;
+      const dests=fieldActive(side).filter(x=>x!==pick.source&&canAttachEnhancement(x,pick.attachment));if(!dests.length)return false;
       const dest=await chooseOwnedField(side,'つけ替える先の虫を選んでください。',dests);if(!dest)return false;
       paySpell(side,inst,c);removeInstance(pick.source.attachments,pick.attachment);dest.attachments.push(pick.attachment);
       log(`「${def(pick.attachment).name}」を「${fieldDef(dest).name}」につけ替えた。`);
@@ -1032,7 +1039,7 @@
       const source=side==='player'?await chooseField('強化カードを破壊する相手の虫を選んでください。',choices,true):choices[0];
       if(!source)return false;
       const att=side==='player'?await chooseInstances('破壊する強化カードを選んでください。',source.attachments):source.attachments[0];if(!att)return false;
-      paySpell(side,inst,c);removeInstance(source.attachments,att);sendToOwnerDiscard(att,opp);log(`「${def(att).name}」を破壊した。`);
+      paySpell(side,inst,c);destroyAttachment(source,att,opp,'effect');log(`「${def(att).name}」を破壊した。`);
     }else if(c.effect==='blockAttackNext'){
       const choices=fieldActive(opp).filter(legalSpellTarget);if(!choices.length)return false;
       target=side==='player'?await chooseField('次のターン攻撃できなくする虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
@@ -1505,8 +1512,8 @@
   }
 
   async function takeTerritory(side,isDirect,options={}){
-    const s=sideObj(side);
-    if(!s.territory.length){
+    const ss=sideObj(side);
+    if(!ss.territory.length){
       if(isDirect)finishGame(other(side),`${sideName(side)}の縄張りは0。直接攻撃が通り、${sideName(other(side))}の勝ち！`);
       else log(`${sideName(side)}の縄張りは0なので、縄張りは引きません。`);
       return false;
@@ -1514,26 +1521,58 @@
     if(fieldActive(side).some(fc=>hasAttachment(fc,'noTerritory'))){
       log(`「不滅の王台」の効果で${sideName(side)}は縄張りを引かない。`);return false;
     }
+
     let idx;
     if(side==='player'){
-      const opts=s.territory.map((x,i)=>({value:i,title:`縄張り ${i+1}`,detail:x.faceUpTerritory?def(x).name:'裏向きのカード'}));
+      const opts=ss.territory.map((x,i)=>({value:i,title:`縄張り ${i+1}`,detail:x.faceUpTerritory?def(x).name:'裏向きのカード'}));
       idx=await choose(opts,'縄張りを1枚選んで手札に加えます。','縄張り');if(idx===null)idx=0;
-    }else idx=Math.floor(Math.random()*s.territory.length);
+    }else idx=Math.floor(Math.random()*ss.territory.length);
 
-    const [drawn]=s.territory.splice(idx,1),c=def(drawn);
+    const [drawn]=ss.territory.splice(idx,1),c=def(drawn);
     events.emit(EVENT.TERRITORY_DRAWN,{state,side,card:drawn,definition:c});
     log(`${sideName(side)}が縄張りを1枚引いた。`);
+
+    // トゲ擬態の攻撃力上昇は擬態期間が終わった後も残る。
+    if(state.turn===other(side)){
+      for(const fc of fieldActive(side)){
+        const p=fieldDef(fc).passive;
+        if(p?.type==='thornMimic'){
+          Engine.addModifier(fc,{stat:'attack',value:Number(p.value||300)});
+          log(`＜トゲ擬態＞ 「${fieldDef(fc).name}」の攻撃力が+300。`);
+        }
+      }
+    }
+
+    // 飛蝗の待ち伏せは縄張りが0になった瞬間に終了し、後から縄張りが増えても復帰しない。
+    const amb=state.grasshopperAmbush?.[side];
+    if(amb?.active&&ss.territory.length===0){amb.active=false;amb.ended=true;log('「飛蝗の待ち伏せ」の効果が終了した。');}
 
     if(drawn.faceUpTerritory){
       sendToOwnerDiscard(drawn,side);
       log('「蜜蝋の壁」は捨て札に置かれた。');render();return true;
     }
 
+    // ＜装着＞は縄張りから引いた直後、表向きで存在する自分の虫につけられる。
+    if(c.type==='enhance'&&c.territoryAttach){
+      const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,drawn));
+      if(targets.length){
+        let use=true;if(side==='player')use=await confirmYesNo(`＜装着＞で「${c.name}」を場の虫につけますか？`,'装着');
+        if(use){
+          const target=await chooseOwnedField(side,'＜装着＞のつけ先を選んでください。',targets);
+          if(target){
+            target.attachments.push(drawn);
+            log(`＜装着＞ 「${c.name}」を「${fieldDef(target).name}」につけた。`);
+            render();return true;
+          }
+        }
+      }
+    }
+
     const attacker=options.attacker;
     const attachmentBlock=attacker&&sideObj(other(side)).field.includes(attacker)&&hasAttachment(attacker,'blockFlyOut');
     const smokeBlock=state.noFlyOutSide===side&&state.noFlyOutTurn===state.turnSeq;
     const suppressFlyOut=!!options.suppressFlyOut||attachmentBlock||smokeBlock;
-    if(c.type==='insect'&&c.passive?.type==='flyOut'&&!hasFlyOutOnField(side)&&!suppressFlyOut){
+    if(hasFlyOutAbility(side,drawn)&&!hasFlyOutOnField(side)&&!suppressFlyOut){
       let use=true;
       if(side==='player')use=await confirmChoice(`引いたカードは「${c.name}」。＜とびだす＞で場に出しますか？`,'とびだす！');
       if(use){
@@ -1543,7 +1582,7 @@
         return true;
       }
     }
-    s.hand.push(drawn);render();return true;
+    ss.hand.push(drawn);render();return true;
   }
 
   async function endTurn(){
@@ -1566,26 +1605,30 @@
       }
 
       for(const controller of ['player','cpu']){
-        for(const fc of sideObj(controller).field){
+        for(const fc of [...sideObj(controller).field]){
           const expired=fc.attachments.filter(a=>a.expireTurn===state.turnSeq);
-          if(expired.length){
-            fc.attachments=fc.attachments.filter(a=>a.expireTurn!==state.turnSeq);
-            for(const a of expired)sendToOwnerDiscard(a,controller);
-            log(`「${fieldDef(fc).name}」から「口寄せの時蛹」が外れた。`);
+          for(const a of expired){
+            destroyAttachment(fc,a,controller,'effect');
+            log(`「${fieldDef(fc).name}」から「${def(a).name}」が外れた。`);
+          }
+        }
+      }
+
+      // ＜黒光り＞は他のターン終了時破壊処理の後にも常に条件を確認する。
+      for(const controller of ['player','cpu']){
+        for(const fc of [...sideObj(controller).field]){
+          if(fieldDef(fc).passive?.type==='blackShine'&&fc.attachments.length===0){
+            await attemptDestroyFieldCard(controller,fc,'effect',null);
+            log(`＜黒光り＞ 「${fieldDef(fc).name}」を破壊した。`);
           }
         }
       }
 
       for(const controller of ['player','cpu']){
         for(const fc of sideObj(controller).field){
-          fc.damage=fc.persistentDamage||0;
-          fc.turnAttackBonus=0;
-          if(fc.hidden&&fc.hiddenUntilTurnSeq===state.turnSeq){
-            fc.hidden=false;fc.hiddenUntilTurnSeq=0;
-          }
-          if(fc.turnColorOverrideTurn===state.turnSeq){
-            fc.turnColorOverride=null;fc.turnColorOverrideTurn=0;
-          }
+          fc.damage=fc.persistentDamage||0;fc.turnAttackBonus=0;
+          if(fc.hidden&&fc.hiddenUntilTurnSeq===state.turnSeq){fc.hidden=false;fc.hiddenUntilTurnSeq=0;}
+          if(fc.turnColorOverrideTurn===state.turnSeq){fc.turnColorOverride=null;fc.turnColorOverrideTurn=0;}
         }
       }
 

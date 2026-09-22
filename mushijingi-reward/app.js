@@ -84,7 +84,7 @@
   function visibleDiscard(side){return sideObj(side).discard.filter(x=>!x.discardFaceDown);}
   function visibleDiscardFrom(ss){return ss.discard.filter(x=>!x.discardFaceDown);}
   function emperorBaitCount(side){
-    if(!state||!side)return 0;
+    if(!state||!side||silenceActive())return 0;
     return sideObj(side).bait.filter(x=>isFaceUpBait(x)&&def(x).type==='insect'&&def(x).passive?.type==='emperorBait'&&!silkwormGagActive(side)&&!warriorSealActive(side)).length;
   }
   function phaseMutationActive(){
@@ -1524,6 +1524,7 @@
     if(options.noAttackThisTurn)fc.cannotAttackTurn=state.turnSeq;
     if(options.puppet)fc.puppetDestroyTurn=state.turnSeq;
     if(options.attachments)fc.attachments.push(...options.attachments);
+    fc.baseKeywordSuppression=!!options.suppressKeywords;
     if(options.suppressKeywords){Engine.setCardOverrides(fc,{passive:null});fc.suppressKeywords=true;}
     if(options.silverThreadLink)fc.silverThreadLink=options.silverThreadLink;
     if(options.summonedBySpell){
@@ -1586,6 +1587,7 @@
   function refreshCordycepsSuppression(fc){
     if(!fc)return;
     fc.cordycepsSuppressed=hasAttachment(fc,'puppetCordyceps');
+    fc.suppressKeywords=!!(fc.baseKeywordSuppression||fc.cordycepsSuppressed);
     applyShadowMirrorOverride(fc);
   }
   function revealHairpinTarget(att){
@@ -1600,6 +1602,7 @@
     const mirrors=fc.attachments.filter(a=>def(a).effect==='shadowDoubleMirror'&&a.shadowCopy);
     const last=mirrors[mirrors.length-1];
     Engine.clearCardOverrides(fc);
+    fc.suppressKeywords=!!(fc.baseKeywordSuppression||fc.cordycepsSuppressed);
     if(!last){
       if(fc.cordycepsSuppressed){
         const base=def(fc.inst);

@@ -670,43 +670,65 @@
     if(maxHp(fc)<=fc.damage&&sideObj(side).field.includes(fc))await attemptDestroyFieldCard(side,fc,'effect',null);
     return fc;
   }
-  function discardAttachmentsToOwners(fc,controllerSide){
-    for(const a of fc.attachments)sendToOwnerDiscard(a,controllerSide);
+  function consumeArmorSynchronously(side,fc){
+    const armorIndex=fc.attachments.findIndex(a=>def(a).effect==='substituteArmor');
+    if(armorIndex<0)return false;
+    const [armor]=fc.attachments.splice(armorIndex,1);sendToOwnerDiscard(armor,side);
+    fc.damage=fc.persistentDamage||0;
+    log(`「空蝉の皮鎧」が「${fieldDef(fc).name}」の破壊を防いだ！`);
+    return fc.damage<maxHp(fc);
+  }
+  function resolveSilverThreadDestroyed(threadUid){
+    if(!threadUid)return;
+    const linked=[];
+    for(const side of ['player','cpu']){
+      for(const fc of [...sideObj(side).field])if(fc.silverThreadLink===threadUid)linked.push({side,fc});
+    }
+    for(const {side,fc} of linked){
+      if(!sideObj(side).field.includes(fc))continue;
+      if(consumeArmorSynchronously(side,fc))continue;
+      destroyFieldCard(side,fc,'effect',null,{skipThreadUid:threadUid});
+      log(`「白銀蜘蛛の糸」の効果で「${fieldDef(fc).name}」を破壊した。`);
+    }
+  }
+  function discardAttachmentsToOwners(fc,controllerSide,reason='effect',options={}){
+    const threadUids=[];
+    for(const a of [...fc.attachments]){
+      if(def(a).effect==='secretBook'&&reason==='attack')sendToOwnerHand(a,controllerSide);
+      else sendToOwnerDiscard(a,controllerSide);
+      if(def(a).effect==='silverThread'&&a.uid!==options.skipThreadUid)threadUids.push(a.uid);
+    }
+    fc.attachments=[];
+    for(const uid of threadUids)resolveSilverThreadDestroyed(uid);
+  }
+  function destroyAttachment(source,att,controllerSide,reason='effect'){
+    if(!source||!att)return false;
+    if(!removeInstance(source.attachments,att))return false;
+    sendToOwnerDiscard(att,controllerSide);
+    if(def(att).effect==='silverThread')resolveSilverThreadDestroyed(att.uid);
+    return true;
   }
   function leaveFieldToHand(side,fc){
-    const s=sideObj(side);if(!s.field.includes(fc))return false;
-    s.field=s.field.filter(x=>x!==fc);
-    discardAttachmentsToOwners(fc,side);
+    const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    ss.field=ss.field.filter(x=>x!==fc);
+    discardAttachmentsToOwners(fc,side,'return');
     sendToOwnerHand(fc.inst,side);
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason:'return'});
     log(`「${fieldDef(fc).name}」が持ち主の手札に戻った。`);
     return true;
   }
-  function leaveFieldToDiscard(side,fc,reason='effect'){
-    return destroyFieldCard(side,fc,reason,null);
-  }
+  function leaveFieldToDiscard(side,fc,reason='effect'){return destroyFieldCard(side,fc,reason,null);}
   async function attemptDestroyFieldCard(side,fc,reason,attacker){
-    const s=sideObj(side);if(!s.field.includes(fc))return false;
-    const armorIndex=fc.attachments.findIndex(a=>def(a).effect==='substituteArmor');
-    if(armorIndex>=0){
-      const [armor]=fc.attachments.splice(armorIndex,1);
-      sendToOwnerDiscard(armor,side);
-      fc.damage=fc.persistentDamage||0;
-      log(`「空蝉の皮鎧」が「${fieldDef(fc).name}」の破壊を防いだ！`);
-      if(fc.damage>=maxHp(fc)){
-        destroyFieldCard(side,fc,reason,attacker);
-        return true;
-      }
-      return false;
-    }
+    const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    if(consumeArmorSynchronously(side,fc))return false;
     destroyFieldCard(side,fc,reason,attacker);
     return true;
   }
-  function destroyFieldCard(side,fc,reason,attacker){
-    const s=sideObj(side);if(!s.field.includes(fc))return false;
-    s.field=s.field.filter(x=>x!==fc);
+  function destroyFieldCard(side,fc,reason,attacker,options={}){
+    const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    ss.field=ss.field.filter(x=>x!==fc);
     sendToOwnerDiscard(fc.inst,side);
-    discardAttachmentsToOwners(fc,side);
+    discardAttachmentsToOwners(fc,side,reason,{skipThreadUid:options.skipThreadUid});
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason,attacker});
     events.emit(EVENT.INSECT_DESTROYED,{state,side,fieldCard:fc,reason,attacker});
     log(`「${fieldDef(fc).name}」が破壊された。`);
@@ -721,6 +743,13 @@
     log(`＜操り針＞ 「${fieldDef(fc).name}」を${sideName(side)}の場に出した。ターン終了時に破壊される。`);
     return fc;
   }
+  async function discardOneHand(side,text){
+    const ss=sideObj(side);if(!ss.hand.length)return false;
+    const chosen=await chooseOwnedInstance(side,text,ss.hand);if(!chosen)return false;
+    removeInstance(ss.hand,chosen);ss.discard.push(chosen);
+    log(`${sideName(side)}は「${def(chosen).name}」を手札から捨てた。`);
+    return true;
+  }
   async function resolveAttackDestructionReaction(defenderSide,target,attacker){
     const attackerSide=other(defenderSide);
     const p=fieldDef(target).passive;
@@ -732,6 +761,20 @@
     if(attacker&&sideObj(attackerSide).field.includes(attacker)&&p?.type==='toxicRevenge'){
       log(`＜トウワタ毒＞ 「${fieldDef(attacker).name}」を破壊！`);
       await attemptDestroyFieldCard(attackerSide,attacker,'effect',null);
+    }
+
+    if(p?.type==='flyCatcher'&&sideObj(attackerSide).hand.length>=5){
+      await discardOneHand(attackerSide,'＜蠅取り＞で捨てる手札を選んでください。');
+    }
+
+    if(p?.type==='jewelInsect'){
+      const owner=ownerSideOf(target.inst,defenderSide);
+      const pile=sideObj(owner).discard;
+      const card=removeInstance(pile,target.inst);
+      if(card){
+        sendToOwnerBait(card,owner);
+        log(`＜宝石昆虫＞ 「${fieldDef(target).name}」を持ち主のエサ場に置いた。`);
+      }
     }
 
     if(!attacker||!sideObj(attackerSide).field.includes(attacker))return;
@@ -1193,7 +1236,7 @@
   }
   async function moveEnhanceByAttack(side,fc){
     if(!fc.attachments.length)return;
-    const dests=fieldActive(side).filter(x=>x!==fc);if(!dests.length)return;
+    const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const att=await chooseOwnedInstance(side,'つけ替える強化カードを選んでください。',fc.attachments);if(!att)return;
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
     removeInstance(fc.attachments,att);dest.attachments.push(att);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);

@@ -870,7 +870,7 @@
     }
 
     if(c.type==='enhance'){
-      if(c.effect==='shadowDoubleMirror'||c.effect==='jewelColorCopy')return effectiveCardCost(side,inst)<=ss.cost&&fieldActive(side).length>=2;
+      if(c.effect==='shadowDoubleMirror'||c.effect==='jewelColorCopy')return effectiveCardCost(side,inst)<=ss.cost&&fieldActive(side).length>=2&&fieldActive(side).some(fc=>canAttachEnhancement(fc,inst));
       if(c.effect==='puppetCordyceps')return !discardSummonBlocked()&&effectiveCardCost(side,inst)<=ss.cost&&visibleDiscardFrom(ss).some(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=3);
       if(c.effect==='silverThread')return effectiveCardCost(side,inst)<=ss.cost&&visibleDiscardFrom(ss).filter(x=>def(x).type==='insect').length>=2;
       if(c.effect==='blackSilverThread')return effectiveCardCost(side,inst)<=ss.cost&&visibleDiscardFrom(ss).some(x=>def(x).type==='insect');
@@ -935,7 +935,7 @@
     if(c.effect==='sparkStorm'||c.effect==='boundarySend')return legalOpp.length>0;
     if(c.effect==='pupaWintering')return ss.hand.some(x=>x.uid!==inst.uid);
     if(c.effect==='underworldGuide')return !discardSummonBlocked()&&visibleDiscardFrom(ss).some(x=>def(x).type==='insect');
-    if(c.effect==='goldenArm')return fieldActive(side).length>0;
+    if(c.effect==='goldenArm')return fieldActive(side).some(fc=>legalSpellTarget(fc,side));
     return true;
   }
   function canAttack(fc){
@@ -2044,6 +2044,10 @@
       ],`「${c.name}」をどちらにつけますか？`,c.name);
       if(pick===null)return false;if(pick===second.inst.uid){host=second;source=first;}
     }
+    if(!canAttachEnhancement(host,inst)){
+      if(canAttachEnhancement(source,inst)){const tmp=host;host=source;source=tmp;}
+      else return false;
+    }
     const cost=effectiveCardCost(side,inst,host);if(!spendCost(side,inst,cost))return false;
     if(await shouldCounterCardUse(side,inst,cost)){removeHand(ss,inst);sendToOwnerDiscard(inst,side);log(`「${c.name}」は打ち消された。`);return true;}
     removeHand(ss,inst);
@@ -2876,7 +2880,7 @@
       state.silkwormGag[opp].untilTurnSeq=nextOpponentTurnSeq(side);
       enforceAllAttachmentLegality();log('「蚕の口封じ」により次の相手ターン終了時まで相手の虫は場所を問わず＜＞の技を失う。');
     }else if(c.effect==='goldenArm'){
-      const list=fieldActive(side);if(!list.length)return false;
+      const list=fieldActive(side).filter(fc=>legalSpellTarget(fc,side));if(!list.length)return false;
       target=await chooseOwnedField(side,'「金色の腕」で体力を上げる虫を選んでください。',list);if(!target)return false;
       if(!paySpell(side,inst,c))return false;
       const value=spellModifierValue(target,800);
@@ -3345,13 +3349,12 @@
     if(attack.effect==='gigasSlasher'&&sideObj(side).field.includes(fc)){
       fc.gigasLockTurn=state.turnSeq+2;log(`「ギガスラッシャー」により「${fieldDef(fc).name}」は次の自分のターン攻撃できない。`);
     }
-    if(attack.effect==='hardenNext'&&sideObj(side).field.includes(fc)){
-      fc.hardenTurn=nextOpponentTurnSeq(side);log(`「かたくなる」により次の相手ターン、術の対象にならず弱点2倍を受けない。`);
-    }
     if(attack.effect==='spiritAway'&&sideObj(side).field.includes(fc)){
       const choices=fieldActive(side);
       if(choices.length){
-        const chosen=await chooseOwnedField(side,'「神隠し」で裏向きにする自分の虫を選んでください。',choices);
+        const chosen=side==='player'
+          ? await chooseField('「神隠し」で裏向きにする自分の虫を選んでください。',choices,false)
+          : await chooseOwnedField(side,'「神隠し」で裏向きにする自分の虫を選んでください。',choices);
         if(chosen){chosen.hidden=true;chosen.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);chosen.spiritAwaySourceUid=fc.inst.uid;log(`「神隠し」で「${fieldDef(chosen).name}」を裏向きにした。`);}
       }
     }
@@ -3603,6 +3606,12 @@
       const pick=await chooseOwnEnhancement(side,'「ゆりかご落とし」で破壊する強化カードを選んでください。');if(!pick)return false;
       destroyAttachment(pick.fc,pick.att,side,'effect');
       log(`「ゆりかご落とし」のため「${def(pick.att).name}」を破壊した。`);
+    }
+
+    if(attack.effect==='hardenNext'){
+      fc.attacked=true;events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target:null,attack});
+      fc.hardenTurn=nextOpponentTurnSeq(side);log(`「かたくなる」により次の相手ターン、術の対象にならず弱点2倍を受けない。`);
+      render();return true;
     }
 
     if(attack.effect==='materialGather'){

@@ -26,10 +26,12 @@
   }
   function makeSide(deckKey,isCPU){
     const owner=isCPU?'cpu':'player';
-    const deck=shuffled(decks[deckKey].ids.map(id=>instance(id,owner)));
+    const deckDef=decks[deckKey];
+    const ids=deckDef.randomCount ? shuffled(deckDef.ids).slice(0,deckDef.randomCount) : deckDef.ids;
+    const deck=shuffled(ids.map(id=>instance(id,owner)));
     const territory=deck.splice(0,6);
     const hand=deck.splice(0,4);
-    return Engine.ensureModernZones({deckKey,deckName:decks[deckKey].name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
+    return Engine.ensureModernZones({deckKey,deckName:deckDef.name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
   }
   function sideObj(side){ return state[side]; }
   function other(side){ return side==='player'?'cpu':'player'; }
@@ -239,7 +241,7 @@
   }
 
   async function startGame(deckKey, firstSide){
-    const cpuKey=deckKey==='kabuto'?'mantis':'kabuto';
+    const cpuKey=deckKey==='random1'?'random1':(deckKey==='kabuto'?'mantis':'kabuto');
     uidCounter=1;
     state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');

@@ -339,6 +339,7 @@
   }
   function canAttachEnhancement(fc,inst){
     if(!fc||fc.hidden||!enhancementTargetLegal(fc,inst))return false;
+    if(def(inst).effect==='warriorSeal')return true;
     const p=passiveOfField(fc);
     if(p?.type==='doubleEnhance'&&fc.attachments.length>=1)return false;
     if(p?.type==='extremeBeauty'&&fc.attachments.length>=1)return false;
@@ -847,7 +848,8 @@
       fc.changedColor=col||effectiveColor(fc);
     }
     if(e==='secretBook')att.protectTurn=nextOpponentTurnSeq(side);
-    enforceAttachmentLegality(fc,side);
+    if(e==='warriorSeal')enforceAllAttachmentLegality();
+    else enforceAttachmentLegality(fc,side);
   }
 
   async function handleInsectEntered(side,fc){
@@ -1025,13 +1027,14 @@
 
     if(p.type==='warFanEntry'){
       if(!fc.paidOwnCost)return;
-      const choices=sideObj(side).hand.filter(x=>def(x).type==='enhance'&&Number(def(x).cost||0)<=4&&!['summonWithAttachment','silverThread','blackSilverThread'].includes(def(x).effect)&&fieldActive(side).some(t=>canAttachEnhancement(t,x)));
+      const choices=sideObj(side).hand.filter(x=>def(x).type==='enhance'&&Number(def(x).cost||0)<=4&&!['summonWithAttachment','silverThread','blackSilverThread'].includes(def(x).effect)&&(def(x).effect!=='imitation'||allOwnEnhancements(side).length>0)&&fieldActive(side).some(t=>canAttachEnhancement(t,x)));
       if(!choices.length)return;
       let use=true;if(side==='player')use=await confirmYesNo('＜軍配団扇＞で手札の強化カードをつけますか？','軍配団扇');
       if(!use)return;
       const att=await chooseOwnedInstance(side,'つける強化カードを選んでください。',choices);if(!att)return;
       const targets=fieldActive(side).filter(t=>canAttachEnhancement(t,att));if(!targets.length)return;
       const target=await chooseOwnedField(side,'強化カードのつけ先を選んでください。',targets);if(!target)return;
+      if(def(att).effect==='imitation'&&!await configureImitation(side,att,target))return;
       removeInstance(sideObj(side).hand,att);target.attachments.push(att);await configureAttachedCard(side,target,att);
       log(`＜軍配団扇＞ 「${def(att).name}」を「${fieldDef(target).name}」につけた。`);
       return;
@@ -2446,6 +2449,8 @@
     if(c.type==='enhance')return !['summonWithAttachment','silverThread','blackSilverThread'].includes(c.effect)&&canAttachEnhancement(host,inst)&&(c.effect!=='imitation'||allOwnEnhancements(side).length>0);
     if(c.type!=='spell')return false;
     if(c.effect==='singleAttack500'||c.effect==='hideOwn'||c.effect==='spellShield'||c.effect==='readyAttack')return true;
+    if(c.effect==='swapDiscardField')return sideObj(side).discard.some(x=>def(x).type==='insect');
+    if(c.effect==='sameCostSwap')return sideObj(side).hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect'&&Number(def(x).cost||0)===Number(fieldDef(host).cost||0));
     if(c.effect==='poisonFollowUp')return host.attacked&&hasPoisonTechnique(host);
     if(c.effect==='hellSword')return host.attacked&&host.attachments.length>0;
     if(c.effect==='swordDanceAttach')return faceUpBait(side).some(x=>canSwordDanceAttach(side,x)&&canAttachEnhancement(host,x));
@@ -2468,7 +2473,33 @@
     else if(c.effect==='hideOwn'){host.hidden=true;host.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);}
     else if(c.effect==='spellShield')host.spellShieldUntilTurnSeq=nextOpponentTurnSeq(side);
     else if(c.effect==='readyAttack'||c.effect==='poisonFollowUp')host.attacked=false;
-    else if(c.effect==='hellSword'){
+    else if(c.effect==='swapDiscardField'){
+      const choices=sideObj(side).discard.filter(x=>def(x).type==='insect');
+      const incoming=await chooseOwnedInstance(side,'「叛逆の蛮勇」で捨て札から場に出す虫を選んでください。',choices);
+      if(incoming&&sideObj(side).field.includes(host)){
+        removeInstance(sideObj(side).discard,incoming);
+        const hadSeal=hasAttachment(host,'warriorSeal'),wasSilence=rawFieldPassive(host)?.type==='silenceAll';
+        sideObj(side).field=sideObj(side).field.filter(x=>x!==host);
+        sendToOwnerDiscard(host.inst,side);discardAttachmentsToOwners(host,side);
+        if(hadSeal||wasSilence)enforceAllAttachmentLegality();
+        await putInsectOnField(side,incoming,{noAttackThisTurn:true,summonedBySpell:true});
+        events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:host,reason:'swap'});
+        log(`「叛逆の蛮勇」で「${fieldDef(host).name}」を捨て札の「${def(incoming).name}」と入れ替えた。`);
+      }
+    }else if(c.effect==='sameCostSwap'){
+      const choices=sideObj(side).hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect'&&Number(def(x).cost||0)===Number(fieldDef(host).cost||0));
+      const incoming=await chooseOwnedInstance(side,'「繚乱の足掻き」で場に出す同コストの虫を選んでください。',choices);
+      if(incoming&&sideObj(side).field.includes(host)){
+        removeInstance(sideObj(side).hand,incoming);
+        const hadSeal=hasAttachment(host,'warriorSeal'),wasSilence=rawFieldPassive(host)?.type==='silenceAll';
+        sideObj(side).field=sideObj(side).field.filter(x=>x!==host);
+        discardAttachmentsToOwners(host,side);sendToOwnerHand(host.inst,side);
+        if(hadSeal||wasSilence)enforceAllAttachmentLegality();
+        await putInsectOnField(side,incoming,{noAttackThisTurn:true,summonedBySpell:true});
+        events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:host,reason:'swap'});
+        log(`「繚乱の足掻き」で「${fieldDef(host).name}」を手札の「${def(incoming).name}」と入れ替えた。`);
+      }
+    }else if(c.effect==='hellSword'){
       const att=await chooseOwnedInstance(side,'破壊する強化カードを選んでください。',host.attachments);if(att){destroyAttachment(host,att,side,'effect');host.attacked=false;}
     }else if(c.effect==='swordDanceAttach'){
       let attached=0;

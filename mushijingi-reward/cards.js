@@ -376,8 +376,12 @@ window.MUSHI_DATA = (() => {
     if(!card.image){
       const imageNo=rewardImageNumber(card);
       card.image=`https://mushijingi.com/images/card/thumbnail.php?height=150&src=${imageNo}.jpg&width=112`;
+      card.imageCrop=card.type==='insect'?'insect':'special';
+    }else if(card.image.startsWith('https://mushijingi.com/')){
+      card.imageCrop=card.type==='insect'?'insect':'special';
+    }else{
+      card.imageCrop=null;
     }
-    card.imageCrop=card.type==='insect'?'insect':'special';
   });
   // ===== 学習版 全カード画像ここまで =====
 

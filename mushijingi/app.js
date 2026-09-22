@@ -144,7 +144,12 @@
   function usableAttack(side,fc,attack){
     if(attack.effect==='cannibal' && fieldActive(side).filter(x=>x!==fc).length===0)return false;
     if(attack.effect==='baitSacrifice' && sideObj(side).bait.length===0)return false;
-    if(attack.effect==='multiTwo' && attackableTargets(side).length<2)return false;
+    if(attack.effect==='multiTwo'){
+      const raw=fieldActive(other(side)).filter(x=>x.mimicTurn!==state.turnSeq);
+      const forced=raw.filter(x=>['pollen','taunt'].includes(fieldDef(x).passive?.type)||hasAttachment(x,'tauntAttachment'));
+      if(forced.length)return false;
+      if(raw.length<2)return false;
+    }
     return true;
   }
   function weaknessMultiplier(attackerColor, defenderColor){
@@ -189,7 +194,12 @@
     const el=$(side==='player'?'playerTerritory':'cpuTerritory');
     el.innerHTML='';
     for(let i=0;i<sideObj(side).territory.length;i++){
-      const d=document.createElement('div'); d.className='territory-card'; d.title='縄張り'; el.appendChild(d);
+      const inst=sideObj(side).territory[i];
+      if(inst.faceUpTerritory){
+        const d=cardElement(inst,{mini:true});d.title='表向きの縄張り';el.appendChild(d);
+      }else{
+        const d=document.createElement('div');d.className='territory-card';d.title='縄張り';el.appendChild(d);
+      }
     }
   }
   function renderField(side){
@@ -248,13 +258,15 @@
     const meta=c.type==='insect' ? `<span>${colorJa[fc?effectiveColor(fc):c.color]}</span><span>HP ${fc?Math.max(0,maxHp(fc)-fc.damage):c.hp}/${fc?maxHp(fc):c.hp}</span>` : `<span>${cardTypeLabel(c)}</span>`;
     let body='';
     if(c.type==='insect'){
-      body=c.attacks.map(a=>`<div class="attack-line"><b>${escapeHtml(a.name)} ${fc?attackPower(opt.side||findFieldSide(fc),fc,a):Math.max(0,Number(a.power||0))}</b>${a.text?`<div>${escapeHtml(a.text)}</div>`:''}</div>`).join('');
+      body=c.attacks.map(a=>`<div class="attack-line"><b>${escapeHtml(a.name)} ${fc?attackPower(opt.side||findFieldSide(fc),fc,a):(a.dynamic?'X':Math.max(0,Number(a.power||0)))}</b>${a.text?`<div>${escapeHtml(a.text)}</div>`:''}</div>`).join('');
       if(c.passive) body+=`<div class="card-effect">${escapeHtml(c.passive.text)}</div>`;
     } else body=`<div class="card-effect">${escapeHtml(c.effectText)}</div>`;
     let status='';
     if(fc){
       if(fc.mimicTurn===state.turnSeq) status+='擬態中 '; if(fc.attackPenaltyTurn===state.turnSeq) status+=`攻撃-${fc.attackPenalty} `;
-      if(fc.turnAttackBonus) status+=`攻撃+${fc.turnAttackBonus} `;
+      if(fc.turnAttackBonus)status+=`攻撃+${fc.turnAttackBonus} `;
+      if(fc.persistentDamage)status+=`回復しないダメージ ${fc.persistentDamage} `;
+      if(isAttackBlocked(opt.side||findFieldSide(fc),fc))status+='攻撃不可 ';
     }
     const attaches=fc?.attachments.length?`<div class="attach-line">強化: ${fc.attachments.map(a=>escapeHtml(def(a).name)).join(' / ')}</div>`:'';
     el.innerHTML=`<div class="card-top"><div class="card-name">${escapeHtml(c.name)}</div><div class="card-cost">${c.cost}</div></div><div class="card-meta">${meta}</div>${body}${status?`<div class="status-line">${status}</div>`:''}${attaches}`;
@@ -557,7 +569,6 @@
       paySpell(side,inst,c);removeInstance(s.discard,chosen);s.hand.push(chosen);
       log(`${sideName(side)}は「${c.name}」で「${def(chosen).name}」を手札に戻した。`);
     }else if(c.effect==='burn600'){
-      target=await chooseOwnedField(side==='player'?'player':'cpu','',[]); // no-op marker
       const choices=fieldActive(opp);if(!choices.length)return false;
       target=side==='player'?await chooseField('600ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);if(!target)return false;
       paySpell(side,inst,c);

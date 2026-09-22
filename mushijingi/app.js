@@ -815,6 +815,7 @@
       if(def(a).effect==='secretBook'&&reason==='attack')sendToOwnerHand(a,controllerSide);
       else sendToOwnerDiscard(a,controllerSide);
       if(def(a).effect==='silverThread'&&a.uid!==options.skipThreadUid)threadUids.push(a.uid);
+      if(['attack','effect','sacrifice'].includes(reason))destroyImitationsOf(a.uid);
     }
     fc.attachments=[];
     if(reason==='attack'&&threadUids.length)fc.pendingSilverThreadUids=[...(fc.pendingSilverThreadUids||[]),...threadUids];

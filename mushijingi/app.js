@@ -1,6 +1,10 @@
 (() => {
   'use strict';
   const {cards, decks} = window.MUSHI_DATA;
+  const Engine = window.MUSHI_ENGINE;
+  if(!Engine) throw new Error('MUSHI_ENGINE is not loaded');
+  const {ZONE, EVENT} = Engine;
+  const events = Engine.createEventBus();
   const $ = (id) => document.getElementById(id);
   const startScreen = $('startScreen');
   const gameScreen = $('gameScreen');
@@ -12,18 +16,20 @@
   const colorJa = {red:'赤', blue:'青', green:'緑'};
   const typeJa = {insect:'虫', enhance:'強化', spell:'術'};
 
-  function instance(cardId) { return {uid:uidCounter++, cardId}; }
+  function instance(cardId,owner=null) { return Engine.createCardInstance(uidCounter++,cardId,owner); }
   function def(inst) { return cards[inst.cardId]; }
+  function fieldDef(fc) { return Engine.currentCardDefinition(def(fc.inst),fc); }
   function shuffled(list) {
     const a=[...list];
     for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
     return a;
   }
   function makeSide(deckKey,isCPU){
-    const deck=shuffled(decks[deckKey].ids.map(instance));
+    const owner=isCPU?'cpu':'player';
+    const deck=shuffled(decks[deckKey].ids.map(id=>instance(id,owner)));
     const territory=deck.splice(0,6);
     const hand=deck.splice(0,4);
-    return {deckKey,deckName:decks[deckKey].name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false};
+    return Engine.ensureModernZones({deckKey,deckName:decks[deckKey].name,isCPU,deck,territory,hand,bait:[],discard:[],field:[],cost:0,setDone:false});
   }
   function sideObj(side){ return state[side]; }
   function other(side){ return side==='player'?'cpu':'player'; }
@@ -31,7 +37,7 @@
   function cardTypeLabel(card){ return typeJa[card.type] || ''; }
   function newFieldCard(inst){
     const c=def(inst);
-    return {inst,damage:0,attacked:false,hidden:false,attachments:[],usedAttacks:new Set(),turnAttackBonus:0,attackPenaltyTurn:0,attackPenalty:0,mimicTurn:c.passive?.type==='mimic'?state.turnSeq+1:0};
+    return Engine.createFieldState(inst,{mimicTurn:c.passive?.type==='mimic'?state.turnSeq+1:0});
   }
   function log(text){
     state.log.unshift(text);
@@ -65,16 +71,16 @@
 
 
   function maxHp(fc){
-    let hp=def(fc.inst).hp;
+    let hp=fieldDef(fc).hp + Engine.modifierTotal(fc,'hp',state?.turnSeq||0);
     for(const a of fc.attachments){ if(def(a).effect==='hp500') hp+=500; }
     return hp;
   }
   function effectiveColor(fc){
     for(let i=fc.attachments.length-1;i>=0;i--){const a=def(fc.attachments[i]);if(a.effect==='changeColor' && fc.changedColor)return fc.changedColor;}
-    return def(fc.inst).color;
+    return fieldDef(fc).color;
   }
   function attackBonus(fc){
-    let b=fc.turnAttackBonus||0;
+    let b=(fc.turnAttackBonus||0)+Engine.modifierTotal(fc,'attack',state?.turnSeq||0);
     for(const a of fc.attachments){ if(def(a).effect==='attack300') b+=300; }
     if(fc.attackPenaltyTurn===state.turnSeq) b-=fc.attackPenalty||0;
     return b;
@@ -86,12 +92,12 @@
   function attackableTargets(attackingSide){
     const opp=other(attackingSide);
     let candidates=fieldActive(opp).filter(fc=>fc.mimicTurn!==state.turnSeq);
-    const pollen=candidates.filter(fc=>def(fc.inst).passive?.type==='pollen');
+    const pollen=candidates.filter(fc=>fieldDef(fc).passive?.type==='pollen');
     if(pollen.length) candidates=pollen;
     return candidates;
   }
   function opponentHasFieldInsect(side){ return fieldActive(other(side)).length>0; }
-  function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>def(fc.inst).passive?.type==='flyOut'); }
+  function hasFlyOutOnField(side){ return fieldActive(side).some(fc=>fieldDef(fc).passive?.type==='flyOut'); }
 
   function render(){
     if(!state)return;
@@ -174,7 +180,7 @@
     });
   }
   function cardElement(inst,opt={}){
-    const c=def(inst); const fc=opt.field;
+    const fc=opt.field; const c=fc?fieldDef(fc):def(inst);
     const el=document.createElement('div');
     el.className=`game-card ${c.type==='insect'?c.color:'special'} ${opt.playable?'playable':''} ${fc?.attacked?'used':''} ${fc?.hidden?'hidden-insect':''} ${opt.mini?'mini-card':''}`;
     if(fc?.hidden){ el.innerHTML='<div class="card-name">裏向きの虫</div><div class="card-effect">ターン終了まで「場にいない」扱い</div>'; return el; }
@@ -261,7 +267,8 @@
     const side=state.turn,s=sideObj(side);
     state.phase='draw'; state.chain=null;
     s.setDone=false; s.cost=0;
-    for(const fc of s.field){fc.attacked=false;}
+    for(const fc of s.field){fc.attacked=false;Engine.pruneExpiredModifiers(fc,state.turnSeq);}
+    events.emit(EVENT.TURN_START,{state,side,turnSeq:state.turnSeq,turnNo:state.turnNo});
     render();
     const firstTurnNoDraw=state.turnNo===1;
     if(!firstTurnNoDraw){
@@ -280,7 +287,8 @@
   async function onHandCard(uid){
     if(state.busy)return; const s=state.player; const inst=s.hand.find(x=>x.uid===uid); if(!inst)return;
     if(state.phase==='set'){
-      s.hand=s.hand.filter(x=>x.uid!==uid); s.bait.push(inst); s.setDone=true;
+      Engine.moveCard(s,inst,ZONE.HAND,ZONE.BAIT); s.setDone=true;
+      events.emit(EVENT.CARD_MOVED,{side:'player',card:inst,from:ZONE.HAND,to:ZONE.BAIT});
       log(`あなたは「${def(inst).name}」をエサにしました。`); finishSetPhase(); return;
     }
     if(state.phase==='main' && canUseHandCard('player',inst)) await playCardFromHand('player',inst);
@@ -293,25 +301,28 @@
   }
   async function playCardFromHand(side,inst){
     const s=sideObj(side),c=def(inst); if(c.cost>s.cost)return false;
+    const action={state,side,card:inst,definition:c,cost:c.cost};
+    events.emit(EVENT.CARD_USE_DECLARED,action);
     state.busy=true;
     try{
       if(c.type==='insect'){
-        s.cost-=c.cost; removeHand(s,inst); s.field.push(newFieldCard(inst)); log(`${sideName(side)}は「${c.name}」を場に出した。`);
+        s.cost-=c.cost; events.emit(EVENT.COST_PAID,{state,side,card:inst,definition:c,cost:c.cost}); events.emit(EVENT.REACTION_WINDOW,{state,side,card:inst,definition:c,cost:c.cost}); removeHand(s,inst); const entered=newFieldCard(inst); s.field.push(entered); events.emit(EVENT.INSECT_ENTERED,{state,side,fieldCard:entered,card:inst}); log(`${sideName(side)}は「${c.name}」を場に出した。`);
         if(side==='cpu'){render();await cpuNotice(`「${c.name}」を場に出した`);}
       } else if(c.type==='enhance'){
         const targets=fieldActive(side); if(!targets.length)return false;
         let target= side==='player' ? await chooseField(`「${c.name}」をつける虫を選んでください。`,targets,true) : chooseEnhanceTargetCPU(c,targets);
         if(!target)return false;
-        s.cost-=c.cost; removeHand(s,inst); target.attachments.push(inst);
+        s.cost-=c.cost; events.emit(EVENT.COST_PAID,{state,side,card:inst,definition:c,cost:c.cost}); events.emit(EVENT.REACTION_WINDOW,{state,side,card:inst,definition:c,cost:c.cost}); removeHand(s,inst); target.attachments.push(inst);
         if(c.effect==='changeColor'){
           const col=side==='player'?await chooseSimple('色を選んでください。',[['red','赤'],['blue','青'],['green','緑']]):bestColorAgainstCPU(target,other(side));
           target.changedColor=col||effectiveColor(target);
         }
-        log(`${sideName(side)}は「${c.name}」を「${def(target.inst).name}」につけた。`);
-        if(side==='cpu'){render();await cpuNotice(`「${c.name}」を「${def(target.inst).name}」につけた`);}
+        log(`${sideName(side)}は「${c.name}」を「${fieldDef(target).name}」につけた。`);
+        if(side==='cpu'){render();await cpuNotice(`「${c.name}」を「${fieldDef(target).name}」につけた`);}
       } else {
         const ok=await resolveSpell(side,inst,c); if(!ok)return false;
       }
+      events.emit(EVENT.CARD_RESOLVED,action);
       render(); return true;
     } finally {state.busy=false;render();}
   }
@@ -322,7 +333,7 @@
       const choices=s.discard.filter(x=>def(x).type==='insect'); if(!choices.length)return false;
       const chosen=side==='player'?await chooseInstances('捨て札から手札に戻す虫を選んでください。',choices):choices.sort((a,b)=>def(b).cost-def(a).cost)[0];
       if(!chosen)return false;
-      s.cost-=c.cost; removeHand(s,inst); s.discard=s.discard.filter(x=>x.uid!==chosen.uid); s.hand.push(chosen); s.discard.push(inst);
+      s.cost-=c.cost; events.emit(EVENT.COST_PAID,{state,side,card:inst,definition:c,cost:c.cost}); events.emit(EVENT.REACTION_WINDOW,{state,side,card:inst,definition:c,cost:c.cost}); removeHand(s,inst); s.discard=s.discard.filter(x=>x.uid!==chosen.uid); s.hand.push(chosen); s.discard.push(inst);
       log(`${sideName(side)}は「${c.name}」で「${def(chosen).name}」を手札に戻した。`);
       if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用 → 「${def(chosen).name}」を手札に戻した`);}
       return true;
@@ -331,12 +342,16 @@
       const choices=fieldActive(other(side)); if(!choices.length)return false;
       target=side==='player'?await chooseField('600ダメージを与える相手の虫を選んでください。',choices,true):chooseBurnTargetCPU(choices);
       if(!target)return false;
-      s.cost-=c.cost;removeHand(s,inst);s.discard.push(inst);target.damage+=600;log(`${sideName(side)}の「${c.name}」！ ${def(target.inst).name}に600ダメージ。`);
+      s.cost-=c.cost; events.emit(EVENT.COST_PAID,{state,side,card:inst,definition:c,cost:c.cost}); events.emit(EVENT.REACTION_WINDOW,{state,side,card:inst,definition:c,cost:c.cost});removeHand(s,inst);s.discard.push(inst);
+      events.emit(EVENT.BEFORE_DAMAGE,{state,source:inst,sourceSide:side,target,amount:600,kind:'effect'});
+      target.damage+=600;
+      events.emit(EVENT.AFTER_DAMAGE,{state,source:inst,sourceSide:side,target,amount:600,kind:'effect'});
+      log(`${sideName(side)}の「${c.name}」！ ${fieldDef(target).name}に600ダメージ。`);
       if(target.damage>=maxHp(target))destroyFieldCard(other(side),target,'effect',null);
-      if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用 → 「${def(target.inst).name}」に600ダメージ`);}
+      if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用 → 「${fieldDef(target).name}」に600ダメージ`);}
       return true;
     }
-    s.cost-=c.cost; removeHand(s,inst);
+    s.cost-=c.cost; events.emit(EVENT.COST_PAID,{state,side,card:inst,definition:c,cost:c.cost}); events.emit(EVENT.REACTION_WINDOW,{state,side,card:inst,definition:c,cost:c.cost}); removeHand(s,inst);
     if(c.effect==='baitBoost'){
       s.bait.push(inst);log(`${sideName(side)}は「蟲の息吹」を使い、エサを1枚増やした（このターンのコストは増えない）。`);
       if(side==='cpu'){render();await cpuNotice('「蟲の息吹」を使用 → エサ場へ（このターンはコスト+1なし）');}
@@ -354,7 +369,7 @@
   async function onFieldCard(uid){
     if(state.busy||state.turn!=='player'||state.phase!=='main')return;
     const fc=state.player.field.find(x=>x.inst.uid===uid); if(!fc||!canAttack(fc))return;
-    const c=def(fc.inst);
+    const c=fieldDef(fc);
     let attacks=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
     if(state.chain?.side==='player' && state.chain.uid===fc.inst.uid && state.chain.kind==='mantisCombo'){
       attacks=attacks.filter(a=>a.effect==='mantisCombo');
@@ -382,12 +397,13 @@
       target=side==='player'?await chooseField(`${attack.name}の攻撃先を選んでください。`,targets,true):chooseAttackTargetCPU(fc,attack,targets);
       if(!target)return false;
     }
+    events.emit(EVENT.ATTACK_DECLARED,{state,side,attacker:fc,target,attack});
     fc.attacked=true;
     if(attack.effect==='oncePerEntry')fc.usedAttacks.add(attack.name);
     const base=Math.max(0,attack.power+attackBonus(fc));
     if(!target){
-      log(`${sideName(side)}の「${def(fc.inst).name}」が${attack.name}で直接攻撃！`);
-      cpuAttackSummary=`「${def(fc.inst).name}」の「${attack.name}」で直接攻撃`;
+      log(`${sideName(side)}の「${fieldDef(fc).name}」が${attack.name}で直接攻撃！`);
+      cpuAttackSummary=`「${fieldDef(fc).name}」の「${attack.name}」で直接攻撃`;
       if(side==='cpu'){
         render();
         await cpuNotice(cpuAttackSummary);
@@ -395,21 +411,23 @@
       }
       await takeTerritory(other(side),true);
     } else if(attack.effect==='flip'){
-      target.hidden=true; log(`${sideName(side)}の「すくい投げ」！ 「${def(target.inst).name}」をターン終了まで裏返した。`);
-      cpuAttackSummary=`「${def(fc.inst).name}」の「すくい投げ」→「${def(target.inst).name}」を裏返した`;
+      target.hidden=true; log(`${sideName(side)}の「すくい投げ」！ 「${fieldDef(target).name}」をターン終了まで裏返した。`);
+      cpuAttackSummary=`「${fieldDef(fc).name}」の「すくい投げ」→「${fieldDef(target).name}」を裏返した`;
     } else if(attack.effect==='stinkHorn'){
       target.attackPenaltyTurn=state.turnSeq+1;
       target.attackPenalty=400;
       const mult=weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
       const dmg=base*mult;
+      events.emit(EVENT.BEFORE_DAMAGE,{state,source:fc,sourceSide:side,target,amount:dmg,kind:'attack',attack});
       target.damage+=dmg;
-      log(`${sideName(side)}の「くさいツノ」！ 「${def(target.inst).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。次のターン攻撃力-400。`);
-      cpuAttackSummary=`「${def(fc.inst).name}」の「くさいツノ」→「${def(target.inst).name}」に${dmg}ダメージ / 次ターン攻撃-400`;
+      events.emit(EVENT.AFTER_DAMAGE,{state,source:fc,sourceSide:side,target,amount:dmg,kind:'attack',attack});
+      log(`${sideName(side)}の「くさいツノ」！ 「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。次のターン攻撃力-400。`);
+      cpuAttackSummary=`「${fieldDef(fc).name}」の「くさいツノ」→「${fieldDef(target).name}」に${dmg}ダメージ / 次ターン攻撃-400`;
       if(target.damage>=maxHp(target)){
         const revenge=hasAttachment(target,'revenge');
         destroyFieldCard(other(side),target,'attack',fc);
         if(revenge && sideObj(side).field.includes(fc)){
-          log(`「針金虫の道連れ」で攻撃した「${def(fc.inst).name}」も破壊！`);
+          log(`「針金虫の道連れ」で攻撃した「${fieldDef(fc).name}」も破壊！`);
           destroyFieldCard(side,fc,'effect',null);
         }
         if(side==='cpu'){
@@ -421,15 +439,18 @@
       }
     } else {
       const mult=weaknessMultiplier(effectiveColor(fc),effectiveColor(target));
-      const dmg=base*mult; target.damage+=dmg;
-      log(`${sideName(side)}の「${def(fc.inst).name}」が「${def(target.inst).name}」へ${attack.name}！ ${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
-      cpuAttackSummary=`「${def(fc.inst).name}」の「${attack.name}」→「${def(target.inst).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}`;
+      const dmg=base*mult;
+      events.emit(EVENT.BEFORE_DAMAGE,{state,source:fc,sourceSide:side,target,amount:dmg,kind:'attack',attack});
+      target.damage+=dmg;
+      events.emit(EVENT.AFTER_DAMAGE,{state,source:fc,sourceSide:side,target,amount:dmg,kind:'attack',attack});
+      log(`${sideName(side)}の「${fieldDef(fc).name}」が「${fieldDef(target).name}」へ${attack.name}！ ${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
+      cpuAttackSummary=`「${fieldDef(fc).name}」の「${attack.name}」→「${fieldDef(target).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}`;
       if(sacrificeName)cpuAttackSummary+=` / 「${sacrificeName}」を共食い`;
       if(target.damage>=maxHp(target)){
         const revenge=hasAttachment(target,'revenge');
         destroyFieldCard(other(side),target,'attack',fc);
         if(revenge && sideObj(side).field.includes(fc)){
-          log(`「針金虫の道連れ」で攻撃した「${def(fc.inst).name}」も破壊！`); destroyFieldCard(side,fc,'effect',null);
+          log(`「針金虫の道連れ」で攻撃した「${fieldDef(fc).name}」も破壊！`); destroyFieldCard(side,fc,'effect',null);
         }
         if(side==='cpu'){
           render();
@@ -459,7 +480,9 @@
     const s=sideObj(side); if(!s.field.includes(fc))return;
     s.field=s.field.filter(x=>x!==fc);
     s.discard.push(fc.inst,...fc.attachments);
-    log(`「${def(fc.inst).name}」が破壊された。`);
+    events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason,attacker});
+    events.emit(EVENT.INSECT_DESTROYED,{state,side,fieldCard:fc,reason,attacker});
+    log(`「${fieldDef(fc).name}」が破壊された。`);
   }
   async function takeTerritory(side,isDirect){
     const s=sideObj(side);
@@ -475,6 +498,7 @@
       if(idx===null)idx=0;
     } else idx=Math.floor(Math.random()*s.territory.length);
     const [drawn]=s.territory.splice(idx,1); const c=def(drawn);
+    events.emit(EVENT.TERRITORY_DRAWN,{state,side,card:drawn,definition:c});
     log(`${sideName(side)}が縄張りを1枚引いた。`);
     if(c.type==='insect' && c.passive?.type==='flyOut' && !hasFlyOutOnField(side)){
       let use=true;
@@ -492,6 +516,7 @@
     if(state.over||state.busy||state.chain)return;
     state.busy=true;
     try{
+      events.emit(EVENT.TURN_END,{state,side:state.turn,turnSeq:state.turnSeq,turnNo:state.turnNo});
       for(const side of ['player','cpu'])for(const fc of sideObj(side).field){fc.damage=0;fc.hidden=false;fc.turnAttackBonus=0;}
       sideObj(state.turn).cost=0;
       state.turn=other(state.turn); state.turnSeq++; state.turnNo++; state.phase='draw';
@@ -503,7 +528,7 @@
     if(state.over)return; const s=state.cpu;
     message('CPUが考えています…');
     if(s.hand.length){
-      const bait=chooseBaitCPU(s.hand); s.hand=s.hand.filter(x=>x.uid!==bait.uid);s.bait.push(bait);log(`CPUは「${def(bait).name}」をエサにした。`);render();await cpuNotice(`「${def(bait).name}」をエサ場に置いた`);
+      const bait=chooseBaitCPU(s.hand); Engine.moveCard(s,bait,ZONE.HAND,ZONE.BAIT);events.emit(EVENT.CARD_MOVED,{side:'cpu',card:bait,from:ZONE.HAND,to:ZONE.BAIT});log(`CPUは「${def(bait).name}」をエサにした。`);render();await cpuNotice(`「${def(bait).name}」をエサ場に置いた`);
     }
     s.cost=s.bait.length; state.phase='main';render();
     let guard=0;
@@ -535,13 +560,13 @@
     return [...hand].sort((a,b)=>score(a)-score(b))[0];
   }
   function chooseAttackCPU(fc){
-    const c=def(fc.inst); let ats=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
+    const c=fieldDef(fc); let ats=c.attacks.filter(a=>!(a.effect==='oncePerEntry'&&fc.usedAttacks.has(a.name)));
     if(c.id===7){const cann=ats.find(a=>a.effect==='cannibal');if(cann && fieldActive('cpu').length>1)return cann;return ats.find(a=>a.effect==='mantisCombo')||ats[0];}
     if(c.id===40 && fieldActive('player').length===1 && fieldActive('cpu').filter(x=>!x.attacked).length>1)return ats.find(a=>a.effect==='flip')||ats[0];
     if(c.id===79 && fieldActive('player').some(x=>Math.max(...def(x.inst).attacks.map(a=>a.power))>=500))return ats.find(a=>a.effect==='stinkHorn')||ats[0];
     return [...ats].sort((a,b)=>b.power-a.power)[0];
   }
-  function chooseMantisSecondAttackCPU(fc){return def(fc.inst).attacks.find(a=>a.effect==='mantisCombo')||null;}
+  function chooseMantisSecondAttackCPU(fc){return fieldDef(fc).attacks.find(a=>a.effect==='mantisCombo')||null;}
   function chooseAttackTargetCPU(fc,attack,targets){
     const base=Math.max(0,attack.power+attackBonus(fc));
     return [...targets].sort((a,b)=>{
@@ -587,7 +612,7 @@
   function closeModal(value){if(modal.classList.contains('hidden'))return;modal.classList.add('hidden');const r=modalResolver;modalResolver=null;if(r)r(value);}
   function chooseSimple(text,pairs){return choose(pairs.map(([value,title])=>({value,title,detail:''})),text,'選択');}
   function chooseField(text,targets,cancel){
-    const opts=targets.map(fc=>({value:fc.inst.uid,title:def(fc.inst).name,detail:`${colorJa[effectiveColor(fc)]} / HP ${Math.max(0,maxHp(fc)-fc.damage)}/${maxHp(fc)}`}));
+    const opts=targets.map(fc=>({value:fc.inst.uid,title:fieldDef(fc).name,detail:`${colorJa[effectiveColor(fc)]} / HP ${Math.max(0,maxHp(fc)-fc.damage)}/${maxHp(fc)}`}));
     if(cancel)opts.push({value:null,title:'やめる',detail:''});
     return choose(opts,text,'虫を選択').then(uid=>targets.find(x=>x.inst.uid===uid)||null);
   }
@@ -597,6 +622,7 @@
   async function confirmChoice(text,title){const v=await choose([{value:true,title:'はい',detail:'場に出す'},{value:false,title:'いいえ',detail:'手札に加える'}],text,title);return !!v;}
 
   $('resultRestartBtn').addEventListener('click',()=>showStart());
+  window.MUSHI_RUNTIME={engineVersion:Engine.version,events,getState:()=>state,fieldDef};
   document.querySelectorAll('.deck-choice').forEach(b=>b.addEventListener('click',()=>chooseTurnOrder(b.dataset.deck)));
   $('newGameBtn').addEventListener('click',()=>{ if(!state||state.over)showStart(); else if(confirm('今の対戦を終了して最初からやり直しますか？'))showStart(); });
 })();

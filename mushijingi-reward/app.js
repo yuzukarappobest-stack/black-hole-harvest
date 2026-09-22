@@ -63,7 +63,7 @@
     if(!p)return null;
     const side=findFieldSide(fc)||ownerSideOf(fc.inst,null);
     if(fc.suppressKeywords||hasAttachment(fc,'suppressPassive')||warriorSealActive(side))return null;
-    if(fc.hawkEyeSuppressedTurn===state?.turnSeq&&/破壊/.test(String(p.text||'')))return null;
+    if(fc.hawkEyeSuppressedTurn===state?.turnSeq&&/(破壊されたとき|破壊されるとき)/.test(String(p.text||'')))return null;
     if(p.type==='silenceAll')return p;
     return silenceActive()?null:p;
   }
@@ -820,6 +820,10 @@
       if(c.effect==='summonWithAttachment')return effectiveCardCost(side,inst)<=ss.cost&&ss.hand.some(x=>x.uid!==inst.uid&&def(x).type==='insect');
       if(c.effect==='imitation'&&allOwnEnhancements(side).length===0)return false;
       const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,inst));
+      if(c.effect==='grudgeJinbaori'){
+        const maxDiscount=faceUpBait(side).length;
+        return targets.some(fc=>Math.max(0,effectiveCardCost(side,inst,fc)-maxDiscount)<=ss.cost);
+      }
       return targets.some(fc=>effectiveCardCost(side,inst,fc)<=ss.cost);
     }
 
@@ -1843,7 +1847,9 @@
           log(`「口寄せの時蛹」で「${fieldDef(fc).name}」を場に出した。時蛹がある間は攻撃できない。`);
           if(side==='cpu'){render();await cpuNotice(`「口寄せの時蛹」→「${fieldDef(fc).name}」を場に出した`);}
         }else{
-          const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,inst)&&effectiveCardCost(side,inst,fc)<=ss.cost);
+          const targets=fieldActive(side).filter(fc=>canAttachEnhancement(fc,inst)&&(c.effect==='grudgeJinbaori'
+            ?Math.max(0,effectiveCardCost(side,inst,fc)-faceUpBait(side).length)<=ss.cost
+            :effectiveCardCost(side,inst,fc)<=ss.cost));
           if(!targets.length)return false;
           const target=await chooseOwnedField(side,`「${c.name}」をつける虫を選んでください。`,targets);if(!target)return false;
           if(c.effect==='imitation'&&!await configureImitation(side,inst,target))return false;
@@ -1853,7 +1859,8 @@
             while(sideObj(side).bait.some(isFaceUpBait)){
               let use;
               if(side==='cpu')use=flipped<cost;
-              else use=await confirmYesNo(`「怨念の陣羽織」で表向きのエサを裏向きにしますか？ 現在の軽減：${flipped}`,'怨念の陣羽織');
+              else if(Math.max(0,cost-flipped)>ss.cost)use=true;
+              else use=await confirmYesNo(`「怨念の陣羽織」で表向きのエサをさらに裏向きにしますか？ 現在の軽減：${flipped}`,'怨念の陣羽織');
               if(!use)break;
               const choices=sideObj(side).bait.filter(isFaceUpBait),chosen=await chooseOwnedInstance(side,'裏向きにするエサを選んでください。',choices);if(!chosen)break;
               chosen.faceDown=true;flipped++;
@@ -2831,11 +2838,22 @@
     const inst=await chooseOwnedInstance(side,'使用するカードを選んでください。',choices);if(!inst)return false;
     const c=def(inst);removeInstance(sideObj(side).hand,inst);
     if(c.type==='enhance'){
+      if(c.effect==='grudgeJinbaori'){
+        while(faceUpBait(side).length){
+          let flip=side==='cpu'?false:await confirmYesNo('「ドラゴン蟷螂拳」で怨念の陣羽織を使用します。表向きのエサを裏向きにしますか？','怨念の陣羽織');
+          if(!flip)break;
+          const bait=await chooseOwnedInstance(side,'裏向きにするエサを選んでください。',faceUpBait(side));if(!bait)break;bait.faceDown=true;
+        }
+      }
+      emitCost(side,inst,c,0);
+      if(await shouldCounterCardUse(side,inst,0)){sideObj(side).discard.push(inst);log(`「ドラゴン蟷螂拳」で使用した「${c.name}」は打ち消された。`);return true;}
       if(c.effect==='imitation'&&!await configureImitation(side,inst,host)){sideObj(side).hand.push(inst);return false;}
       host.attachments.push(inst);await configureAttachedCard(side,host,inst);
       log(`「ドラゴン蟷螂拳」で「${c.name}」を「${fieldDef(host).name}」に使用した。`);return true;
     }
-    triggerImmatureOnSpell(side);sideObj(side).discard.push(inst);
+    emitCost(side,inst,c,0);triggerImmatureOnSpell(side);
+    if(await shouldCounterCardUse(side,inst,0)){sideObj(side).discard.push(inst);log(`「ドラゴン蟷螂拳」で使用した「${c.name}」は打ち消された。`);return true;}
+    sideObj(side).discard.push(inst);
     if(c.effect==='singleAttack500')host.turnAttackBonus=(host.turnAttackBonus||0)+500;
     else if(c.effect==='hideOwn'){host.hidden=true;host.hiddenUntilTurnSeq=nextOpponentTurnSeq(side);}
     else if(c.effect==='spellShield')host.spellShieldUntilTurnSeq=nextOpponentTurnSeq(side);

@@ -1336,6 +1336,9 @@
     if(p?.type==='skipTerritoryChoice'){
       if(defender==='player'){
         shouldDraw=!(await confirmYesNo('＜毒蛾の毛針＞で縄張りを引かないことを選びますか？','毒蛾の毛針'));
+      }else{
+        shouldDraw=false;
+        log('CPUは＜毒蛾の毛針＞で縄張りを引かないことを選んだ。');
       }
     }
 

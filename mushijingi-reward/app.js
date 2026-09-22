@@ -1721,7 +1721,7 @@
       const b=await chooseField('リオックのために破壊する虫（2つ目）',candidates.filter(x=>x!==a),true);if(!b)return false;
       picks=[a,b];
     }else picks=[...candidates].sort((a,b)=>(maxHp(a)-a.damage)-(maxHp(b)-b.damage)).slice(0,2);
-    for(const fc of picks)destroyFieldCard(side,fc,'sacrifice',null);
+    for(const fc of picks)await attemptDestroyFieldCard(side,fc,'sacrifice',null);
     return true;
   }
   async function chooseLarvaSacrifice(side,text){
@@ -3101,7 +3101,7 @@
     if(attack.effect==='cannibal'){
       const sacrifices=fieldActive(side).filter(x=>x!==fc);if(!sacrifices.length)return false;
       const sac=await chooseOwnedField(side,'「共食い」で破壊する自分の虫を選んでください。',sacrifices);if(!sac)return false;
-      sacrificeName=fieldDef(sac).name;destroyFieldCard(side,sac,'sacrifice',null);
+      sacrificeName=fieldDef(sac).name;await attemptDestroyFieldCard(side,sac,'sacrifice',null);
       log(`${sideName(side)}は共食いのため「${sacrificeName}」を破壊した。`);
     }
     if(attack.effect==='baitSacrifice'){
@@ -3141,7 +3141,13 @@
         if(target.damage>=maxHp(target))destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
         if(destroyed)await resolveDestroyedAttackTarget(side,fc,target,attack);
       }
-      await finishAttackSpecialState(side,fc,attack);render();return true;
+      await finishAttackSpecialState(side,fc,attack);render();
+      if(!isChainAttack&&attack.redSwordActive&&sideObj(side).field.includes(fc)){
+        state.chain={side,uid:fc.inst.uid,kind:'redSword'};
+        if(side==='cpu'){await sleep(300);const nextAttack=chooseAttackCPU(fc);if(nextAttack)await performAttack(side,fc,nextAttack);state.chain=null;}
+        else message('草薙の紅剣！ この虫でもう1度だけ、すぐに攻撃できます。');
+      }else if(state.chain?.uid===fc.inst.uid)state.chain=null;
+      return true;
     }
 
     if(attack.effect==='multiTwo'){

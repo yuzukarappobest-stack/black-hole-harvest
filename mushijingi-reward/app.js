@@ -256,7 +256,7 @@
     return fieldActive(side).flatMap(fc=>fc.attachments.map(att=>({fc,att})));
   }
   function eligibleSwordDanceEnhance(inst){
-    return def(inst).type==='enhance'&&!['summonWithAttachment','silverThread'].includes(def(inst).effect);
+    return def(inst).type==='enhance'&&!['summonWithAttachment','silverThread','blackSilverThread'].includes(def(inst).effect);
   }
   function canSwordDanceAttach(side,inst){
     if(!eligibleSwordDanceEnhance(inst))return false;
@@ -299,7 +299,10 @@
   function insectHasTechniqueEffect(fc){
     const c=fieldDef(fc);
     if(passiveOfField(fc))return true;
-    return (c.attacks||[]).some(a=>!!a.effect);
+    if((c.attacks||[]).some(a=>!!a.effect))return true;
+    const side=findFieldSide(fc),amb=side?state?.grasshopperAmbush?.[side]:null;
+    if(side&&!fc.suppressKeywords&&!hasAttachment(fc,'suppressPassive')&&!silenceActive()&&amb?.active&&!amb.ended&&grasshopperFamily(fc.inst))return true;
+    return false;
   }
   function isWaspFamily(fc){return /バチ/.test(fieldDef(fc)?.name||'');}
   function enhancementTargetLegal(fc,inst){
@@ -323,8 +326,7 @@
     if(!fc||!sideObj(side).field.includes(fc))return;
     for(const att of [...fc.attachments]){
       if(!enhancementTargetLegal(fc,att)){
-        destroyAttachment(fc,att,side,'effect');
-        log(`装着条件を満たさなくなったため「${def(att).name}」を破壊した。`);
+        if(destroyAttachment(fc,att,side,'effect'))log(`装着条件を満たさなくなったため「${def(att).name}」を破壊した。`);
       }
     }
   }
@@ -357,7 +359,6 @@
       }
       if(p?.type==='waterLarva')cost-=Math.floor(faceUpColorCount(other(side),'blue')/3);
       if(p?.type==='faceDownBaitDiscount')cost-=Math.floor(sideObj(other(side)).bait.filter(x=>x.faceDown).length/2);
-      if(p?.type==='parthenogenesis'&&fieldActive(side).some(fc=>fc.inst.uid!==inst.uid&&passiveOfField(fc)?.type==='parthenogenesis'))cost=0;
       if(flowerDanceApplies(side,inst))cost-=flowerDanceRecord(side).count*3;
       if(effectiveTechniqueCount(side,inst)>=2)cost+=activeIntimidateCount();
     }else if(c.type==='spell'){
@@ -624,6 +625,7 @@
       const cost=effectiveCardCost(side,inst);
       if(passiveOfInst(inst)?.type==='altSacrifice2')return cost<=ss.cost||fieldActive(side).length>=2;
       if(passiveOfInst(inst)?.type==='larvaSacrificeSummon')return cost<=ss.cost||fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
+      if(passiveOfInst(inst)?.type==='parthenogenesis'&&fieldActive(side).some(fc=>passiveOfField(fc)?.type==='parthenogenesis'))return true;
       return cost<=ss.cost;
     }
 
@@ -941,7 +943,7 @@
     }
 
     if(p.type==='megaArmor'){
-      fc.megaArmorTurn=nextOpponentTurnSeq(side);
+      fc.megaArmorTurn=state.turnSeq+1;
       return;
     }
 
@@ -1052,6 +1054,7 @@
     sendToOwnerDiscard(att,controllerSide);
     if(def(att).effect==='silverThread')resolveSilverThreadDestroyed(att.uid);
     destroyImitationsOf(att.uid);
+    enforceAttachmentLegality(source,controllerSide);
     return true;
   }
   function leaveFieldToHand(side,fc){
@@ -1295,6 +1298,15 @@
         ],'イラガセイボウをどうやって場に出しますか？','＜食い破る＞');
         if(mode===null)return false;alt=mode==='larva'?'larva':null;
       }
+    }else if(c.type==='insect'&&passiveOfInst(inst)?.type==='parthenogenesis'&&fieldActive(side).some(fc=>passiveOfField(fc)?.type==='parthenogenesis')){
+      if(normalCost>ss.cost)alt='parthenogenesis';
+      else if(side==='player'){
+        const mode=await choose([
+          {value:'cost',title:`${normalCost}コスト払う`,detail:'通常通り場に出す'},
+          {value:'parthenogenesis',title:'＜単為生殖＞',detail:'コストなし。このターン攻撃できない'}
+        ],'ヤエヤマツダナナフシをどうやって場に出しますか？','＜単為生殖＞');
+        if(mode===null)return false;alt=mode==='parthenogenesis'?'parthenogenesis':null;
+      }else alt='parthenogenesis';
     }else if(c.type==='insect'&&normalCost>ss.cost)return false;
 
     const action={state,side,card:inst,definition:c,cost:alt||normalCost};
@@ -1309,11 +1321,12 @@
           const larva=await chooseLarvaSacrifice(side,'＜食い破る＞で破壊する幼虫を選んでください。');if(!larva)return false;
           const destroyed=await attemptDestroyFieldCard(side,larva,'sacrifice',null);if(!destroyed)return false;
           emitCost(side,inst,c,'幼虫1つ');
+        }else if(alt==='parthenogenesis'){
+          emitCost(side,inst,c,'単為生殖');
         }else if(!spendCost(side,inst,normalCost))return false;
-        const parthenogenesisFree=passiveOfInst(inst)?.type==='parthenogenesis'&&normalCost===0&&fieldActive(side).some(fc=>passiveOfField(fc)?.type==='parthenogenesis');
         consumeFlowerDance(side,inst);
         removeHand(ss,inst);
-        await putInsectOnField(side,inst,{paidOwnCost:!alt&&!parthenogenesisFree,noAttackThisTurn:parthenogenesisFree});
+        await putInsectOnField(side,inst,{paidOwnCost:!alt,noAttackThisTurn:alt==='parthenogenesis'});
         log(`${sideName(side)}は「${c.name}」を場に出した（コスト${alt?'代替':normalCost}）。`);
         if(side==='cpu'){render();await cpuNotice(`「${c.name}」を場に出した`);}
       }else if(c.type==='enhance'){
@@ -1834,7 +1847,7 @@
       log(`＜メガ装甲＞ 「${fieldDef(target).name}」は相手の術カードのダメージを0にした。`);
     }
 
-    if(incoming>0&&hasAttachment(target,'blueJade')&&target.blueJadeUsedTurn!==state.turnSeq){
+    if(actual>0&&hasAttachment(target,'blueJade')&&target.blueJadeUsedTurn!==state.turnSeq){
       target.blueJadeUsedTurn=state.turnSeq;actual=0;
       log(`「肉祓いの蒼玉」で「${fieldDef(target).name}」がこのターン最初のダメージを0にした。`);
     }
@@ -1897,7 +1910,7 @@
     const dests=fieldActive(side).filter(x=>x!==fc&&canAttachEnhancement(x,att));if(!dests.length)return;
     const dest=await chooseOwnedField(side,'強化カードのつけ替え先を選んでください。',dests);if(!dest)return;
     if(def(att).effect==='imitation'&&!await configureImitation(side,att,dest))return;
-    removeInstance(fc.attachments,att);dest.attachments.push(att);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
+    removeInstance(fc.attachments,att);dest.attachments.push(att);enforceAttachmentLegality(fc,side);enforceAttachmentLegality(dest,side);log(`「${def(att).name}」を「${fieldDef(dest).name}」につけ替えた。`);
   }
   async function chooseOwnEnhancement(side,text){
     const all=allOwnEnhancements(side);if(!all.length)return null;
@@ -1965,7 +1978,7 @@
     if(attack.effect==='mimicColorAttack'){
       const others=fieldActive(side).filter(x=>x!==fc);if(!others.length)return false;
       const chosen=await chooseOwnedField(side,'擬態する色の虫を選んでください。',others);if(!chosen)return false;
-      fc.turnColorOverride=effectiveColor(chosen);fc.turnColorOverrideTurn=state.turnSeq;
+      fc.turnColorOverride=effectiveColor(chosen);fc.turnColorOverrideTurn=state.turnSeq;enforceAttachmentLegality(fc,side);
       log(`「${fieldDef(fc).name}」は「${fieldDef(chosen).name}」の色を擬態した。`);
     }
     if(attack.effect==='spiderWeb'){
@@ -2068,6 +2081,7 @@
       const value=Number(attack.value||300);Engine.addModifier(fc,{stat:'attack',value});Engine.addModifier(fc,{stat:'hp',value});
       log(`「${fieldDef(fc).name}」の攻撃力と体力が+${value}。`);
     }
+    if(sideObj(side).field.includes(fc))enforceAttachmentLegality(fc,side);
   }
   function moveDestroyedToDeckBottom(target,defender){
     const owner=ownerSideOf(target.inst,defender),pile=sideObj(owner).discard;
@@ -2123,9 +2137,9 @@
       await takeTerritory(side,false,{effectDraw:true});
     }
 
-    let shouldDraw=!hasAttachment(fc,'redSword');
+    let shouldDraw=!attack.redSwordActive;
     if(!shouldDraw)log('「草薙の紅剣」の効果で、この攻撃では縄張りを引かない。');
-    if(p?.type==='skipTerritoryChoice'){
+    if(shouldDraw&&p?.type==='skipTerritoryChoice'){
       if(defender==='player'){
         shouldDraw=!(await confirmYesNo('＜毒蛾の毛針＞で縄張りを引かないことを選びますか？','毒蛾の毛針'));
       }else{
@@ -2139,7 +2153,7 @@
       const suppress=attack.effect==='blockFlyOutAttack';
       drew=await takeTerritory(defender,false,{attacker:fc,suppressFlyOut:suppress,jumpOutFamily:p?.type==='jumpOut'});
       await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
-    }else log(`${sideName(defender)}は＜毒蛾の毛針＞で縄張りを引かなかった。`);
+    }else if(p?.type==='skipTerritoryChoice')log(`${sideName(defender)}は＜毒蛾の毛針＞で縄張りを引かなかった。`);
     return drew;
   }
 
@@ -2187,6 +2201,7 @@
   async function performAttack(side,fc,attack){
     if(state.over||fc.hidden||isAttackBlocked(side,fc))return false;
     const isChainAttack=state.chain?.side===side&&state.chain?.uid===fc.inst.uid;
+    attack.redSwordActive=hasAttachment(fc,'redSword');
     let cpuAttackSummary='',sacrificeName='';
 
     if(attack.effect==='cannibal'){
@@ -2264,7 +2279,7 @@
       if(attack.effect==='hpNextTurn')await applyNextTurnHp(fc,attack.value);
       if(attack.effect==='selfDestruct'&&sideObj(side).field.includes(fc))await attemptDestroyFieldCard(side,fc,'effect',null);
       let drew=false;
-      if(hasAttachment(fc,'redSword')&&sideObj(other(side)).territory.length>0){
+      if(attack.redSwordActive&&sideObj(other(side)).territory.length>0){
         log('「草薙の紅剣」の効果で、この直接攻撃では縄張りを引かない。');
       }else drew=await takeTerritory(other(side),true,{attacker:fc,suppressFlyOut:attack.effect==='blockFlyOutAttack'});
       await applyAfterTerritoryAttackEffect(side,fc,attack,drew);
@@ -2279,7 +2294,7 @@
     }else{
       if(attack.effect==='rainbowColor'){
         const color=side==='player'?await chooseSimple('相手の虫を何色にしますか？',[['red','赤'],['blue','青'],['green','緑']]):bestColorAgainstCPU(fc,other(side));
-        for(const x of fieldActive(other(side))){x.turnColorOverride=color;x.turnColorOverrideTurn=state.turnSeq;}
+        for(const x of fieldActive(other(side))){x.turnColorOverride=color;x.turnColorOverrideTurn=state.turnSeq;enforceAttachmentLegality(x,other(side));}
       }
       if(attack.effect==='sourceAttackLock'||attack.effect==='sourceAttackLockPersistent'){
         target.attackLocks=target.attackLocks||[];target.attackLocks.push({turnSeq:state.turnSeq+1,sourceUid:fc.inst.uid,sourceSide:side,persistent:attack.effect==='sourceAttackLockPersistent'});
@@ -2325,7 +2340,7 @@
     render();
     if(side==='cpu'&&cpuAttackSummary)await cpuNotice(cpuAttackSummary);
     if(state.over)return true;
-    if(!isChainAttack&&hasAttachment(fc,'redSword')&&sideObj(side).field.includes(fc)){
+    if(!isChainAttack&&attack.redSwordActive&&sideObj(side).field.includes(fc)){
       state.chain={side,uid:fc.inst.uid,kind:'redSword'};
       if(side==='cpu'){await sleep(300);const nextAttack=chooseAttackCPU(fc);if(nextAttack)await performAttack(side,fc,nextAttack);state.chain=null;}
       else message('草薙の紅剣！ この虫でもう1度だけ、すぐに攻撃できます。');

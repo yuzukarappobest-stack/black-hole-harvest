@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes" />
   <meta name="theme-color" content="#172117" />
   <title>蟲神器 SOLO - 学習ごほうび</title>
-  <link rel="stylesheet" href="./styles.css?v=7" />
+  <link rel="stylesheet" href="./styles.css?v=8" />
 </head>
 <body>
   <div id="app">
     <header class="topbar">
       <div>
         <h1>蟲神器 SOLO</h1>
-        <p>スターター＋第1〜4弾・CPU対戦</p>
+        <p>スターター＋第1〜5弾・CPU対戦</p>
       </div>
       <button id="newGameBtn" class="ghost-btn">がくしゅうへ</button>
     </header>
@@ -20,7 +20,7 @@
     <main>
       <section id="startScreen" class="start-screen panel">
         <h2>使うデッキを選んでね</h2>
-        <p>スターター2種、または第1〜4弾ランダムデッキでCPUと対戦できます。</p>
+        <p>スターター2種、または第1〜5弾ランダムデッキでCPUと対戦できます。</p>
         <div class="deck-choices">
           <button class="deck-choice kabuto" data-deck="kabuto">
             <span class="deck-icon">🪲</span>
@@ -51,6 +51,11 @@
             <span class="deck-icon">🦋</span>
             <strong>ランダム（第4弾）</strong>
             <small>第4弾ブースター64種から毎回ランダムに20枚</small>
+          </button>
+          <button class="deck-choice random5" data-deck="random5">
+            <span class="deck-icon">🐝</span>
+            <strong>ランダム（第5弾）</strong>
+            <small>第5弾「覚醒の真価」64種から毎回ランダムに20枚</small>
           </button>
         </div>
         <div class="rules-note">
@@ -184,8 +189,8 @@
     </div>
   </div>
 
-  <script src="./cards.js?v=7"></script>
-  <script src="./engine.js?v=7"></script>
-  <script src="./app.js?v=7"></script>
+  <script src="./cards.js?v=8"></script>
+  <script src="./engine.js?v=8"></script>
+  <script src="./app.js?v=8"></script>
 </body>
 </html>

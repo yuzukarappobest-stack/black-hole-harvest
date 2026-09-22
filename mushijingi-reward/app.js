@@ -832,7 +832,10 @@
     }
     if(state.phase==='main'){
       if(state.chain?.side==='player') bar.appendChild(btn('連撃をやめる','action-btn secondary',()=>{state.chain=null;message('連撃を終了しました。');render();}));
-      else bar.appendChild(btn('ターン終了','action-btn',()=>endTurn()));
+      else{
+        if(canAbyssRevive('player'))bar.appendChild(btn('奈落復活','action-btn secondary',()=>useAbyssRevival('player')));
+        bar.appendChild(btn('ターン終了','action-btn',()=>endTurn()));
+      }
     }
   }
   function btn(text,cls,fn){const b=document.createElement('button');b.className=cls;b.textContent=text;b.onclick=fn;return b;}
@@ -854,6 +857,7 @@
       if(passiveOfInst(inst)?.type==='altSacrifice2')return cost<=ss.cost||fieldActive(side).length>=2;
       if(passiveOfInst(inst)?.type==='larvaSacrificeSummon')return cost<=ss.cost||fieldActive(side).some(fc=>fieldDef(fc).name.includes('（幼虫）'));
       if(passiveOfInst(inst)?.type==='parthenogenesis'&&fieldActive(side).some(fc=>passiveOfField(fc)?.type==='parthenogenesis'))return true;
+      if(passiveOfInst(inst)?.type==='demonSummon'&&fieldActive(side).some(fc=>fc.attachments.length>0))return true;
       return cost<=ss.cost;
     }
 
@@ -1022,6 +1026,19 @@
     return true;
   }
 
+  function canAbyssRevive(side){
+    if(state.turn!==side||state.phase!=='main'||state.chain||discardSummonBlocked()||sideObj(side).cost<6)return false;
+    return visibleDiscard(side).some(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='abyssRevival');
+  }
+  async function useAbyssRevival(side){
+    if(!canAbyssRevive(side))return false;
+    const choices=visibleDiscard(side).filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='abyssRevival');
+    const chosen=await chooseOwnedInstance(side,'＜奈落復活＞で場に出す虫を選んでください。',choices);if(!chosen)return false;
+    sideObj(side).cost-=6;emitCost(side,chosen,def(chosen),6);removeInstance(sideObj(side).discard,chosen);
+    await putInsectOnField(side,chosen,{abyssRevived:true});
+    log(`＜奈落復活＞ 「${def(chosen).name}」をコスト6で捨て札から場に出した。`);render();return true;
+  }
+
   function finishSetPhase(){
     if(state.turn!=='player'||state.phase!=='set')return;
     const s=state.player; s.setDone=true; s.cost=s.bait.length; state.phase='main';
@@ -1088,6 +1105,77 @@
     if(!p)return;
     if(dangerSenseActive()&&String(p.text||'').includes('場に出たとき')&&p.type!=='dangerSense'){
       log(`＜危険察知＞により「${fieldDef(fc).name}」の場に出たときの効果は使えない。`);
+      return;
+    }
+
+    if(p.type==='shiningThread'){
+      if(!fc.paidOwnCost)return;
+      const choices=visibleDiscard(side).filter(x=>def(x).type==='enhance'&&def(x).name.includes('糸'));
+      if(!choices.length)return;
+      let use=side==='cpu'?true:await confirmYesNo('＜かがやく糸＞で捨て札の「糸」を含む強化カードを手札に戻しますか？','かがやく糸');
+      if(use){const chosen=await chooseOwnedInstance(side,'手札に戻す強化カードを選んでください。',choices);if(chosen){removeInstance(sideObj(side).discard,chosen);sendToOwnerHand(chosen,side);log(`＜かがやく糸＞ 「${def(chosen).name}」を手札に戻した。`);}}
+      return;
+    }
+
+    if(p.type==='blastCharge'){
+      if(!visibleDiscard(side).some(x=>def(x).name.includes('爆熱')))return;
+      const targets=fieldActive(other(side));if(!targets.length)return;
+      let use=side==='cpu'?true:await confirmYesNo('＜爆熱充填＞で相手の虫に600ダメージを与えますか？','爆熱充填');if(!use)return;
+      const target=side==='player'?await chooseField('600ダメージを与える虫を選んでください。',targets,true):chooseBurnTargetCPU(targets);
+      if(target){const dmg=await dealDamage(other(side),target,600,{source:fc,sourceSide:side,kind:'effect'});log(`＜爆熱充填＞ 「${fieldDef(target).name}」に${dmg}ダメージ。`);if(target.damage>=maxHp(target))await attemptDestroyFieldCard(other(side),target,'effect',null);}
+      return;
+    }
+
+    if(p.type==='poisonMistSpread'){
+      const targets=[...fieldActive(other(side))];if(!targets.length)return;
+      let use=side==='cpu'?true:await confirmYesNo('＜毒霧拡散＞で相手のすべての虫に200ダメージを与えますか？','毒霧拡散');if(!use)return;
+      for(const target of targets){
+        if(!sideObj(other(side)).field.includes(target))continue;
+        const dmg=await dealDamage(other(side),target,200,{source:fc,sourceSide:side,kind:'effect'});
+        log(`＜毒霧拡散＞ 「${fieldDef(target).name}」に${dmg}ダメージ。`);
+      }
+      for(const target of targets)if(sideObj(other(side)).field.includes(target)&&target.damage>=maxHp(target))await attemptDestroyFieldCard(other(side),target,'effect',null);
+      return;
+    }
+
+    if(p.type==='bugHunter'){
+      if(!fc.paidOwnCost)return;
+      const targets=fieldActive(other(side)).filter(x=>Number(fieldDef(x).cost||0)<=2);if(!targets.length)return;
+      let use=side==='cpu'?true:await confirmYesNo('＜バグハンター＞で相手のコスト2以下の虫を破壊しますか？','バグハンター');if(!use)return;
+      const target=side==='player'?await chooseField('破壊する虫を選んでください。',targets,true):targets[0];if(target)await attemptDestroyFieldCard(other(side),target,'effect',null);
+      return;
+    }
+
+    if(p.type==='phalanx'){
+      if(!fc.paidOwnCost)return;
+      const maxCost=Number(fieldDef(fc).cost||0);
+      const choices=sideObj(side).hand.filter(x=>def(x).type==='insect'&&def(x).passive?.type==='phalanx'&&Number(def(x).cost||0)<=maxCost);
+      if(!choices.length)return;
+      let use=side==='cpu'?true:await confirmYesNo('＜ファランクス＞で手札の＜ファランクス＞を持つ虫を場に出しますか？','ファランクス');if(!use)return;
+      const chosen=await chooseOwnedInstance(side,'場に出す虫を選んでください。',choices);if(chosen){removeInstance(sideObj(side).hand,chosen);await putInsectOnField(side,chosen);log(`＜ファランクス＞ 「${def(chosen).name}」を場に出した。`);}
+      return;
+    }
+
+    if(p.type==='reincarnationBoost'&&fc.summonedByEclosion){
+      const value=Number(p.value||400);Engine.addModifier(fc,{stat:'attack',value});Engine.addModifier(fc,{stat:'hp',value});
+      log(`＜転生強化＞ 「${fieldDef(fc).name}」の体力と攻撃力+${value}。`);
+      return;
+    }
+
+    if(p.type==='snakeEye'){
+      if(!fc.paidOwnCost)return;
+      const choices=sideObj(other(side)).bait.filter(x=>isFaceUpBait(x)&&['red','blue','green'].includes(baitCardColor(x)));if(!choices.length)return;
+      let use=side==='cpu'?true:await confirmYesNo('＜蛇の目＞で相手の色付きエサ1枚を裏向きにしますか？','蛇の目');if(!use)return;
+      const chosen=await chooseOwnedInstance(side,'裏向きにする相手のエサを選んでください。',choices);if(chosen){chosen.faceDown=true;log(`＜蛇の目＞ 「${def(chosen).name}」を裏向きにした。`);}
+      return;
+    }
+
+    if(p.type==='adultCalling'){
+      if(!fc.paidOwnCost)return;
+      const adult=baseAdultName(fieldDef(fc).name),choices=sideObj(side).hand.filter(x=>def(x).type==='insect'&&def(x).name===adult);
+      if(!choices.length)return;
+      let use=side==='cpu'?true:await confirmYesNo(`＜成虫招き＞で手札の「${adult}」を場に出しますか？`,'成虫招き');if(!use)return;
+      const chosen=await chooseOwnedInstance(side,'場に出す成虫を選んでください。',choices);if(chosen){removeInstance(sideObj(side).hand,chosen);await putInsectOnField(side,chosen);log(`＜成虫招き＞ 「${adult}」を場に出した。`);}
       return;
     }
 
@@ -1397,6 +1485,9 @@
     fc.paidOwnCost=!!options.paidOwnCost;
     fc.summonedByEclosion=!!options.summonedByEclosion;
     fc.summonedByTimePupa=!!options.summonedByTimePupa;
+    fc.abyssRevived=!!options.abyssRevived;
+    fc.underworldFaceDownTurn=options.underworldFaceDownTurn||0;
+    inst.discardFaceDown=false;
     if(rawFieldPassive(fc)?.type==='dive')fc.diveTurn=nextOpponentTurnSeq(side);
     if(['mimic','thornMimic'].includes(passiveOfField(fc)?.type))fc.mimicTurn=nextOpponentTurnSeq(side);
     if(options.temporary)fc.temporaryDestroyTurn=state.turnSeq;
@@ -1846,6 +1937,15 @@
         ],'イラガセイボウをどうやって場に出しますか？','＜食い破る＞');
         if(mode===null)return false;alt=mode==='larva'?'larva':null;
       }
+    }else if(c.type==='insect'&&passiveOfInst(inst)?.type==='demonSummon'&&fieldActive(side).some(fc=>fc.attachments.length>0)){
+      if(normalCost>ss.cost)alt='demon';
+      else if(side==='player'){
+        const mode=await choose([
+          {value:'cost',title:`${normalCost}コスト払う`,detail:'通常通り場に出す'},
+          {value:'demon',title:'＜悪魔召喚＞',detail:'強化カードがついた自分の虫1つを破壊する'}
+        ],'トゲアクマツユムシをどうやって場に出しますか？','＜悪魔召喚＞');
+        if(mode===null)return false;alt=mode==='demon'?'demon':null;
+      }else alt='demon';
     }else if(c.type==='insect'&&passiveOfInst(inst)?.type==='parthenogenesis'&&fieldActive(side).some(fc=>passiveOfField(fc)?.type==='parthenogenesis')){
       if(normalCost>ss.cost)alt='parthenogenesis';
       else if(side==='player'){
@@ -1869,6 +1969,11 @@
           const larva=await chooseLarvaSacrifice(side,'＜食い破る＞で破壊する幼虫を選んでください。');if(!larva)return false;
           const destroyed=await attemptDestroyFieldCard(side,larva,'sacrifice',null);if(!destroyed)return false;
           emitCost(side,inst,c,'幼虫1つ');
+        }else if(alt==='demon'){
+          const choices=fieldActive(side).filter(fc=>fc.attachments.length>0);
+          const victim=await chooseOwnedField(side,'＜悪魔召喚＞で破壊する虫を選んでください。',choices);if(!victim)return false;
+          await attemptDestroyFieldCard(side,victim,'sacrifice',null);
+          emitCost(side,inst,c,'悪魔召喚');
         }else if(alt==='parthenogenesis'){
           emitCost(side,inst,c,'単為生殖');
         }else if(!spendCost(side,inst,normalCost))return false;
@@ -3600,6 +3705,7 @@
     let guard=0;
     while(!state.over && guard++<20){
       let acted=false;
+      if(canAbyssRevive('cpu')){acted=await useAbyssRevival('cpu');if(acted){render();continue;}}
       const usable=s.hand.filter(x=>canUseHandCardCPU(x));
       const burnTarget=chooseBurnTargetCPU(fieldActive('player'));
       const spellFirst=usable.find(x=>def(x).effect==='allAttack200'&&fieldActive('cpu').filter(fc=>!fc.attacked).length>=2)

@@ -216,7 +216,7 @@
       !!(p&&(/毒/.test(String(p.text||''))||/poison/i.test(String(p.type||''))));
   }
   function discardSummonBlocked(){
-    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='hellGatekeeper'));
+    return ['player','cpu'].some(side=>fieldActive(side).some(fc=>passiveOfField(fc)?.type==='hellGatekeeper'||hasAttachment(fc,'bewitchingFireflyBag')));
   }
 
   function scavengerActive(side){
@@ -1078,6 +1078,20 @@
       fc.changedColor=col||effectiveColor(fc);
     }
     if(e==='secretBook')att.protectTurn=nextOpponentTurnSeq(side);
+    if(e==='dragonflyHairpin'&&options.paidOwnCost){
+      const targets=fieldActive(other(side));
+      if(targets.length){
+        const target=side==='player'?await chooseField('「鬼蜻蜓の簪」で裏向きにする相手の虫を選んでください。',targets,true):targets[0];
+        if(target){target.hidden=true;target.hairpinSourceUid=att.uid;target.hiddenUntilTurnSeq=0;att.hairpinTargetUid=target.inst.uid;log(`「鬼蜻蜓の簪」で「${fieldDef(target).name}」を裏向きにした。`);}
+      }
+    }
+    if(e==='centipedeGreaves'){
+      const choices=visibleDiscard(side).filter(x=>def(x).effect==='centipedeGreaves'&&canAttachEnhancement(fc,x));
+      if(choices.length){
+        let use=side==='cpu'?true:await confirmYesNo('捨て札の「百足の具足」を同じ虫につけますか？','百足の具足');
+        if(use){const extra=await chooseOwnedInstance(side,'つける百足の具足を選んでください。',choices);if(extra){removeInstance(sideObj(side).discard,extra);fc.attachments.push(extra);await configureAttachedCard(side,fc,extra,{entered:true});}}
+      }
+    }
     if(entered&&(e==='electricKanabo'||e==='blastClub')){
       const amount=e==='electricKanabo'?1000:600,targets=fieldActive(other(side));
       if(targets.length){
@@ -1543,6 +1557,7 @@
     fc.destroyedAttachmentEffects=[...fc.attachments].map(a=>def(a).effect);
     fc.destroyedAttachmentCards=[...fc.attachments];
     for(const a of [...fc.attachments]){
+      revealHairpinTarget(a);
       if(['secretBook','spear400','spear800','larvaPot','stickChange'].includes(def(a).effect)&&reason==='attack')sendToOwnerHand(a,controllerSide);
       else sendToOwnerDiscard(a,controllerSide);
       if(def(a).effect==='silverThread'&&a.uid!==options.skipThreadUid)threadUids.push(a.uid);
@@ -1552,6 +1567,52 @@
     if(reason==='attack'&&threadUids.length)fc.pendingSilverThreadUids=[...(fc.pendingSilverThreadUids||[]),...threadUids];
     else for(const uid of threadUids)resolveSilverThreadDestroyed(uid);
   }
+  function revealHairpinTarget(att){
+    if(!att?.hairpinTargetUid)return;
+    for(const side of ['player','cpu']){
+      const target=sideObj(side).field.find(fc=>fc.inst.uid===att.hairpinTargetUid);
+      if(target&&target.hidden&&target.hairpinSourceUid===att.uid){target.hidden=false;target.hairpinSourceUid=null;target.hiddenUntilTurnSeq=0;log(`「鬼蜻蜓の簪」が場を離れたため「${fieldDef(target).name}」を表向きにした。`);}
+    }
+    att.hairpinTargetUid=null;
+  }
+  function applyShadowMirrorOverride(fc){
+    const mirrors=fc.attachments.filter(a=>def(a).effect==='shadowDoubleMirror'&&a.shadowCopy);
+    const last=mirrors[mirrors.length-1];
+    if(!last){Engine.clearCardOverrides(fc);if(fc.suppressKeywords){fc.suppressKeywords=false;}return;}
+    const c=last.shadowCopy;
+    Engine.setCardOverrides(fc,{name:c.name,color:c.color,hp:c.hp,attacks:c.attacks,passive:c.passive});
+  }
+  function resolveShadowMirrorSourceLeft(sourceUid){
+    for(const side of ['player','cpu'])for(const fc of [...sideObj(side).field]){
+      for(const att of [...fc.attachments]){
+        if(def(att).effect==='shadowDoubleMirror'&&att.shadowSourceUid===sourceUid){
+          destroyAttachment(fc,att,side,'effect');
+          log(`影武者の参照元が場を離れたため「${def(att).name}」を破壊した。`);
+        }
+      }
+    }
+  }
+  function revealSpiritAwayBySource(sourceUid){
+    for(const side of ['player','cpu'])for(const fc of sideObj(side).field){
+      if(fc.spiritAwaySourceUid===sourceUid&&fc.hidden){fc.hidden=false;fc.hiddenUntilTurnSeq=0;fc.spiritAwaySourceUid=null;log(`「神隠し」の使用虫が場を離れたため「${fieldDef(fc).name}」を表向きにした。`);}
+    }
+  }
+  function spellModifierValue(target,value){
+    const p=passiveOfField(target);
+    if(p?.type==='firstSpellModifierDouble'&&!target.firstSpellModifierUsed&&Number(value)!==0){
+      target.firstSpellModifierUsed=true;return Number(value)*2;
+    }
+    return Number(value);
+  }
+  function consumeStinkShieldArmor(targetSide,target){
+    const sourceSide=state?.resolvingSpellSide;
+    if(!sourceSide||sourceSide===targetSide||state.resolvingSpellUntargeted)return false;
+    if(!armorNamedAttachment(target))return false;
+    const shield=faceUpBait(targetSide).find(x=>def(x).effect==='stinkShieldArmor');
+    if(!shield)return false;
+    shield.faceDown=true;log(`「亀虫の盾甲冑」を裏向きにし、「${fieldDef(target).name}」はこの術カードの効果を受けない。`);return true;
+  }
+
   function destroyImitationsOf(sourceUid){
     for(const side of ['player','cpu']){
       for(const fc of [...sideObj(side).field]){
@@ -1567,9 +1628,11 @@
   function destroyAttachment(source,att,controllerSide,reason='effect'){
     if(!source||!att)return false;
     if(!removeInstance(source.attachments,att))return false;
+    revealHairpinTarget(att);
     sendToOwnerDiscard(att,controllerSide);
     if(def(att).effect==='silverThread')resolveSilverThreadDestroyed(att.uid);
     destroyImitationsOf(att.uid);
+    if(def(att).effect==='shadowDoubleMirror')applyShadowMirrorOverride(source);
     enforceAttachmentLegality(source,controllerSide);
     return true;
   }
@@ -1580,6 +1643,7 @@
     discardAttachmentsToOwners(fc,side,'return');
     sendToOwnerHand(fc.inst,side);
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason:'return'});
+    resolveShadowMirrorSourceLeft(fc.inst.uid);revealSpiritAwayBySource(fc.inst.uid);
     log(`「${fieldDef(fc).name}」が持ち主の手札に戻った。`);
     if(rawFieldPassive(fc)?.type==='silenceAll'||hadWarriorSeal)enforceAllAttachmentLegality();
     return true;
@@ -1648,12 +1712,16 @@
     return 'prevented';
   }
 
-  async function resolveDestroyedAttachmentAftermath(controllerSide,fc){
+  async function resolveDestroyedAttachmentAftermath(controllerSide,fc,reason){
     for(const att of fc.destroyedAttachmentCards||[]){
       const e=def(att).effect,owner=ownerSideOf(att,controllerSide),pile=sideObj(owner).discard;
       if(e==='jewelCrown'&&pile.some(x=>x.uid===att.uid)){
         let use=owner==='cpu'?true:await confirmYesNo('「宝石虫の冠」をエサ場に置きますか？','宝石虫の冠');
         if(use){removeInstance(pile,att);att.faceDown=false;sideObj(owner).bait.push(att);log('「宝石虫の冠」をエサ場に置いた。');}
+      }
+      if(e==='goldenSixCoins'&&reason==='attack'&&pile.some(x=>x.uid===att.uid)){
+        let use=owner==='cpu'?true:await confirmYesNo('「黄金虫の六文銭」を山札の一番下に置いて1枚引きますか？','黄金虫の六文銭');
+        if(use){removeInstance(pile,att);att.faceDown=true;sideObj(owner).deck.push(att);if(sideObj(owner).deck.length){const drawn=sideObj(owner).deck.shift();sendToOwnerHand(drawn,owner);log('「黄金虫の六文銭」を山札の一番下に置き、1枚引いた。');}}
       }
       if((e==='victoryBlade'||e==='auspiciousBlade')&&pile.some(x=>x.uid===att.uid)&&faceUpBait(owner).length){
         let use=owner==='cpu'?true:await confirmYesNo(`「${def(att).name}」を手札に戻すため、表向きのエサ1枚を裏向きにしますか？`,def(att).name);
@@ -1668,6 +1736,7 @@
 
   async function attemptDestroyFieldCard(side,fc,reason,attacker){
     const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    if(reason==='effect'&&state.resolvingSpellSide&&state.resolvingSpellSide!==side&&consumeStinkShieldArmor(side,fc))return false;
     if(reason==='effect'&&state.resolvingSpellSide&&state.resolvingSpellSide!==side&&spellDamageDestroyImmune(side,fc)){
       log(`「${fieldDef(fc).name}」は相手の術カードによる破壊を受けない。`);
       return false;
@@ -1682,7 +1751,7 @@
     if(!skipArmor&&consumeArmorSynchronously(side,fc))return false;
     if(!ss.field.includes(fc))return true;
     destroyFieldCard(side,fc,reason,attacker);
-    await resolveDestroyedAttachmentAftermath(side,fc);
+    await resolveDestroyedAttachmentAftermath(side,fc,reason);
     return true;
   }
   function destroyFieldCard(side,fc,reason,attacker,options={}){
@@ -1694,8 +1763,10 @@
     fc.preDestroyEnhanceUids=visibleDiscard(owner).filter(x=>def(x).type==='enhance').map(x=>x.uid);
     ss.field=ss.field.filter(x=>x!==fc);
     sendToOwnerDiscard(fc.inst,side);
+    if(fc.abyssRevived)fc.inst.discardFaceDown=true;
     discardAttachmentsToOwners(fc,side,reason,{skipThreadUid:options.skipThreadUid});
     events.emit(EVENT.CARD_LEFT_FIELD,{state,side,fieldCard:fc,reason,attacker});
+    resolveShadowMirrorSourceLeft(fc.inst.uid);revealSpiritAwayBySource(fc.inst.uid);
     events.emit(EVENT.INSECT_DESTROYED,{state,side,fieldCard:fc,reason,attacker});
     log(`「${fieldDef(fc).name}」が破壊された。`);
     if(reason!=='attack'&&beforePassive?.type==='dragonflyReturn'&&hadEnhancement){
@@ -2672,7 +2743,8 @@
     }
 
     if(ctx.kind==='spell'&&ctx.sourceSide&&ctx.sourceSide!==targetSide){
-      if(spellDamageDestroyImmune(targetSide,target)){
+      if(ctx.targeted!==false&&consumeStinkShieldArmor(targetSide,target)){actual=0;}
+      else if(spellDamageDestroyImmune(targetSide,target)){
         actual=0;
         log(`「${fieldDef(target).name}」は相手の術カードのダメージを0にした。`);
       }else if(p?.type==='spellResistance'){

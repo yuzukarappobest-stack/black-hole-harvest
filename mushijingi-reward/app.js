@@ -931,6 +931,11 @@
     if(c.effect==='flyLarvae')return visibleDiscardFrom(ss).some(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=1);
     if(c.effect==='lightningStorm'||c.effect==='blastStorm')return legalOpp.length>0;
     if(c.effect==='sacrificeReincarnation')return fieldActive(side).some(fc=>ownerSideOf(fc.inst,side)===side);
+    if(c.effect==='nextSpellDiscount'||c.effect==='halfDeathCompanion'||c.effect==='allField300End'||c.effect==='allField1200End'||c.effect==='silkwormGag')return true;
+    if(c.effect==='sparkStorm'||c.effect==='boundarySend')return legalOpp.length>0;
+    if(c.effect==='pupaWintering')return ss.hand.some(x=>x.uid!==inst.uid);
+    if(c.effect==='underworldGuide')return !discardSummonBlocked()&&visibleDiscardFrom(ss).some(x=>def(x).type==='insect');
+    if(c.effect==='goldenArm')return fieldActive(side).length>0;
     return true;
   }
   function canAttack(fc){
@@ -959,6 +964,7 @@
       firstSpellTax:{player:{turnSeq:0,count:0,used:false},cpu:{turnSeq:0,count:0,used:false}},
       nextSpellDiscount:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},
       silkwormGag:{player:{untilTurnSeq:0},cpu:{untilTurnSeq:0}},
+      resolvingSpellUntargeted:false,
       resolvingSpellSide:null,
       noFlyOutSide:null,noFlyOutTurn:0};
     startScreen.classList.add('hidden'); gameScreen.classList.remove('hidden');
@@ -1749,7 +1755,6 @@
   }
 
   async function resolveReincarnationEclose(side,printedName){
-    if(discardSummonBlocked())return false;
     const adultName=baseAdultName(printedName),choices=sideObj(side).hand.filter(x=>def(x).type==='insect'&&def(x).name===adultName);
     if(!choices.length)return false;
     let use=side==='cpu'?true:await confirmYesNo(`＜転生羽化＞で手札の「${adultName}」を場に出しますか？`,'転生羽化');if(!use)return false;
@@ -2216,6 +2221,17 @@
     removeHand(ss,inst);if(toDiscard)ss.discard.push(inst);
     return true;
   }
+  async function chooseHalfDeathVictims(side){
+    const active=fieldActive(side),need=active.length-Math.floor(active.length/2),picked=[];
+    const remaining=[...active];
+    for(let n=0;n<need;n++){
+      if(!remaining.length)break;
+      const chosen=await chooseOwnedField(side,'「半死の道連れ」で破壊する自分の虫を選んでください。',remaining);
+      if(!chosen)break;picked.push(chosen);remaining.splice(remaining.indexOf(chosen),1);
+    }
+    return picked;
+  }
+
   async function resolveSpell(side,inst,c){
     const s=sideObj(side),opp=other(side);
     let target,chosen;
@@ -2238,7 +2254,7 @@
       log(`${sideName(side)}は「蟲の息吹」を使い、エサを1枚増やした（このターンのコストは増えない）。`);
     }else if(c.effect==='allAttack200'||c.effect==='allAttack300'||c.effect==='allAttack500'){
       paySpell(side,inst,c);const value=c.effect==='allAttack500'?500:(c.effect==='allAttack300'?300:200);
-      for(const fc of fieldActive(side))fc.turnAttackBonus+=value;
+      for(const fc of fieldActive(side))fc.turnAttackBonus+=spellModifierValue(fc,value);
       log(`${sideName(side)}の場の虫すべての攻撃力がこのターン+${value}。`);
     }else if(c.effect==='moveEnhance'){
       const pick=await chooseAttachment(side,fieldActive(side),'強化カードがついている虫を選んでください。');if(!pick)return false;
@@ -2340,7 +2356,7 @@
     }else if(c.effect==='singleAttack500'){
       const list=fieldActive(side);if(!list.length)return false;
       target=await chooseOwnedField(side,'攻撃力を500増やす虫を選んでください。',list);if(!target)return false;
-      paySpell(side,inst,c);target.turnAttackBonus+=500;log(`「${fieldDef(target).name}」の攻撃力がこのターン+500。`);
+      paySpell(side,inst,c);const value=spellModifierValue(target,500);target.turnAttackBonus+=value;log(`「${fieldDef(target).name}」の攻撃力がこのターン+${value}。`);
     }else if(c.effect==='harvestBaitSpecial'){
       const list=faceUpBait(side).filter(x=>['enhance','spell'].includes(def(x).type));if(!list.length)return false;
       chosen=await chooseOwnedInstance(side,'手札に戻すエサを選んでください。',list);if(!chosen)return false;
@@ -2776,6 +2792,77 @@
       if(!paySpell(side,inst,c))return false;
       removeInstance(s.discard,chosen);target.attachments.push(chosen);chosen.expireTurn=state.turnSeq;await configureAttachedCard(side,target,chosen);target.attacked=false;
       log(`「拝虫の豪新剣」で「${def(chosen).name}」をつけ、「${fieldDef(target).name}」を再び攻撃可能にした。`);
+    }else if(c.effect==='nextSpellDiscount'){
+      if(!paySpell(side,inst,c))return false;
+      const rec=state.nextSpellDiscount[side];if(rec.turnSeq!==state.turnSeq){rec.turnSeq=state.turnSeq;rec.count=0;}rec.count++;
+      log(`「蟲術の息吹」により次に使う術カードのコスト-${rec.count}。`);
+    }else if(c.effect==='halfDeathCompanion'){
+      if(!paySpell(side,inst,c))return false;
+      const own=await chooseHalfDeathVictims(side),enemy=await chooseHalfDeathVictims(opp);
+      state.resolvingSpellUntargeted=true;
+      try{
+        for(const fc of own)if(sideObj(side).field.includes(fc))await attemptDestroyFieldCard(side,fc,'effect',null);
+        for(const fc of enemy)if(sideObj(opp).field.includes(fc))await attemptDestroyFieldCard(opp,fc,'effect',null);
+      }finally{state.resolvingSpellUntargeted=false;}
+      log('「半死の道連れ」で双方の場の虫を半数（端数切り捨て）になるまで破壊した。');
+    }else if(c.effect==='allField300End'||c.effect==='allField1200End'){
+      const amount=c.effect==='allField1200End'?1200:300;if(!paySpell(side,inst,c))return false;
+      const snapshots={player:[...fieldActive('player')],cpu:[...fieldActive('cpu')]};
+      state.resolvingSpellUntargeted=true;
+      try{
+        for(const owner of ['player','cpu'])for(const fc of snapshots[owner]){
+          if(!sideObj(owner).field.includes(fc))continue;
+          const dmg=await dealDamage(owner,fc,amount,{source:inst,sourceSide:side,kind:'spell',targeted:false});
+          log(`「${c.name}」→「${fieldDef(fc).name}」に${dmg}ダメージ。`);
+        }
+        for(const owner of ['player','cpu'])for(const fc of [...sideObj(owner).field])if(!fc.hidden&&fc.damage>=maxHp(fc))await attemptDestroyFieldCard(owner,fc,'effect',null);
+      }finally{state.resolvingSpellUntargeted=false;}
+      state.forceEndAfterResolve=true;
+    }else if(c.effect==='sparkStorm'){
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
+      const hadCopy=visibleDiscard(side).some(x=>def(x).type==='spell'&&def(x).name===c.name&&x.uid!==inst.uid);
+      if(!paySpell(side,inst,c))return false;
+      const times=hadCopy?3:1;
+      for(let n=0;n<times;n++){
+        const targets=spellTargetCandidates(side,opp);if(!targets.length)break;
+        const t=side==='player'?await chooseField(`「火花の嵐」${n+1}回目：100ダメージの対象を選んでください。`,targets,true):chooseBurnTargetCPU(targets);if(!t)break;
+        const dmg=await dealDamage(opp,t,100,{source:inst,sourceSide:side,kind:'spell'});log(`「火花の嵐」→「${fieldDef(t).name}」に${dmg}ダメージ。`);
+        if(sideObj(opp).field.includes(t)&&t.damage>=maxHp(t))await attemptDestroyFieldCard(opp,t,'effect',null);
+      }
+    }else if(c.effect==='pupaWintering'){
+      const choices=s.hand.filter(x=>x.uid!==inst.uid);if(!choices.length)return false;
+      chosen=await chooseOwnedInstance(side,'「蛹の冬籠り」で捨て札に置く手札を選んでください。',choices);if(!chosen)return false;
+      if(!paySpell(side,inst,c))return false;removeInstance(s.hand,chosen);sendToOwnerDiscard(chosen,side);
+      log(`「蛹の冬籠り」で「${def(chosen).name}」を捨て札に置いた。`);
+    }else if(c.effect==='boundarySend'){
+      const choices=spellTargetCandidates(side,opp);if(!choices.length)return false;
+      target=side==='player'?await chooseField('「断界の虫送り」で相手のエサ場へ送る虫を選んでください。',choices,true):choices[0];if(!target)return false;
+      if(!paySpell(side,inst,c))return false;
+      if(!consumeStinkShieldArmor(opp,target)){
+        removeInstance(sideObj(opp).field,target);discardAttachmentsToOwners(target,opp,'return');
+        resolveShadowMirrorSourceLeft(target.inst.uid);revealSpiritAwayBySource(target.inst.uid);
+        target.inst.faceDown=true;target.inst.discardFaceDown=false;sideObj(opp).bait.push(target.inst);
+        events.emit(EVENT.CARD_LEFT_FIELD,{state,side:opp,fieldCard:target,reason:'boundarySend'});
+        log(`「断界の虫送り」で「${fieldDef(target).name}」を裏向きで相手のエサ場に置いた。`);
+      }
+    }else if(c.effect==='underworldGuide'){
+      if(discardSummonBlocked())return false;
+      const choices=visibleDiscard(side).filter(x=>def(x).type==='insect');if(!choices.length)return false;
+      chosen=await chooseOwnedInstance(side,'「冥府の導き」で場に出す虫を選んでください。',choices);if(!chosen)return false;
+      if(!paySpell(side,inst,c))return false;removeInstance(s.discard,chosen);
+      const fc=await putInsectOnField(side,chosen,{summonedBySpell:true,underworldFaceDownTurn:state.turnSeq});
+      log(`「冥府の導き」で「${fieldDef(fc).name}」を場に出した。ターン終了時に裏向きで捨て札へ置く。`);
+    }else if(c.effect==='silkwormGag'){
+      if(!paySpell(side,inst,c))return false;
+      state.silkwormGag[opp].untilTurnSeq=nextOpponentTurnSeq(side);
+      enforceAllAttachmentLegality();log('「蚕の口封じ」により次の相手ターン終了時まで相手の虫は場所を問わず＜＞の技を失う。');
+    }else if(c.effect==='goldenArm'){
+      const list=fieldActive(side);if(!list.length)return false;
+      target=await chooseOwnedField(side,'「金色の腕」で体力を上げる虫を選んでください。',list);if(!target)return false;
+      if(!paySpell(side,inst,c))return false;
+      const value=spellModifierValue(target,800);
+      Engine.addModifier(target,{stat:'hp',value,expiresAfterTurnSeq:nextOpponentTurnSeq(side)});
+      log(`「金色の腕」で「${fieldDef(target).name}」の体力+${value}（次の相手ターン終了時まで）。`);
     }else return false;
 
     if(side==='cpu'){render();await cpuNotice(`「${c.name}」を使用`);}
@@ -3896,6 +3983,19 @@
             log(`＜かばう＞の効果で「${fieldDef(fc).name}」を持ち主の手札へ戻した。`);
             leaveFieldToHand(controller,fc);
           }
+        }
+      }
+
+      for(const controller of ['player','cpu']){
+        for(const fc of [...sideObj(controller).field]){
+          if(!sideObj(controller).field.includes(fc)||fc.underworldFaceDownTurn!==state.turnSeq)continue;
+          fc.underworldFaceDownTurn=0;
+          sideObj(controller).field=sideObj(controller).field.filter(x=>x!==fc);
+          discardAttachmentsToOwners(fc,controller,'return');
+          resolveShadowMirrorSourceLeft(fc.inst.uid);revealSpiritAwayBySource(fc.inst.uid);
+          sendToOwnerDiscardFaceDown(fc.inst,controller);
+          events.emit(EVENT.CARD_LEFT_FIELD,{state,side:controller,fieldCard:fc,reason:'underworldGuide'});
+          log(`「冥府の導き」の効果で「${fieldDef(fc).name}」を裏向きで捨て札に置いた。`);
         }
       }
 

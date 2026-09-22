@@ -1774,8 +1774,7 @@
     log(`「逆立ち返し」で「${fieldDef(outgoing).name}」とエサの「${def(incoming).name}」を入れ替えた。`);
 
     if(sideObj(defender).field.includes(newTarget)){
-      let base=attackPower(side,fc,attack);
-      if(attack.effect==='bonusVsEnhanced'&&target.attachments.length)base+=Number(attack.value||300);
+      const base=attackPower(side,fc,attack);
       const {dmg,mult}=await applyAttackDamage(side,fc,newTarget,attack,base);
       log(`逆立ち返しの処理後、「${fieldDef(newTarget).name}」に${dmg}ダメージ${mult===2?'（弱点2倍）':''}。`);
       if(newTarget.damage>=maxHp(newTarget)){
@@ -1887,7 +1886,8 @@
       if(attack.effect==='hpNextTurn')await applyNextTurnHp(fc,attack.value);
 
       let destroyed=false;
-      const base=attackPower(side,fc,attack);
+      let base=attackPower(side,fc,attack);
+      if(attack.effect==='bonusVsEnhanced'&&target.attachments.length)base+=Number(attack.value||300);
       if(attack.effect==='hornSkewer'&&target.damage>0&&base>=100){
         destroyed=await attemptDestroyFieldCard(other(side),target,'attack',fc);
         if(destroyed){

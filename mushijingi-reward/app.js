@@ -1166,7 +1166,7 @@
       if(!fc.paidOwnCost)return;
       const targets=fieldActive(other(side)).filter(x=>Number(fieldDef(x).cost||0)<=2);if(!targets.length)return;
       let use=side==='cpu'?true:await confirmYesNo('＜バグハンター＞で相手のコスト2以下の虫を破壊しますか？','バグハンター');if(!use)return;
-      const target=side==='player'?await chooseField('破壊する虫を選んでください。',targets,true):targets[0];if(target)await attemptDestroyFieldCard(other(side),target,'effect',null);
+      const target=side==='player'?await chooseField('破壊する虫を選んでください。',targets,true):targets[0];if(target)await attemptDestroyFieldCard(other(side),target,'effect',fc);
       return;
     }
 
@@ -1748,8 +1748,22 @@
     fc.destroyedAttachmentCards=[];
   }
 
+  async function resolveReincarnationEclose(side,printedName){
+    if(discardSummonBlocked())return false;
+    const adultName=baseAdultName(printedName),choices=sideObj(side).hand.filter(x=>def(x).type==='insect'&&def(x).name===adultName);
+    if(!choices.length)return false;
+    let use=side==='cpu'?true:await confirmYesNo(`＜転生羽化＞で手札の「${adultName}」を場に出しますか？`,'転生羽化');if(!use)return false;
+    const chosen=await chooseOwnedInstance(side,'場に出す成虫を選んでください。',choices);if(!chosen)return false;
+    removeInstance(sideObj(side).hand,chosen);await putInsectOnField(side,chosen,{summonedByEclosion:true});
+    log(`＜転生羽化＞ 「${adultName}」を場に出した。`);return true;
+  }
+
   async function attemptDestroyFieldCard(side,fc,reason,attacker){
     const ss=sideObj(side);if(!ss.field.includes(fc))return false;
+    const beforePassive=passiveOfField(fc),printedName=def(fc.inst).name;
+    const pendingSource=fc.pendingDamageSourceSide;fc.pendingDamageSourceSide=null;
+    const attackerSide=attacker?findFieldSide(attacker):null;
+    const causedByOpponent=(attackerSide&&attackerSide!==side)||(pendingSource&&pendingSource!==side)||(state.resolvingSpellSide&&state.resolvingSpellSide!==side);
     if(reason==='effect'&&state.resolvingSpellSide&&state.resolvingSpellSide!==side&&consumeStinkShieldArmor(side,fc))return false;
     if(reason==='effect'&&state.resolvingSpellSide&&state.resolvingSpellSide!==side&&spellDamageDestroyImmune(side,fc)){
       log(`「${fieldDef(fc).name}」は相手の術カードによる破壊を受けない。`);
@@ -1766,6 +1780,7 @@
     if(!ss.field.includes(fc))return true;
     destroyFieldCard(side,fc,reason,attacker);
     await resolveDestroyedAttachmentAftermath(side,fc,reason);
+    if(beforePassive?.type==='reincarnationEclose'&&causedByOpponent)await resolveReincarnationEclose(side,printedName);
     return true;
   }
   function destroyFieldCard(side,fc,reason,attacker,options={}){
@@ -2860,6 +2875,7 @@
     }
 
     events.emit(EVENT.BEFORE_DAMAGE,{state,target,targetSide,amount:actual,...ctx});
+    if(actual>0&&ctx.sourceSide)target.pendingDamageSourceSide=ctx.sourceSide;
     target.damage+=actual;
     if(ctx.kind==='attack'&&ctx.attack?.effect==='persistentDamage'&&actual>0){
       target.persistentDamage=(target.persistentDamage||0)+actual;
@@ -3716,6 +3732,27 @@
     const [drawn]=ss.territory.splice(idx,1),c=def(drawn);
     events.emit(EVENT.TERRITORY_DRAWN,{state,side,card:drawn,definition:c});
     log(`${sideName(side)}が縄張りを1枚引いた。`);
+
+    const drawnPassive=passiveOfInst(drawn);
+    if(c.type==='insect'&&drawnPassive?.type==='poisonJuiceTerritory'&&options.attacker&&fieldActive(other(side)).includes(options.attacker)){
+      let use=side==='cpu'?true:await confirmYesNo(`＜毒汁噴出＞で攻撃した虫に${Number(drawnPassive.value||0)}ダメージを与えますか？`,'毒汁噴出');
+      if(use){
+        sendToOwnerDiscard(drawn,side);
+        const attacker=options.attacker,amount=Number(drawnPassive.value||0);
+        const dmg=await dealDamage(other(side),attacker,amount,{source:drawn,sourceSide:side,kind:'effect'});
+        log(`＜毒汁噴出＞ 「${fieldDef(attacker).name}」に${dmg}ダメージ。`);
+        if(sideObj(other(side)).field.includes(attacker)&&attacker.damage>=maxHp(attacker))await attemptDestroyFieldCard(other(side),attacker,'effect',null);
+        render();return true;
+      }
+    }
+
+    if(c.type==='insect'&&drawnPassive?.type==='emeraldFlash'&&options.attacker&&!options.effectDraw){
+      let use=side==='cpu'?true:await confirmYesNo(`＜エメラルドフラッシュ＞で「${c.name}」を見せて手札に加え、さらに縄張りを1枚引きますか？`,'エメラルドフラッシュ');
+      if(use){
+        sendToOwnerHand(drawn,side);log(`＜エメラルドフラッシュ＞ 「${c.name}」を手札に加え、もう1枚縄張りを引く。`);
+        await takeTerritory(side,false,{effectDraw:true});render();return true;
+      }
+    }
 
     // トゲ擬態の攻撃力上昇は擬態期間が終わった後も残る。
     if(state.turn===other(side)){

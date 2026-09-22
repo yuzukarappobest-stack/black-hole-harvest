@@ -711,6 +711,82 @@ window.MUSHI_DATA = (() => {
   cards[763]=spell(763,'常闇の繭籠もり',6,'自分のエサ場にある赤・青・緑の色1種類につき、このカードのコストを1減らす。相手の虫1つを持ち主の山札の一番下に置く。','eternalCocoon','booster7');
   cards[764]=spell(764,'拝虫の豪新剣',3,'攻撃済みの自分の虫1つと、自分の捨て札にある元々のコスト3以下の強化カード1枚を選ぶ。その強化カードを虫につけ、その虫をもう1度攻撃できるようにする。ターン終了時、その強化カードを破壊する。','worshipGreatSword','booster7');
 
+
+  // ===== ブースターパック第8弾 不滅の戦陣（MUSHI8 1-64） =====
+  // 赤 1-14
+  cards[801]=insect(801,'ペルビアンジャイアントオオムカデ','red',6,1700,[A('神の毒牙',1100,'persistentDamage','このダメージは回復しない。')],{type:'abyssRevival',text:'＜奈落復活＞ 捨て札にあるときコスト6を支払い場に出してよい。この方法で出たこれが破壊されたとき、裏向きで捨て札に置く。'},'booster8');
+  cards[802]=insect(802,'オオルリボシヤンマ','red',5,1100,[A('とびかかる',600)],{type:'jadeColor',text:'＜翡翠色＞ 場に出たとき青か緑を指定してよい。そうしたならターン終了時までその色になる。'},'booster8');
+  cards[803]=insect(803,'トゲアクマツユムシ','red',5,800,[A('かみちぎる',600)],{type:'demonSummon',text:'＜悪魔召喚＞ 場に出すとき、コストの代わりに自分の場の強化カードがついた虫1つを破壊してもよい。'},'booster8');
+  cards[804]=insect(804,'ハナカマキリ','red',3,900,[A('カマ斬撃',200),A('蟷螂蘭舞',400,'mantisOrchidDance','強化カードがついていないと使用できない。攻撃後、相手の場に虫がいればもう1度だけ使用できる。')],null,'booster8');
+  cards[805]=insect(805,'キララシロカネグモ','red',2,400,[A('かむ',200)],{type:'shiningThread',text:'＜かがやく糸＞ コストを支払い場に出たとき、捨て札からカード名に「糸」を含む強化カード1枚を手札に戻してもよい。'},'booster8');
+  cards[806]=insect(806,'ギガスオオアリ','red',5,1100,[A('かみつく',800),A('ギガスラッシャー',1200,'gigasSlasher','この虫は次の自分のターン、攻撃できない。')],null,'booster8');
+  cards[807]=insect(807,'ミナミミイデラゴミムシ','red',4,900,[A('かみつぶす',600)],{type:'blastCharge',text:'＜爆熱充填＞ 場に出たとき、自分の捨て札にカード名に「爆熱」を含むカードがあるなら、相手の虫1つに600ダメージを与えてもよい。'},'booster8');
+  cards[808]=insect(808,'ミイデラゴミムシ','red',4,800,[A('かみつぶす',600)],{type:'poisonMistSpread',text:'＜毒霧拡散＞ 場に出たとき、相手のすべての虫に200ダメージを与えてもよい。この効果で破壊されても相手は縄張りを引かない。'},'booster8');
+  cards[809]=insect(809,'コガタスズメバチ','red',4,400,[A('かみきる',500)],{type:'flyOut',text:'＜とびだす＞ 縄張りから引いたとき、自分の場に＜とびだす＞を持つ虫がいなければ場に出してもよい。'},'booster8');
+  cards[810]=insect(810,'キバハリアリ','red',3,500,[A('はさむ',400),A('激痛針',100,'handDiscardAfterTerritory','この技は1度だけ使用できる。この技で相手が縄張りを引いたとき、相手は手札1枚を捨てる。')],null,'booster8');
+  cards[811]=insect(811,'イエロージャイアントヒヨケムシ','red',5,1100,[A('かむ',700)],{type:'bugHunter',text:'＜バグハンター＞ コストを支払い場に出たとき、相手の元々のコスト2以下の虫1つを破壊してもよい。'},'booster8');
+  cards[812]=insect(812,'ツメジムカデ','red',2,500,[A('毒のキバ',200,'persistentDamage','このダメージは回復しない。')],null,'booster8');
+  cards[813]=insect(813,'アリヅカコオロギ','red',2,400,[A('かみつく',200)],{type:'antCopy',text:'＜アリマネ＞ 自分の場にいる元々のコスト2以下の〜アリ科が持つ、＜＞でない技を使用できる。'},'booster8');
+  cards[814]=insect(814,'ニホンカワトンボ','red',1,200,[A('とびかかる',200)],{type:'riverCross',text:'＜川渡り＞ 相手の青のエサが3つ以上あるとき、この虫のコストを1減らす。'},'booster8');
+
+  // 青 15-30
+  cards[815]=insect(815,'コーカサスオオカブト','blue',6,1800,[A('神のツノ突破',1000)],{type:'phalanx',text:'＜ファランクス＞ コストを支払い場に出たとき、この虫の元々のコスト以下の＜ファランクス＞を持つ虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[816]=insect(816,'アトラスオオカブト','blue',5,1300,[A('ツノ突破',700)],{type:'phalanx',text:'＜ファランクス＞ コストを支払い場に出たとき、この虫の元々のコスト以下の＜ファランクス＞を持つ虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[817]=insect(817,'インペラトールホソアカクワガタ','blue',4,500,[A('はさむ',900)],{type:'emperorBait',text:'＜皇帝＞ 表向きでエサ場にあるとき、自分の虫は＜王様＞の効果を失い、これ1つにつき自分の＜王様＞を持つ虫のコストを1減らす。'},'booster8');
+  cards[818]=insect(818,'モーレンカンプオオカブト','blue',4,900,[A('ツノ突進',500)],{type:'phalanx',text:'＜ファランクス＞ コストを支払い場に出たとき、この虫の元々のコスト以下の＜ファランクス＞を持つ虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[819]=insect(819,'アカボシゴマダラ','blue',4,800,[A('すいつくす',600)],{type:'reincarnationBoost',value:400,text:'＜転生強化＞ 羽化と書かれた術か技の効果で場に出たとき、体力と攻撃力を400増やす。'},'booster8');
+  cards[820]=insect(820,'ケンタウルスオオカブト','blue',4,900,[A('ツノ突進',600)],{type:'spellImmune',text:'＜ケンタウルス＞ これは術カードの対象にならない。'},'booster8');
+  cards[821]=insect(821,'ミカドアゲハ','blue',3,500,[A('すいつくす',400)],{type:'reincarnationBoost',value:400,text:'＜転生強化＞ 羽化と書かれた術か技の効果で場に出たとき、体力と攻撃力を400増やす。'},'booster8');
+  cards[822]=insect(822,'エンガノオオカブト','blue',3,600,[A('ツノ突進',400)],{type:'phalanx',text:'＜ファランクス＞ コストを支払い場に出たとき、この虫の元々のコスト以下の＜ファランクス＞を持つ虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[823]=insect(823,'オオハキリバチ','blue',3,600,[A('かみきる',400),A('素材集め',0,'materialGather','ダメージ前にこの虫を破壊し、コスト1を発生させる。')],null,'booster8');
+  cards[824]=insect(824,'ヤマトハキリバチ','blue',2,300,[A('かみきる',300),A('素材集め',0,'materialGather','ダメージ前にこの虫を破壊し、コスト1を発生させる。')],null,'booster8');
+  cards[825]=insect(825,'アカエゾゼミ','blue',4,900,[A('しぼりとる',400)],{type:'taunt',text:'＜鳴く＞ 相手はこれ以外の虫を攻撃できない。'},'booster8');
+  cards[826]=insect(826,'ジュウサンネンゼミ','blue',2,300,[A('しぼりとる',200)],{type:'cicadaJumpOut',text:'＜とびでる＞ 虫の攻撃で破壊されたとき、引いた縄張りがゼミ科なら場に出してもよい。'},'booster8');
+  cards[827]=insect(827,'ミドリシジミ','blue',2,400,[A('すいとる',200)],{type:'emeraldFlash',text:'＜エメラルドフラッシュ＞ 虫の攻撃で縄張りから引いたとき、見せて手札に加えてよい。そうしたならもう1枚縄張りを引く。'},'booster8');
+  cards[828]=insect(828,'ヒメカブト','blue',2,300,[A('ツノ突進',300),A('カブト戻し',200,'returnEnhanceAfterAttack','攻撃後、この技を受けた虫についている強化カード1枚を手札に戻してもよい。')],null,'booster8');
+  cards[829]=insect(829,'ヒメウラナミジャノメ','blue',1,100,[A('すいとる',200)],{type:'snakeEye',text:'＜蛇の目＞ コストを支払い場に出たとき、相手の赤・青・緑の表向きエサ1枚を裏向きにしてもよい。'},'booster8');
+  cards[830]=insect(830,'パンダアリバチ','blue',2,300,[A('かみきる',300),A('モノクロ針',0,'monochromeNeedle','無色の虫にしか使用できない。この技を受けた虫の体力が減っていたなら破壊する。')],null,'booster8');
+
+  // 緑 31-46
+  cards[831]=insect(831,'サルオガセツユムシ','green',6,1600,[A('いばらの鎧',1000),A('神隠し',900,'spiritAway','この技は1度だけ使用できる。攻撃後、自分の虫1つを必ず裏向きにする。この虫が場を離れたとき、その虫を表向きにする。')],null,'booster8');
+  cards[832]=insect(832,'ヨナグニサン（幼虫）','green',6,1600,[A('大食らい',1000)],{type:'hungryLarva',text:'＜はらぺこ＞ この虫の攻撃で相手が縄張りを引いたとき、自分のエサが6つ以上なら、相手は手札・エサ・縄張りから1枚選び捨てる。'},'booster8');
+  cards[833]=insect(833,'トノサマバッタ','green',5,1100,[A('とびはねる',800)],{type:'phaseMutation',text:'＜相変異＞ 自分の緑のエサ2つにつきコスト-1。場にいる間、お互いのすべてのエサの色は無色になる。'},'booster8');
+  cards[834]=insect(834,'カツオゾウムシ','green',2,300,[A('たいあたり',300)],{type:'firstSpellModifierDouble',text:'＜初ガツオ＞ この虫が初めて受ける術カードの修正値を2倍にする。'},'booster8');
+  cards[835]=insect(835,'オウサマミツギリゾウムシ','green',5,1500,[A('くいあさる',1000)],{type:'king',text:'＜王様＞ これは場に出たターン攻撃できない。'},'booster8');
+  cards[836]=insect(836,'アカボシゴマダラ（幼虫）','green',3,500,[A('かじる',300)],{type:'reincarnationEclose',text:'＜転生羽化＞ 相手により破壊されたとき、同名で（幼虫）でない虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[837]=insect(837,'クロカタゾウムシ','green',3,800,[A('くいあさる',300),A('かたくなる',0,'hardenNext','次の相手のターン、術カードの対象にならず、色による2倍ダメージを受けない。')],null,'booster8');
+  cards[838]=insect(838,'ミカドアゲハ（幼虫）','green',2,300,[A('かじる',200)],{type:'reincarnationEclose',text:'＜転生羽化＞ 相手により破壊されたとき、同名で（幼虫）でない虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[839]=insect(839,'コウテイブローチハムシ','green',1,100,[A('くいあさる',200)],{type:'emperorBait',text:'＜皇帝＞ 表向きでエサ場にあるとき、自分の虫は＜王様＞の効果を失い、これ1つにつき自分の＜王様＞を持つ虫のコストを1減らす。'},'booster8');
+  cards[840]=insect(840,'ハサミツノカメムシ','green',3,400,[A('くいつく',400)],{type:'poisonJuiceTerritory',value:800,text:'＜毒汁噴出＞ 縄張りから引いたとき、引かせた虫に800ダメージを与えてもよい。そうしたならこれを捨て札に置く。'},'booster8');
+  cards[841]=insect(841,'クサギカメムシ','green',2,300,[A('くいつく',200)],{type:'poisonJuiceTerritory',value:400,text:'＜毒汁噴出＞ 縄張りから引いたとき、引かせた虫に400ダメージを与えてもよい。そうしたならこれを捨て札に置く。'},'booster8');
+  cards[842]=insect(842,'ヤマトシロアリソルジャー','green',3,500,[A('分解',500,'decomposeDiscard','攻撃後、自分の表向きの捨て札を最大2枚裏向きにしてもよい。')],{type:'colony',value:200,text:'＜コロニー＞ 自分の裏向きの捨て札1枚につき体力と攻撃力+200。'},'booster8');
+  cards[843]=insect(843,'ヤマトシロアリワーカー','green',2,300,[A('分解',300,'decomposeDiscard','攻撃後、自分の表向きの捨て札を最大2枚裏向きにしてもよい。')],{type:'colony',value:200,text:'＜コロニー＞ 自分の裏向きの捨て札1枚につき体力と攻撃力+200。'},'booster8');
+  cards[844]=insect(844,'ヤマトシロアリニンフ','green',1,100,[A('分解',100,'decomposeDiscard','攻撃後、自分の表向きの捨て札を最大2枚裏向きにしてもよい。')],{type:'colony',value:200,text:'＜コロニー＞ 自分の裏向きの捨て札1枚につき体力と攻撃力+200。'},'booster8');
+  cards[845]=insect(845,'アレクサンドラトリバネアゲハ（幼虫）','green',3,400,[A('かじる',300)],{type:'adultCalling',text:'＜成虫招き＞ コストを支払い場に出たとき、同名で（幼虫）でない虫を手札から1枚場に出してもよい。'},'booster8');
+  cards[846]=basic(846,'モモアカアブラムシ','green',1,400,100,'すう','booster8');
+
+  // 強化 47-54
+  cards[847]=enhance(847,'鬼蜻蜓の簪',3,'コストを支払い場に出たとき、相手の虫1つを裏向きにする。これが場を離れたとき、その虫を表向きにする。','dragonflyHairpin','booster8');
+  cards[848]=enhance(848,'百足の具足',0,'〜ムカデ科にのみ装着可。体力と攻撃力+400。つけたとき捨て札に百足の具足があれば同じ虫につけてもよい。','centipedeGreaves','booster8');
+  cards[849]=enhance(849,'黄金虫の六文銭',0,'体力と攻撃力+100。この虫が虫の攻撃で破壊されたとき、このカードを山札の一番下に置いてもよい。そうしたなら1枚引く。','goldenSixCoins','booster8');
+  cards[850]=enhance(850,'幻惑の蛍袋',0,'体力と攻撃力+100。これがついた虫が場にいるとき、各プレイヤーは捨て札から虫を場に出せない。','bewitchingFireflyBag','booster8');
+  cards[851]=enhance(851,'影武者の魔鏡',1,'自分の虫2つを選び、どちらかに装着する。相手は装着虫以外を攻撃できない。装着虫は、選んだもう1体の元の色・体力・技・名前・解説文になる。もう1体が場を離れたときこのカードを破壊する。','shadowDoubleMirror','booster8');
+  cards[852]=enhance(852,'亀虫の盾甲冑',0,'体力+400。エサ場にあるとき、自分の「甲冑」と書かれた強化カードがついた虫が相手の術カードの対象になったなら、これを裏向きにして、その虫はその術の効果を受けない。','stinkShieldArmor','booster8');
+  cards[853]=enhance(853,'傀儡の冬虫夏草',1,'自分の捨て札の元々のコスト3以下の虫1つを、これをつけて場に出す。その虫は体力・攻撃力-100、技の効果を失う。これが破壊されたときその虫も破壊する。','puppetCordyceps','booster8');
+  cards[854]=enhance(854,'玉虫の色真似巻',0,'自分の虫2つを選び、どちらかに装着する。装着虫は、選んだもう1体の色になる。','jewelColorCopy','booster8');
+
+  // 術 55-64
+  cards[855]=spell(855,'蟲術の息吹',0,'ターン終了時まで、次に使う術カードのコストを1減らす。','nextSpellDiscount','booster8');
+  cards[856]=spell(856,'半死の道連れ',3,'この効果は術カードの対象にならない虫も選べる。自分と相手は、自身の場の虫の数が半分（端数切捨て）になるように虫を破壊する。','halfDeathCompanion','booster8');
+  cards[857]=spell(857,'水月の激流',3,'自分と相手のすべての虫に300ダメージを与え、このターンを終了する。','allField300End','booster8');
+  cards[858]=spell(858,'神楽の烈風',4,'自分と相手のすべての虫に1200ダメージを与え、このターンを終了する。','allField1200End','booster8');
+  cards[859]=spell(859,'火花の嵐',0,'相手の虫1つに100ダメージ。自分の捨て札に火花の嵐があるなら、さらに2回、相手の虫1つに100ダメージを与える。','sparkStorm','booster8');
+  cards[860]=spell(860,'蛹の冬籠り',0,'自分の手札からカード1枚を捨て札に置く。','pupaWintering','booster8');
+  cards[861]=spell(861,'断界の虫送り',4,'相手の虫1つを裏向きで相手のエサ場に置く。','boundarySend','booster8');
+  cards[862]=spell(862,'冥府の導き',2,'自分の捨て札から虫1つを場に出す。ターン終了時にそれを裏向きで捨て札に置く。','underworldGuide','booster8');
+  cards[863]=spell(863,'蚕の口封じ',2,'次の相手のターン終了時まで、相手の虫は場所を問わず＜＞の技を失う。','silkwormGag','booster8');
+  cards[864]=spell(864,'金色の腕',0,'自分の虫1つを選ぶ。次の相手のターン終了時まで、その虫の体力を800増やす。','goldenArm','booster8');
+
   // ===== 学習版 全カード画像 =====
   function rewardImageNumber(card){
     if(card.set==='booster2') return card.id-70;
@@ -719,6 +795,7 @@ window.MUSHI_DATA = (() => {
     if(card.set==='booster5') return card.id-191;
     if(card.set==='booster6') return card.id-227;
     if(card.set==='booster7') return card.id-263;
+    if(card.set==='booster8') return card.id-299;
     return card.id;
   }
   Object.values(cards).forEach(card=>{
@@ -742,6 +819,7 @@ window.MUSHI_DATA = (() => {
   const booster5Ids=Object.values(cards).filter(c=>c.set==='booster5').map(c=>c.id).sort((a,b)=>a-b);
   const booster6Ids=Object.values(cards).filter(c=>c.set==='booster6').map(c=>c.id).sort((a,b)=>a-b);
   const booster7Ids=Object.values(cards).filter(c=>c.set==='booster7').map(c=>c.id).sort((a,b)=>a-b);
+  const booster8Ids=Object.values(cards).filter(c=>c.set==='booster8').map(c=>c.id).sort((a,b)=>a-b);
   const decks={
     kabuto:{name:'カブトムシデッキ',ids:[6,6,40,40,44,44,79,79,91,91,24,24,30,30,63,63,108,124,127,129]},
     mantis:{name:'オオカマキリデッキ',ids:[71,71,7,7,11,11,47,47,80,80,22,22,64,64,95,95,106,107,101,118]},
@@ -751,8 +829,9 @@ window.MUSHI_DATA = (() => {
     random4:{name:'ランダム（第4弾）',ids:booster4Ids,randomCount:20},
     random5:{name:'ランダム（第5弾）',ids:booster5Ids,randomCount:20},
     random6:{name:'ランダム（第6弾）',ids:booster6Ids,randomCount:20},
-    random7:{name:'ランダム（第7弾）',ids:booster7Ids,randomCount:20}
+    random7:{name:'ランダム（第7弾）',ids:booster7Ids,randomCount:20},
+    random8:{name:'ランダム（第8弾）',ids:booster8Ids,randomCount:20}
   };
 
-  return {cards,decks,booster1Ids,booster2Ids,booster3Ids,booster4Ids,booster5Ids,booster6Ids,booster7Ids};
+  return {cards,decks,booster1Ids,booster2Ids,booster3Ids,booster4Ids,booster5Ids,booster6Ids,booster7Ids,booster8Ids};
 })();

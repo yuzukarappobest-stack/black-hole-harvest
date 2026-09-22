@@ -117,12 +117,14 @@
       return raw.map((deck, index) => {
         const ids = Array.isArray(deck?.ids) ? deck.ids.map(Number).filter(id => cards[id]) : [];
         const limited = [];
-        const counts = new Map();
+        const nameCounts = new Map();
         for (const id of ids) {
           if (limited.length >= CUSTOM_DECK_SIZE) break;
-          const n = counts.get(id) || 0;
+          const name = cards[id]?.name;
+          if (!name) continue;
+          const n = nameCounts.get(name) || 0;
           if (n >= CUSTOM_DECK_MAX_COPIES) continue;
-          counts.set(id, n + 1);
+          nameCounts.set(name, n + 1);
           limited.push(id);
         }
         return {
@@ -254,7 +256,11 @@
     el.classList.toggle('notice-error',!!isError);
     el.classList.toggle('notice-ok',!!text&&!isError);
   }
-  function builderCount(cardId){return builderIds.filter(id=>id===Number(cardId)).length;}
+  function builderExactCount(cardId){return builderIds.filter(id=>id===Number(cardId)).length;}
+  function builderNameCount(cardId){
+    const name=cards[Number(cardId)]?.name;
+    return name?builderIds.filter(id=>cards[id]?.name===name).length:0;
+  }
   function setLabel(set){
     if(set==='starter')return 'スターター';
     const m=String(set||'').match(/^booster(\d+)$/);
@@ -288,7 +294,7 @@
     const id=Number(cardId);
     if(!cards[id])return;
     if(builderIds.length>=CUSTOM_DECK_SIZE){setBuilderNotice('デッキは20枚までです。',true);return;}
-    if(builderCount(id)>=CUSTOM_DECK_MAX_COPIES){setBuilderNotice('同じカードは2枚までです。',true);return;}
+    if(builderNameCount(id)>=CUSTOM_DECK_MAX_COPIES){setBuilderNotice('同じ名前のカードは、別弾・別レアリティを合わせて2枚までです。',true);return;}
     builderIds.push(id);setBuilderNotice('');
     renderBuilderDeckList();renderCardCatalog();renderBuilderStatus();
   }
@@ -307,9 +313,9 @@
     }
     const ids=[...new Set(builderIds)].sort((a,b)=>a-b);
     for(const id of ids){
-      const card=cards[id],count=builderCount(id);
+      const card=cards[id],count=builderExactCount(id);
       const row=document.createElement('div');row.className='builder-deck-row';
-      row.innerHTML=`${builderCardImage(card)}<div><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(setLabel(card.set))} / ${escapeHtml(typeLabel(card))} / コスト ${card.cost}</small></div><div class="builder-qty"><button type="button" data-remove="${id}" aria-label="1枚減らす">−</button><b>${count}</b><button type="button" data-add="${id}" aria-label="1枚増やす" ${count>=CUSTOM_DECK_MAX_COPIES||builderIds.length>=CUSTOM_DECK_SIZE?'disabled':''}>＋</button></div>`;
+      row.innerHTML=`${builderCardImage(card)}<div><strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(setLabel(card.set))} / ${escapeHtml(typeLabel(card))} / コスト ${card.cost}</small></div><div class="builder-qty"><button type="button" data-remove="${id}" aria-label="1枚減らす">−</button><b>${count}</b><button type="button" data-add="${id}" aria-label="1枚増やす" ${builderNameCount(id)>=CUSTOM_DECK_MAX_COPIES||builderIds.length>=CUSTOM_DECK_SIZE?'disabled':''}>＋</button></div>`;
       row.querySelector('[data-remove]').addEventListener('click',()=>removeBuilderCard(id));
       row.querySelector('[data-add]').addEventListener('click',()=>addBuilderCard(id));
       wrap.appendChild(row);
@@ -332,7 +338,7 @@
     const wrap=$('cardCatalog');if(!wrap)return;
     wrap.innerHTML='';
     for(const card of filteredCatalogCards()){
-      const count=builderCount(card.id),disabled=count>=CUSTOM_DECK_MAX_COPIES||builderIds.length>=CUSTOM_DECK_SIZE;
+      const count=builderExactCount(card.id),disabled=builderNameCount(card.id)>=CUSTOM_DECK_MAX_COPIES||builderIds.length>=CUSTOM_DECK_SIZE;
       const button=document.createElement('button');
       button.type='button';button.className='catalog-card';button.disabled=disabled;
       button.innerHTML=`${count?`<span class="catalog-count">×${count}</span>`:''}${builderCardImage(card)}<strong>${escapeHtml(card.name)}</strong><small>${escapeHtml(setLabel(card.set))} / ${escapeHtml(typeLabel(card))} / ${escapeHtml(colorLabel(card))} / コスト ${card.cost}</small>`;
@@ -356,11 +362,11 @@
   }
   function saveBuilderDeck(){
     if(builderIds.length!==CUSTOM_DECK_SIZE){setBuilderNotice('20枚ちょうどにしてから保存してください。',true);return false;}
-    const counts=new Map();
+    const nameCounts=new Map();
     for(const id of builderIds){
       if(!cards[id]){setBuilderNotice('使えないカードが含まれています。',true);return false;}
-      const n=(counts.get(id)||0)+1;counts.set(id,n);
-      if(n>CUSTOM_DECK_MAX_COPIES){setBuilderNotice('同じカードは2枚までです。',true);return false;}
+      const name=cards[id].name,n=(nameCounts.get(name)||0)+1;nameCounts.set(name,n);
+      if(n>CUSTOM_DECK_MAX_COPIES){setBuilderNotice('同じ名前のカードは、別弾・別レアリティを合わせて2枚までです。',true);return false;}
     }
     const name=String($('deckNameInput').value||'').trim().slice(0,24)||`自作デッキ ${customDecks.length+1}`;
     if(builderDeckId){

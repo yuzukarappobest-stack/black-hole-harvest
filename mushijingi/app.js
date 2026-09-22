@@ -780,6 +780,9 @@
     if(p?.type==='flyCatcher'&&sideObj(attackerSide).hand.length>=5){
       await discardOneHand(attackerSide,'＜蠅取り＞で捨てる手札を選んでください。');
     }
+    if(p?.type==='demonHorn'){
+      await discardOneHand(attackerSide,'＜魔王のツノ＞で捨てる手札を選んでください。');
+    }
 
     if(p?.type==='jewelInsect'){
       const owner=ownerSideOf(target.inst,defenderSide);
@@ -1330,9 +1333,6 @@
     // 操り針 is the turn-player effect and takes priority over 宝石昆虫.
     if(attack.effect==='puppetNeedle')await captureDestroyedInsect(side,target);
     await resolveAttackDestructionReaction(defender,target,fc);
-
-    // 魔王のツノ is before the territory draw.
-    if(p?.type==='demonHorn')await discardOneHand(side,'＜魔王のツノ＞で捨てる手札を選んでください。');
 
     let shouldDraw=true;
     if(p?.type==='skipTerritoryChoice'){

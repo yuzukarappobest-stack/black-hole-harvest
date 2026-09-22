@@ -476,7 +476,7 @@
   }
 
   async function startGame(deckKey, firstSide){
-    const cpuKey=(deckKey==='random1'||deckKey==='random2'||deckKey==='random3')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
+    const cpuKey=(deckKey==='random1'||deckKey==='random2'||deckKey==='random3'||deckKey==='random4')?deckKey:(deckKey==='kabuto'?'mantis':'kabuto');
     uidCounter=1;
     state={player:makeSide(deckKey,false),cpu:makeSide(cpuKey,true),turn:firstSide,turnSeq:1,turnNo:1,phase:'draw',over:false,winner:null,log:[],chain:null,busy:false,
       enhanceDiscount:{player:{turnSeq:0,count:0},cpu:{turnSeq:0,count:0}},

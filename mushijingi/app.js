@@ -237,8 +237,13 @@
     if(p?.type==='doubleEnhance'&&fc.attachments.length>=1)return false;
     return true;
   }
-  function printedTechniqueCount(card){
-    return (card.attacks?.length||0)+(card.passive?1:0);
+  function effectiveTechniqueCount(side,inst){
+    const card=def(inst);
+    let count=card.attacks?.length||0;
+    if(passiveOfInst(inst))count++;
+    const amb=state?.grasshopperAmbush?.[side];
+    if(!silenceActive()&&amb?.active&&!amb.ended&&grasshopperFamily(inst)&&passiveOfInst(inst)?.type!=='flyOut')count++;
+    return count;
   }
   function activeIntimidateCount(){
     let n=0;
@@ -256,7 +261,7 @@
         cost-=sideObj(side).discard.filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='ancientFossil').length;
       }
       if(p?.type==='waterLarva')cost-=Math.floor(faceUpColorCount(other(side),'blue')/3);
-      if(printedTechniqueCount(c)>=2)cost+=activeIntimidateCount();
+      if(effectiveTechniqueCount(side,inst)>=2)cost+=activeIntimidateCount();
     }else if(c.type==='spell'){
       cost+=currentSpellTax(side,c);
     }else if(c.type==='enhance'){

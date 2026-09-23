@@ -84,9 +84,30 @@ button{font:inherit}.hidden{display:none!important}
 .modal{position:fixed;inset:0;background:#000b;display:grid;place-items:center;padding:18px;z-index:50}.modal-card{width:min(760px,100%);max-height:88vh;overflow:auto;background:#19231a;border:1px solid #637063;border-radius:18px;padding:18px;box-shadow:0 20px 70px #000c}
 .modal-card h3{margin-top:0}.modal-card p{color:var(--muted);font-size:13px}.modal-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:9px}
 .modal-option{border:1px solid #657165;background:#263427;color:white;border-radius:12px;padding:12px;min-height:64px;text-align:left}.modal-option b{display:block;margin-bottom:3px}.modal-option small{color:#c2cec0}.modal-option.cancel{background:#3a3130}.winner{color:#ffe07a;font-size:18px}
+.modal-preview:empty{display:none}
+.set-hand-preview{margin:8px 0 14px}
+.set-hand-preview-label{font-size:12px;font-weight:900;color:#e7d27a;margin:0 0 7px}
+.set-hand-preview-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.set-hand-preview-card.game-card{width:100%;min-width:0;max-width:none;min-height:0;padding:5px;cursor:default;outline:none}
+.set-hand-preview-card .card-top{gap:3px}
+.set-hand-preview-card .card-name{font-size:9px;line-height:1.12;min-height:20px;overflow:hidden}
+.set-hand-preview-card .card-cost{min-width:18px;height:18px;font-size:9px}
+.set-hand-preview-card .card-art{height:54px;margin:3px 0}
+.set-hand-preview-card .card-meta{font-size:8px;gap:2px;flex-wrap:wrap}
+.set-hand-preview-card .attack-line,
+.set-hand-preview-card .card-effect,
+.set-hand-preview-card .attach-line,
+.set-hand-preview-card .status-line{display:none}
 
 @media(max-width:700px){
   #app{padding:4px}.deck-choices{grid-template-columns:1fr}.deck-choice{min-height:150px}
+  .modal-card{padding:14px}
+  .set-hand-preview-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .set-hand-preview-card.game-card{padding:4px}
+  .set-hand-preview-card .card-name{font-size:8px;min-height:18px}
+  .set-hand-preview-card .card-art{height:46px}
+  .set-hand-preview-card .card-meta{font-size:7px}
+  .modal-options{grid-template-columns:repeat(2,minmax(0,1fr))}
   .resource-lane{grid-template-columns:60px minmax(0,1fr) 60px}
   .pile-zone{min-height:74px}.game-card{flex-basis:80px;width:80px;min-height:90px}.hand-row .game-card{flex-basis:84px;width:84px;min-height:98px}
 }

@@ -1172,7 +1172,6 @@
     }
     if(state.turn!=='player')return;
     if(state.phase==='set'){
-      bar.appendChild(btn('エサを置かない','action-btn secondary',()=>finishSetPhase()));
       return;
     }
     if(state.phase==='main'){
@@ -1360,7 +1359,35 @@
     } else log('先攻1ターン目なのでドローはありません。');
     render();
     if(side==='cpu'){state.phase='cpu';render();await sleep(450);await cpuTurn();}
-    else {state.phase='set';message('セットフェイズ：手札からエサを1枚置くか、「エサを置かない」を選んでください。');render();}
+    else {
+      if(!s.hand.length){
+        state.phase='set';
+        log('手札がないため、エサを置かずにメインフェイズへ進みます。');
+        finishSetPhase();
+        return;
+      }
+
+      state.phase='set-choice';
+      message('このターン、エサを置きますか？');
+      render();
+
+      const setChoice=await choose([
+        {value:'place',title:'エサを置く',detail:'手札から1枚を選んでエサにする'},
+        {value:'skip',title:'置かない',detail:'そのままメインフェイズへ進む'}
+      ],'セットフェイズの前に選んでください。','エサを置く？');
+
+      if(!state||state.over||state.turn!=='player')return;
+
+      if(setChoice==='place'){
+        state.phase='set';
+        message('セットフェイズ：エサにする手札を1枚選んでください。');
+        render();
+      }else{
+        state.phase='set';
+        log('あなたはエサを置かずにメインフェイズへ進みます。');
+        finishSetPhase();
+      }
+    }
   }
   function resolveDeckOut(side){
     const p=state.player.territory.length,c=state.cpu.territory.length;

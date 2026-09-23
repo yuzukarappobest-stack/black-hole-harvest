@@ -337,6 +337,6 @@ for(const arch of Object.keys(META)){
 }
 learned.generic=DEFAULTS.generic;
 const payload={version:2,source:'selfplay-v1',training:{seed:20260923,generations:5,population:14,approximateSimulator:true,scores},archetypes:learned};
-const output='(() => {\\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\\n})();\\n';
+const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
 console.log('Self-play policy written:',scores);

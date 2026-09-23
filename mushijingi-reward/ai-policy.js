@@ -1,4 +1,5 @@
-(() => {\n  window.MUSHI_AI_POLICY = {
+(() => {
+  window.MUSHI_AI_POLICY = {
   "version": 2,
   "source": "selfplay-v1",
   "training": {
@@ -114,4 +115,5 @@
       "deployThreshold": 7
     }
   }
-};\n})();\n
+};
+})();

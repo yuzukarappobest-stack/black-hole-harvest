@@ -2777,7 +2777,10 @@
       paySpell(side,inst,c);removeInstance(s.bait,chosen);await putInsectOnField(side,chosen,{temporary:true,summonedBySpell:true});log(`「${def(chosen).name}」をエサ場から場に出した。`);
     }else if(c.effect==='handTempSummon'){
       const list=s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect');if(!list.length)return false;
-      chosen=await chooseOwnedInstance(side,'場に出す手札の虫を選んでください。',list);if(!chosen)return false;
+      chosen=side==='cpu'&&currentCpuDifficulty()!=='normal'
+        ?cpuHandTempSummonTarget(inst.uid)
+        :await chooseOwnedInstance(side,'場に出す手札の虫を選んでください。',list);
+      if(!chosen)return false;
       paySpell(side,inst,c);removeHand(s,chosen);await putInsectOnField(side,chosen,{temporary:true,summonedBySpell:true});log(`「${def(chosen).name}」を手札から場に出した。`);
     }else if(c.effect==='sameCostSwap'){
       const handInsects=s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect'&&fieldActive(side).some(fc=>def(fc.inst).cost===def(x).cost));if(!handInsects.length)return false;
@@ -4632,6 +4635,7 @@
 
   function canUseHandCardCPU(inst){
     if(!canUseHandCard('cpu',inst))return false;
+    if(currentCpuDifficulty()!=='normal'&&def(inst).effect==='handTempSummon')return cpuShouldUseHandTempSummon(inst);
     if(currentCpuDifficulty()!=='normal'&&def(inst).effect==='baitTempSummon'){
       if(cpuAquaticBossActive())return cpuAquaticBossShouldUseFlash();
       return cpuShouldUseBaitTempSummon();
@@ -4828,6 +4832,78 @@
     if(cpuOpponentHasSingleBlocker()&&cpuReadyAttackCount()>0&&cpuCanRemoveBlockerWith(inst))p+=28;
     return p;
   }
+  function cpuHandTempSummonTarget(excludeUid=null){
+    const arch=cpuDeckArchetype();
+    const insects=state.cpu.hand.filter(x=>x.uid!==excludeUid&&def(x).type==='insect');
+    if(!insects.length)return null;
+
+    const aceNames=cpuAceNames();
+    const candidates=insects.filter(x=>{
+      const c=def(x);
+      const cost=effectiveCardCost('cpu',x);
+      const saving=Math.max(0,cost-1);
+      const isAce=aceNames.includes(c.name);
+      const highImpact=Number(c.cost||0)>=4||cpuMaxPrintedAttack(c)>=700||isAce;
+
+      // Never spend Tamayura on a 1-cost body: normal summon is strictly better
+      // because the insect remains on the field.
+      if(cost<=1)return false;
+
+      // 2-cost bodies are almost never worth losing at end of turn unless they are
+      // a specifically important ace/entry-effect card.
+      if(cost===2&&!isAce)return false;
+
+      return highImpact||saving>=3;
+    });
+
+    if(!candidates.length)return null;
+
+    const immediateValue=x=>{
+      const c=def(x);
+      const cost=effectiveCardCost('cpu',x);
+      const saving=Math.max(0,cost-1);
+      let score=cpuCardKeepValue(x)+cpuMaxPrintedAttack(c)/110+saving*3;
+
+      if(aceNames.includes(c.name))score+=12;
+      if(c.name==='ニセハナマオウカマキリ')score+=8;
+      if(c.name==='リオック')score+=5;
+      if(c.name==='ヘラクレスオオカブト')score+=8;
+      if(c.name==='スマトラオオヒラタクワガタ'&&baitHasRGB('cpu'))score+=10;
+      if(c.name==='オオスズメバチ（女王）'){
+        const bees=faceUpBait('cpu').filter(b=>def(b).type==='insect'&&/バチ/.test(def(b).name)&&Number(def(b).cost||0)<=5).length;
+        score+=bees*5;
+      }
+      return score;
+    };
+
+    return [...candidates].sort((a,b)=>immediateValue(b)-immediateValue(a))[0]||null;
+  }
+  function cpuShouldUseHandTempSummon(spellInst){
+    const target=cpuHandTempSummonTarget(spellInst?.uid||null);
+    if(!target)return false;
+
+    const c=def(target);
+    const targetCost=effectiveCardCost('cpu',target);
+    const normalAffordable=targetCost<=state.cpu.cost;
+    const saving=Math.max(0,targetCost-1);
+
+    // If it is cheap enough to summon normally, temporary destruction must buy
+    // substantial tempo. Small bodies never qualify.
+    if(normalAffordable&&targetCost<=3)return false;
+
+    const arch=cpuDeckArchetype();
+    if(arch==='armyAnt'){
+      // Army Ant uses Tamayura as a cheat for a finisher, not for a link body.
+      return ['ニセハナマオウカマキリ','リオック','バーチェルグンタイアリ メジャー'].includes(c.name)
+        && (targetCost>=4||saving>=3);
+    }
+    if(arch==='hercules')return c.name==='ヘラクレスオオカブト'||targetCost>=5;
+    if(arch==='sumatra')return c.name==='スマトラオオヒラタクワガタ'||targetCost>=5;
+    if(arch==='bee')return c.name==='オオスズメバチ（女王）'||targetCost>=5;
+
+    return targetCost>=4||saving>=3;
+  }
+
   function cpuTempSummonValue(inst){
     const c=def(inst);if(!c||c.type!=='insect')return -Infinity;
     let v=cpuCardKeepValue(inst)+cpuMaxPrintedAttack(c)/120+Number(c.hp||0)/500;
@@ -5156,7 +5232,7 @@
           return vb-va;
         })[0];
       }
-      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuShouldUseHandTempSummon(x));
       if(tama)return tama;
     }
 
@@ -5164,21 +5240,21 @@
       const queen=usable.find(x=>def(x).name==='オオスズメバチ（女王）');
       const beeBait=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
       if(queen&&beeBait)return queen;
-      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuShouldUseHandTempSummon(x));
       if(tama&&beeBait)return tama;
     }
 
     if(arch==='sumatra'){
       const sumatra=usable.find(x=>def(x).name==='スマトラオオヒラタクワガタ');
       if(sumatra&&baitHasRGB('cpu'))return sumatra;
-      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuShouldUseHandTempSummon(x));
       if(tama&&baitHasRGB('cpu'))return tama;
     }
 
     if(arch==='hercules'){
       const herc=usable.find(x=>def(x).name==='ヘラクレスオオカブト');
       if(herc)return herc;
-      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuShouldUseHandTempSummon(x));
       if(tama)return tama;
     }
 
@@ -5275,13 +5351,14 @@
 
     const opp=fieldActive('player');
     const ready=fieldActive('cpu').filter(fc=>canAttackSide('cpu',fc)).length;
-    const bestHandBug=Math.max(0,...s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect').map(x=>cpuCardKeepValue(x)));
+    const tempHandTarget=c.effect==='handTempSummon'?cpuHandTempSummonTarget(inst.uid):null;
+    const bestHandBug=tempHandTarget?cpuCardKeepValue(tempHandTarget):0;
     const effectScore={
       allAttack200:ready*2.8,
       allAttack300:ready*3.5,
       baitBoost:s.bait.length<4?6:1,
       readyAttack:fieldActive('cpu').some(fc=>fc.attacked)?10:-4,
-      handTempSummon:bestHandBug>=13?bestHandBug*1.1:bestHandBug>=9?bestHandBug*0.75:-6,
+      handTempSummon:cpuShouldUseHandTempSummon(inst)?bestHandBug*1.1+6:-40,
       baitTempSummon:cpuShouldUseBaitTempSummon()?14+Math.max(0,...faceUpBait('cpu').filter(x=>def(x).type==='insect').map(cpuTempSummonValue))*0.35:-30,
       baitRushTwo:faceUpBait('cpu').filter(x=>def(x).type==='insect').length>=2?10:2,
       recoverInsect:Math.max(0,...visibleDiscard('cpu').filter(x=>def(x).type==='insect').map(cpuCardKeepValue))*0.65,
@@ -5310,7 +5387,7 @@
     if(ca.name==='オオスズメバチ（女王）'&&/バチ/.test(cb.name||''))s+=2;
     if(ca.type==='insect'&&['allAttack200','allAttack300'].includes(cb.effect))s+=2.5;
     if(ca.effect==='nextSpellDiscount'&&cb.type==='spell')s+=3;
-    if(ca.effect==='handTempSummon'&&cb.type==='insect'&&Number(cb.cost||0)>=5)s+=7;
+    if(ca.effect==='handTempSummon'&&cb.type==='insect'&&Number(cb.cost||0)>=4)s+=7;
     return s;
   }
   function cpuPlanSearchFrom(first,usable,depth=4){

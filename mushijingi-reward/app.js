@@ -4590,11 +4590,20 @@
       const directPressure=fieldActive('player').length===0&&attacker;
       const expert=cpuChooseExpertAction(usable,mode);
       const plannedFirst=mode==='veryStrong'?cpuChoosePlannedFirstAction(usable):handAction;
-      const chosenHand=mode==='veryStrong'?(expert||plannedFirst||handAction):(expert&&cpuComboPriority(expert)>=18?expert:handAction);
-      const chosenHandScore=chosenHand?cpuMainActionPlanScore(chosenHand,mode)+cpuComboPriority(chosenHand):-Infinity;
+      const comboWeight=cpuPolicyValue('comboWeight',1);
+      const candidateHands=[expert,plannedFirst,handAction].filter(Boolean);
+      const chosenHand=mode==='veryStrong'
+        ? (cpuAquaticBossActive()
+            ? (expert||plannedFirst||handAction)
+            : [...candidateHands].sort((a,b)=>
+                (cpuMainActionPlanScore(b,mode)+cpuComboPriority(b)*comboWeight)-
+                (cpuMainActionPlanScore(a,mode)+cpuComboPriority(a)*comboWeight)
+              )[0]||null)
+        : (expert&&cpuComboPriority(expert)>=18?expert:handAction);
+      const chosenHandScore=chosenHand?cpuMainActionPlanScore(chosenHand,mode)+cpuComboPriority(chosenHand)*comboWeight:-Infinity;
 
       // With an open lane, pressure territory first. Otherwise compare tactical gain.
-      const mustDevelop=chosenHand&&cpuDeckArchetype()==='armyAnt'&&passiveOfInst(chosenHand)?.type==='militaryLink';
+      const mustDevelop=chosenHand&&cpuDeckArchetype()==='armyAnt'&&passiveOfInst(chosenHand)?.type==='militaryLink'&&chosenHandScore>=cpuPolicyValue('deployThreshold',5);
       const aquaticDevelop=cpuAquaticBossActive()&&chosenHand&&(
         (def(chosenHand).type==='insect'&&effectiveCardCost('cpu',chosenHand)<=1)||
         (['モンシロチョウ','モンキチョウ'].includes(def(chosenHand).name)&&cpuAquaticHasPartnerOnField(def(chosenHand).name))
@@ -5236,6 +5245,7 @@
 
     if(c.type==='insect'){
       score+=Number(c.hp||0)/240+cpuMaxPrintedAttack(c)/155;
+      if(cost<=1)score+=cpuPolicyValue('cheapDeployBonus',0);
       const p=passiveOfInst(inst);
       if(p?.type==='militaryLink')score+=fieldActive('cpu').filter(fc=>passiveOfField(fc)?.type==='militaryLink').length*5;
       if(p?.type==='sumatraNature'){

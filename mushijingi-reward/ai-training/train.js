@@ -42,7 +42,7 @@ const DEFAULTS={
   armyAnt:{resourceTarget:4,blueBaitFloor:2,aggression:1.55,directAttackWeight:1.65,tempSummonBaitFloor:4,tempSummonMinValue:11,preserveWeight:1.05,removalWeight:1,aceWeight:1.2,deployThreshold:6},
   hercules:{resourceTarget:6,blueBaitFloor:2,aggression:1.15,directAttackWeight:1.35,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.35,removalWeight:1.35,aceWeight:1.45,deployThreshold:8},
   sumatra:{resourceTarget:6,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.45,tempSummonBaitFloor:6,tempSummonMinValue:13,preserveWeight:1.35,removalWeight:1.25,aceWeight:1.5,deployThreshold:8},
-  bee:{resourceTarget:6,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.3,removalWeight:1.25,aceWeight:1.45,deployThreshold:8},
+  bee:{resourceTarget:6,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.3,removalWeight:1.25,aceWeight:1.45,deployThreshold:8,engineBaitPriority:8},
   mimicAggro:{resourceTarget:4,blueBaitFloor:2,aggression:1.6,directAttackWeight:1.8,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:.95,removalWeight:.95,aceWeight:1.05,deployThreshold:5},
   colorBlessing:{resourceTarget:5,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.4,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.2,aceWeight:1.25,deployThreshold:7,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
   generic:{resourceTarget:5,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.15,removalWeight:1.15,aceWeight:1.2,deployThreshold:7}
@@ -122,6 +122,11 @@ function effectiveCost(side,id){
     const colors=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color).filter(Boolean));
     cost=Math.max(0,cost-colors.size);
   }
+  if(c.effect==='eternalCocoon'){
+    const colors=new Set(side.bait.map(x=>cards[x]?.color).filter(Boolean));
+    for(const col of ['red','blue','green'])if(colors.has(col))cost--;
+    cost=Math.max(0,cost);
+  }
   return cost;
 }
 function attackPower(side,unit){
@@ -161,6 +166,33 @@ function keepScore(side,id,p){
     }else if(missing.size&&!['red','blue','green'].includes(c.color))v+=3;
   }
   if(arch==='colorBlessing'&&c.effect==='bloodPact')v+=8;
+  if(arch==='sumatra'&&c.type==='insect'){
+    const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
+    const missing=new Set(['red','blue','green'].filter(x=>!have.has(x)));
+    if(missing.has(c.color))v-=Number(p.rgbBaitPriority||8);
+    if(c.name==='スマトラオオヒラタクワガタ')v+=14;
+  }
+  if(arch==='bee'){
+    const beeBait=side.bait.filter(x=>cards[x]?.type==='insect'&&isWasp(cards[x])&&cards[x]?.name!=='オオスズメバチ（女王）'&&Number(cards[x]?.cost||0)<=5).length;
+    if(c.type==='insect'&&isWasp(c)&&c.name!=='オオスズメバチ（女王）'&&Number(c.cost||0)<=5&&beeBait<2)v-=Number(p.engineBaitPriority||8);
+    if(c.name==='オオスズメバチ（女王）')v+=14;
+  }
+  if(arch==='armyAnt'){
+    if(c.name==='ミツツボアリ'&&side.bait.length<4)v+=5;
+    if(c.passive?.type==='militaryLink'&&side.field.filter(u=>cards[u.id]?.passive?.type==='militaryLink').length<2)v+=4;
+  }
+  if(arch==='hercules'){
+    if(c.name==='ヘラクレスオオカブト'||c.effect==='handTempSummon')v+=12;
+    if(c.name==='ゴライアスオオツノハナムグリ')v-=2;
+  }
+  if(arch==='mimicAggro'){
+    const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
+    const missing=new Set(['red','blue','green'].filter(x=>!have.has(x)));
+    const hasCocoon=[...side.hand,...side.deck,...side.bait,...side.discard].some(x=>cards[x]?.effect==='eternalCocoon');
+    if(hasCocoon&&c.type==='insect'&&missing.has(c.color))v-=Number(p.rgbBaitPriority||7);
+    if(c.effect==='bloodPact')v+=8;
+    if(c.effect==='eternalCocoon')v+=6;
+  }
   return v;
 }
 function chooseBait(side,p){
@@ -193,6 +225,23 @@ function canTempFromBait(side,p){
   return true;
 }
 function bestInsect(list,arch,p){return [...list].filter(id=>cards[id]?.type==='insect').sort((a,b)=>cardValue(arch,cards[b],p)-cardValue(arch,cards[a],p))[0];}
+function bestTempHandInsect(side,list,p){
+  const candidates=[...list].filter(id=>{
+    const c=cards[id];
+    if(c?.type!=='insect')return false;
+    const cost=effectiveCost(side,id);
+    return cost>=4||maxAttack(c)>=700;
+  });
+  return candidates.sort((a,b)=>{
+    const va=cardValue(side.arch,cards[a],p)+maxAttack(cards[a])/120+Math.max(0,effectiveCost(side,a)-1)*3;
+    const vb=cardValue(side.arch,cards[b],p)+maxAttack(cards[b])/120+Math.max(0,effectiveCost(side,b)-1)*3;
+    return vb-va;
+  })[0];
+}
+function deathTriggerCard(c){
+  const text=String(c?.passive?.text||'')+' '+(c?.attacks||[]).map(a=>String(a.text||'')).join(' ');
+  return /破壊されたとき|破壊されるとき/.test(text)||['toxicRevenge','poisonBubble','abyssRevival'].includes(c?.passive?.type);
+}
 
 function actionCandidates(me,opp,p){
   const out=[];
@@ -213,7 +262,7 @@ function actionCandidates(me,opp,p){
       out.push({kind:'enhance',id,cost,score:4+me.field.reduce((m,u)=>Math.max(m,threat(me,u)),0)*.25});
     }else if(c.type==='spell'&&(cost<=me.bait.length||(c.effect==='bloodPact'&&me.territory.length>=2))){
       if(c.effect==='handTempSummon'){
-        const best=bestInsect(me.hand.filter(x=>x!==id),me.arch,p);
+        const best=bestTempHandInsect(me,me.hand.filter(x=>x!==id),p);
         if(best!=null)out.push({kind:'handTemp',id,target:best,cost,score:tempSummonValue(me,best,p)*.95+3});
       }else if(c.effect==='baitTempSummon'&&canTempFromBait(me,p)){
         const best=[...me.bait].filter(x=>cards[x]?.type==='insect').sort((a,b)=>tempSummonValue(me,b,p)-tempSummonValue(me,a,p))[0];
@@ -222,7 +271,7 @@ function actionCandidates(me,opp,p){
         const best=bestInsect(me.discard,me.arch,p);
         out.push({kind:'recover',id,target:best,cost,score:best!=null?cardValue(me.arch,cards[best],p)*.55:0});
       }else if(c.effect==='bloodPact'&&opp.field.length&&(cost<=me.bait.length||me.territory.length>=2)){
-        const t=[...opp.field].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
+        const t=[...legalTargets].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
         const ready=me.field.filter(u=>!u.attacked&&u.delay<=0).length;
         const hitsNeeded=opp.territory.length+1;
         const single=opp.field.length===1;
@@ -246,7 +295,56 @@ function actionCandidates(me,opp,p){
         if(lethal)score+=35;
         if(payTerritory&&me.arch==='colorBlessing')score+=(preserves?12:3)*Number(p.bloodPactTerritoryWeight||1.15);
         if(payTerritory&&me.territory.length<=2&&!lethal)score-=25;
+        if(me.arch==='mimicAggro'){
+          const cheap=me.hand.filter(x=>x!==id&&cards[x]?.type==='insect'&&effectiveCost(me,x)<=2).map(x=>effectiveCost(me,x)).sort((a,b)=>a-b);
+          const countWithin=budget=>{let n=0,sum=0;for(const x of cheap){if(sum+x>budget)break;sum+=x;n++;}return n;};
+          const full=countWithin(me.bait.length),after=countWithin(Math.max(0,me.bait.length-cost));
+          const ready=me.field.filter(u=>!u.attacked&&u.delay<=0).length;
+          const lethal=opp.field.length===1&&(ready+full)>=opp.territory.length+1;
+          const preserves=full>after;
+          const safe=me.territory.length>=3||lethal;
+          if(me.territory.length>=2&&(lethal||(safe&&opp.field.length===1&&preserves&&(ready+full)>=2)))payTerritory=true;
+          if(payTerritory&&preserves)score+=12*Number(p.bloodPactTerritoryWeight||1);
+          if(lethal)score+=35;
+        }
         out.push({kind:'bloodPact',id,target:t,cost,payTerritory,score});
+      }else if(c.effect==='eternalCocoon'&&opp.field.length){
+        const t=[...opp.field].sort((a,b)=>{
+          const va=threat(opp,a)+(deathTriggerCard(cards[a.id])?10:0);
+          const vb=threat(opp,b)+(deathTriggerCard(cards[b.id])?10:0);
+          return vb-va;
+        })[0];
+        let score=threat(opp,t)*p.removalWeight*1.65+(deathTriggerCard(cards[t.id])?12:0);
+        if(opp.field.length===1&&me.field.some(u=>!u.attacked&&u.delay<=0))score+=12;
+        out.push({kind:'cocoon',id,target:t,cost,score});
+      }else if(c.effect==='blackMountain'&&me.arch==='mimicAggro'&&me.field.length>=2&&opp.field.length){
+        const ready=me.field.filter(u=>!u.attacked&&u.delay<=0);
+        const buff=me.field.length*100;
+        let newKills=0;
+        for(const u of ready){
+          const before=attackPower(me,u),after=before+buff;
+          if(opp.field.some(t=>before<Number(cards[t.id]?.hp||0)-t.damage&&after>=Number(cards[t.id]?.hp||0)-t.damage))newKills++;
+        }
+        const score=ready.length*2+buff/90+newKills*12+(ready.length>=3?6:0);
+        out.push({kind:'blackMountain',id,cost,score});
+      }else if(c.effect==='flyLarvae'&&me.arch==='mimicAggro'){
+        const bugs=me.discard.filter(x=>cards[x]?.type==='insect'&&Number(cards[x]?.cost||0)<=1);
+        if(bugs.length){
+          const bodies=Math.min(2,bugs.length);
+          const score=bodies*5+(me.field.length<=1?10:me.field.length===2?5:0);
+          out.push({kind:'flyLarvae',id,cost,score});
+        }
+      }else if(c.effect==='singleAttack500'&&me.arch==='mimicAggro'&&me.field.length&&opp.field.length){
+        let score=2,target=null;
+        for(const u of me.field.filter(x=>!x.attacked&&x.delay<=0)){
+          const base=attackPower(me,u);
+          for(const t of opp.field){
+            const remain=Number(cards[t.id]?.hp||0)-t.damage;
+            if(base<remain&&base+500>=remain&&14+threat(opp,t)>score){score=14+threat(opp,t);target=u;}
+          }
+        }
+        if(!target)target=[...me.field].sort((a,b)=>attackPower(me,b)-attackPower(me,a))[0];
+        out.push({kind:'singleAttack500',id,target,cost,score});
       }
     }
   }
@@ -263,7 +361,13 @@ function playBestActions(me,opp,p){
     const c=cards[a.id];
     moveOne(me.hand,a.id);
     if(a.kind==='insect'){
-      budget-=a.cost;me.field.push({id:a.id,damage:0,buff:0,temp:false,delay:0,bounceUsed:false,attacked:false});
+      budget-=a.cost;
+      const unit={id:a.id,damage:0,buff:0,temp:false,delay:0,bounceUsed:false,attacked:false,mimicShield:cards[a.id]?.passive?.type==='mimic'};
+      me.field.push(unit);
+      if(cards[a.id]?.name==='ミツツボアリ'&&me.hand.length){
+        const extra=[...me.hand].sort((x,y)=>keepScore(me,x,p)-keepScore(me,y,p))[0];
+        if(extra!=null){moveOne(me.hand,extra);me.bait.push(extra);}
+      }
     }else if(a.kind==='enhance'){
       budget-=a.cost;me.discard.push(a.id);
       const host=[...me.field].sort((x,y)=>threat(me,y)-threat(me,x))[0];
@@ -281,15 +385,40 @@ function playBestActions(me,opp,p){
       else budget-=a.cost;
       me.discard.push(a.id);
       const i=opp.field.indexOf(a.target);if(i>=0){opp.discard.push(opp.field[i].id);opp.field.splice(i,1);}
+    }else if(a.kind==='cocoon'){
+      budget-=a.cost;me.discard.push(a.id);
+      const i=opp.field.indexOf(a.target);if(i>=0){opp.deck.push(opp.field[i].id);opp.field.splice(i,1);}
+    }else if(a.kind==='blackMountain'){
+      budget-=a.cost;me.discard.push(a.id);
+      const value=me.field.length*100;for(const u of me.field)u.buff=(u.buff||0)+value;
+    }else if(a.kind==='flyLarvae'){
+      budget-=a.cost;me.discard.push(a.id);
+      const bugs=[...me.discard].filter(x=>cards[x]?.type==='insect'&&Number(cards[x]?.cost||0)<=1)
+        .sort((x,y)=>cardValue(me.arch,cards[y],p)-cardValue(me.arch,cards[x],p)).slice(0,2);
+      for(const x of bugs){moveOne(me.discard,x);me.field.push({id:x,damage:0,buff:0,temp:false,delay:1,bounceUsed:false,attacked:true,mimicShield:cards[x]?.passive?.type==='mimic'});}
+    }else if(a.kind==='singleAttack500'){
+      budget-=a.cost;me.discard.push(a.id);if(a.target)a.target.buff=(a.target.buff||0)+500;
     }
   }
 }
 function strike(me,opp,u,p){
   const c=cards[u.id];
   if(u.delay>0||u.attacked)return null;
-  if(!opp.field.length){
-    if(opp.territory.length)opp.hand.push(opp.territory.shift());
-    else return 'win';
+
+  const legalTargets=opp.field.filter(t=>{
+    const tc=cards[t.id],pt=tc?.passive?.type;
+    if(pt==='mimic'&&t.mimicShield)return false;
+    if(pt==='batesMimic'&&opp.field.length>1)return false;
+    return true;
+  });
+
+  if(!legalTargets.length){
+    if(opp.territory.length){
+      const drawn=opp.territory.shift(),dc=cards[drawn];
+      if(dc?.type==='insect'&&dc?.passive?.type==='flyOut'){
+        opp.field.push({id:drawn,damage:0,buff:0,temp:false,delay:0,bounceUsed:false,attacked:true,mimicShield:dc.passive?.type==='mimic'});
+      }else opp.hand.push(drawn);
+    }else return 'win';
     u.attacked=true;return null;
   }
   const effects=(c.attacks||[]).map(a=>a.effect);
@@ -322,8 +451,8 @@ function strike(me,opp,u,p){
   }
 
   const dmg=attackPower(me,u);
-  const killable=opp.field.filter(t=>dmg>=Number(cards[t.id].hp||0)-t.damage);
-  const pool=killable.length?killable:opp.field;
+  const killable=legalTargets.filter(t=>dmg>=Number(cards[t.id].hp||0)-t.damage);
+  const pool=killable.length?killable:legalTargets;
   const target=[...pool].sort((a,b)=>{
     if(killable.length){
       const overA=dmg-(Number(cards[a.id].hp||0)-a.damage);
@@ -369,6 +498,7 @@ function runGame(archA,pA,archB,pB,seed){
     const bait=chooseBait(me,p);if(bait!=null){moveOne(me.hand,bait);me.bait.push(bait);}
     playBestActions(me,opp,p);
     if(attackPhase(me,opp,p)==='win')return {winner:idx,margin:6-opp.territory.length};
+    for(const u of opp.field)u.mimicShield=false;
     cleanup(me);
   }
   const scoreA=sides[0].territory.length+sides[0].field.length*.3;
@@ -380,7 +510,7 @@ const PARAMS={
   resourceTarget:[3,7,.7],finisherResourceTarget:[4,7,.7],blueBaitFloor:[2,6,.65],aggression:[.75,2.2,.18],
   directAttackWeight:[.8,2.5,.2],tempSummonBaitFloor:[2,7,.7],tempSummonMinValue:[7,22,1.4],
   preserveWeight:[.7,1.8,.12],removalWeight:[.75,2,.14],aceWeight:[.8,2,.14],deployThreshold:[3.5,11,.75],
-  comboWeight:[.6,2.2,.16],cheapDeployBonus:[0,6,.6],rgbBaitPriority:[4,14,1],bloodPactTerritoryWeight:[.6,2.2,.16],
+  comboWeight:[.6,2.2,.16],cheapDeployBonus:[0,6,.6],rgbBaitPriority:[4,14,1],bloodPactTerritoryWeight:[.6,2.2,.16],engineBaitPriority:[4,14,1],
   bloodPactWeight:[.7,2.7,.2],aquaticCheapBonus:[0,7,.7],bounceThreatThreshold:[3,12,.9],reverseSwapDelta:[.5,8,.7]
 };
 function mutate(base,rng,scale=1){
@@ -408,6 +538,7 @@ function withPolicyDefaults(arch,p){
     bloodPactWeight:1,
     rgbBaitPriority:base.rgbBaitPriority||9,
     bloodPactTerritoryWeight:base.bloodPactTerritoryWeight||1.15,
+    engineBaitPriority:base.engineBaitPriority||8,
     aquaticCheapBonus:0,
     bounceThreatThreshold:7,
     reverseSwapDelta:3,
@@ -489,7 +620,7 @@ function benchmarkArch(arch,p,rounds=10){
 function microMutate(base,rng,scale){
   const out={...base};
   const keys=['resourceTarget','aggression','directAttackWeight','tempSummonBaitFloor','tempSummonMinValue',
-    'preserveWeight','removalWeight','aceWeight','deployThreshold','comboWeight','cheapDeployBonus','rgbBaitPriority','bloodPactTerritoryWeight'];
+    'preserveWeight','removalWeight','aceWeight','deployThreshold','comboWeight','cheapDeployBonus','rgbBaitPriority','bloodPactTerritoryWeight','engineBaitPriority'];
   const changes=2+Math.floor(rng()*4);
   for(let n=0;n<changes;n++){
     const k=keys[Math.floor(rng()*keys.length)];
@@ -569,7 +700,7 @@ function trainFocusedArch(arch){
 }
 
 // Preserve the already-optimized aquatic policy. Train every other environment deck independently.
-const TARGET_ARCHES=['colorBlessing'];
+const TARGET_ARCHES=['armyAnt','hercules','sumatra','bee','mimicAggro'];
 const results={};
 const learned={...PREVIOUS_ARCHETYPES};
 
@@ -606,8 +737,8 @@ const summary=Object.fromEntries(TARGET_ARCHES.map(arch=>{
 }));
 
 const payload={
-  version:5,
-  source:'color-blessing-strategy-selfplay-v2',
+  version:6,
+  source:'remaining-meta-strategy-selfplay-v2',
   training:{
     seed:20260924,
     focusedArchetypes:TARGET_ARCHES,

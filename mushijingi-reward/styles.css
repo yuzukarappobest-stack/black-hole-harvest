@@ -146,6 +146,16 @@ button{font:inherit}.hidden{display:none!important}
 .menu-action>span{font-size:32px;grid-row:1/3}.menu-action strong{font-size:16px}.menu-action small{color:#c4d0c2;margin-top:3px}.menu-action.primary{background:linear-gradient(145deg,#7a6120,#3a3018);border-color:#c8a64b}
 .battle-gate{max-width:820px;margin:12px auto 22px;padding:12px 16px;border-radius:12px;display:flex;gap:8px;justify-content:center;align-items:center;flex-wrap:wrap;font-size:13px}
 .battle-gate.locked{background:#3b2525;border:1px solid #7d4848;color:#ffd3d0}.battle-gate.unlocked{background:#233d27;border:1px solid #4c7c53;color:#d9ffdd}
+.cpu-difficulty-panel{max-width:820px;margin:0 auto 22px;padding:14px;border:1px solid #536354;border-radius:14px;background:#111a13;text-align:left}
+.cpu-difficulty-panel>strong{display:block;margin-bottom:9px;text-align:center;font-size:14px;color:#f4d86d}
+.cpu-difficulty-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cpu-difficulty-option{position:relative;display:block;cursor:pointer}
+.cpu-difficulty-option input{position:absolute;opacity:0;pointer-events:none}
+.cpu-difficulty-option span{min-height:62px;display:flex;flex-direction:column;justify-content:center;gap:3px;padding:10px;border:1px solid #506052;border-radius:11px;background:#202b22;text-align:center;transition:.15s ease}
+.cpu-difficulty-option b{font-size:14px}.cpu-difficulty-option small{font-size:10px;color:#b8c5b7}
+.cpu-difficulty-option input:checked+span{border-color:#e2c458;background:#3a3218;box-shadow:0 0 0 2px #e2c45833}
+.cpu-difficulty-help{display:block;margin-top:8px;text-align:center;color:var(--muted);font-size:11px}
+@media(max-width:600px){.cpu-difficulty-options{grid-template-columns:1fr}.cpu-difficulty-option span{min-height:50px}}
 .deck-section-title{margin:26px 0 3px}.deck-flow-note{margin:0 auto 8px!important;font-size:12px;color:var(--muted)}
 .deck-choice:disabled{opacity:.42;filter:grayscale(.65);cursor:not-allowed;transform:none}
 .custom-deck-choices{margin-top:12px}.custom-deck-choice{background:linear-gradient(145deg,#315745,#172d25)}

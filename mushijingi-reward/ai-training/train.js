@@ -44,7 +44,7 @@ const DEFAULTS={
   sumatra:{resourceTarget:6,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.45,tempSummonBaitFloor:6,tempSummonMinValue:13,preserveWeight:1.35,removalWeight:1.25,aceWeight:1.5,deployThreshold:8},
   bee:{resourceTarget:6,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.3,removalWeight:1.25,aceWeight:1.45,deployThreshold:8},
   mimicAggro:{resourceTarget:4,blueBaitFloor:2,aggression:1.6,directAttackWeight:1.8,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:.95,removalWeight:.95,aceWeight:1.05,deployThreshold:5},
-  colorBlessing:{resourceTarget:5,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.4,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.2,aceWeight:1.25,deployThreshold:7},
+  colorBlessing:{resourceTarget:5,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.4,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.2,aceWeight:1.25,deployThreshold:7,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
   generic:{resourceTarget:5,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.15,removalWeight:1.15,aceWeight:1.2,deployThreshold:7}
 };
 
@@ -99,6 +99,7 @@ function aceBonus(arch,c){
   if(arch==='hercules'&&n==='ヘラクレスオオカブト')return 7;
   if(arch==='sumatra'&&n==='スマトラオオヒラタクワガタ')return 8;
   if(arch==='bee'&&n==='オオスズメバチ（女王）')return 8;
+  if(arch==='colorBlessing'&&c.passive?.type==='colorBlessing')return 6;
   return 0;
 }
 function cardValue(arch,c,p){return baseValue(c)+aceBonus(arch,c)*p.aceWeight;}
@@ -117,6 +118,10 @@ function rgbBait(side){
 function effectiveCost(side,id){
   const c=cards[id];let cost=Number(c.cost||0);
   if(c.passive?.type==='aquaticCost')cost=Math.max(0,cost-Math.floor(blueBait(side)/2));
+  if(c.passive?.type==='colorBlessing'){
+    const colors=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color).filter(Boolean));
+    cost=Math.max(0,cost-colors.size);
+  }
   return cost;
 }
 function attackPower(side,unit){
@@ -147,6 +152,15 @@ function keepScore(side,id,p){
   let v=cardValue(arch,c,p)*p.preserveWeight;
   if(arch==='aquatic'&&c.type==='insect'&&c.color==='blue'&&blueBait(side)<p.blueBaitFloor)v-=4.5;
   if(arch==='bee'&&isWasp(c)&&c.name!=='オオスズメバチ（女王）')v-=1.2;
+  if(arch==='colorBlessing'&&c.type==='insect'){
+    const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
+    const missing=new Set(['red','blue','green'].filter(x=>!have.has(x)));
+    if(missing.has(c.color)){
+      v-=Number(p.rgbBaitPriority||9);
+      if(c.passive?.type==='colorBlessing')v+=5;
+    }else if(missing.size&&!['red','blue','green'].includes(c.color))v+=3;
+  }
+  if(arch==='colorBlessing'&&c.effect==='bloodPact')v+=8;
   return v;
 }
 function chooseBait(side,p){
@@ -189,11 +203,15 @@ function actionCandidates(me,opp,p){
       if(cost<=1)score+=2*p.aggression+Number(p.cheapDeployBonus||0);
       if(c.passive?.type==='aquaticCost')score+=3+(me.arch==='aquatic'?Number(p.aquaticCheapBonus||0):0);
       if(me.arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')score+=rgbBait(me)?12:-5;
+      if(me.arch==='colorBlessing'&&c.passive?.type==='colorBlessing'){
+        score+=rgbBait(me)?14:1;
+        if(rgbBait(me)&&cost<=2)score+=7;
+      }
       if(me.arch==='bee'&&c.name==='オオスズメバチ（女王）')score+=me.bait.filter(x=>isWasp(cards[x])&&Number(cards[x].cost||0)<=5).length*4;
       out.push({kind:'insect',id,cost,score});
     }else if(c.type==='enhance'&&cost<=me.bait.length&&me.field.length){
       out.push({kind:'enhance',id,cost,score:4+me.field.reduce((m,u)=>Math.max(m,threat(me,u)),0)*.25});
-    }else if(c.type==='spell'&&cost<=me.bait.length){
+    }else if(c.type==='spell'&&(cost<=me.bait.length||(c.effect==='bloodPact'&&me.territory.length>=2))){
       if(c.effect==='handTempSummon'){
         const best=bestInsect(me.hand.filter(x=>x!==id),me.arch,p);
         if(best!=null)out.push({kind:'handTemp',id,target:best,cost,score:tempSummonValue(me,best,p)*.95+3});
@@ -205,7 +223,30 @@ function actionCandidates(me,opp,p){
         out.push({kind:'recover',id,target:best,cost,score:best!=null?cardValue(me.arch,cards[best],p)*.55:0});
       }else if(c.effect==='bloodPact'&&opp.field.length&&(cost<=me.bait.length||me.territory.length>=2)){
         const t=[...opp.field].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
-        out.push({kind:'bloodPact',id,target:t,cost,score:threat(opp,t)*p.removalWeight*1.8*Number(p.bloodPactWeight||1)-(cost>me.bait.length?5:0)});
+        const ready=me.field.filter(u=>!u.attacked&&u.delay<=0).length;
+        const hitsNeeded=opp.territory.length+1;
+        const single=opp.field.length===1;
+        const discounted=me.hand.filter(x=>x!==id&&cards[x]?.type==='insect'&&cards[x]?.passive?.type==='colorBlessing')
+          .map(x=>effectiveCost(me,x)).filter(x=>x<=me.bait.length).sort((a,b)=>a-b);
+        const afterBudget=Math.max(0,me.bait.length-cost);
+        const fullDeploy=discounted.filter((_,i,arr)=>{
+          let sum=0;for(let j=0;j<=i;j++)sum+=arr[j];return sum<=me.bait.length;
+        }).length;
+        const afterDeploy=discounted.filter((_,i,arr)=>{
+          let sum=0;for(let j=0;j<=i;j++)sum+=arr[j];return sum<=afterBudget;
+        }).length;
+        const lethal=single&&(ready+fullDeploy)>=hitsNeeded;
+        const preserves=fullDeploy>afterDeploy;
+        const safe=me.territory.length>=3||lethal;
+        const payTerritory=me.territory.length>=2&&(
+          cost>me.bait.length||
+          (me.arch==='colorBlessing'&&(lethal||(safe&&single&&preserves&&(ready+fullDeploy)>=2)))
+        );
+        let score=threat(opp,t)*p.removalWeight*1.8*Number(p.bloodPactWeight||1);
+        if(lethal)score+=35;
+        if(payTerritory&&me.arch==='colorBlessing')score+=(preserves?12:3)*Number(p.bloodPactTerritoryWeight||1.15);
+        if(payTerritory&&me.territory.length<=2&&!lethal)score-=25;
+        out.push({kind:'bloodPact',id,target:t,cost,payTerritory,score});
       }
     }
   }
@@ -236,7 +277,8 @@ function playBestActions(me,opp,p){
     }else if(a.kind==='recover'){
       budget-=a.cost;me.discard.push(a.id);moveOne(me.discard,a.target);me.hand.push(a.target);
     }else if(a.kind==='bloodPact'){
-      if(a.cost<=budget)budget-=a.cost;else me.territory.splice(0,Math.min(2,me.territory.length));
+      if(a.payTerritory||a.cost>budget)me.territory.splice(0,Math.min(2,me.territory.length));
+      else budget-=a.cost;
       me.discard.push(a.id);
       const i=opp.field.indexOf(a.target);if(i>=0){opp.discard.push(opp.field[i].id);opp.field.splice(i,1);}
     }
@@ -338,7 +380,7 @@ const PARAMS={
   resourceTarget:[3,7,.7],finisherResourceTarget:[4,7,.7],blueBaitFloor:[2,6,.65],aggression:[.75,2.2,.18],
   directAttackWeight:[.8,2.5,.2],tempSummonBaitFloor:[2,7,.7],tempSummonMinValue:[7,22,1.4],
   preserveWeight:[.7,1.8,.12],removalWeight:[.75,2,.14],aceWeight:[.8,2,.14],deployThreshold:[3.5,11,.75],
-  comboWeight:[.6,2.2,.16],cheapDeployBonus:[0,6,.6],
+  comboWeight:[.6,2.2,.16],cheapDeployBonus:[0,6,.6],rgbBaitPriority:[4,14,1],bloodPactTerritoryWeight:[.6,2.2,.16],
   bloodPactWeight:[.7,2.7,.2],aquaticCheapBonus:[0,7,.7],bounceThreatThreshold:[3,12,.9],reverseSwapDelta:[.5,8,.7]
 };
 function mutate(base,rng,scale=1){
@@ -364,6 +406,8 @@ function withPolicyDefaults(arch,p){
     finisherResourceTarget:base.resourceTarget||5,
     blueBaitFloor:2,
     bloodPactWeight:1,
+    rgbBaitPriority:base.rgbBaitPriority||9,
+    bloodPactTerritoryWeight:base.bloodPactTerritoryWeight||1.15,
     aquaticCheapBonus:0,
     bounceThreatThreshold:7,
     reverseSwapDelta:3,
@@ -445,7 +489,7 @@ function benchmarkArch(arch,p,rounds=10){
 function microMutate(base,rng,scale){
   const out={...base};
   const keys=['resourceTarget','aggression','directAttackWeight','tempSummonBaitFloor','tempSummonMinValue',
-    'preserveWeight','removalWeight','aceWeight','deployThreshold','comboWeight','cheapDeployBonus'];
+    'preserveWeight','removalWeight','aceWeight','deployThreshold','comboWeight','cheapDeployBonus','rgbBaitPriority','bloodPactTerritoryWeight'];
   const changes=2+Math.floor(rng()*4);
   for(let n=0;n<changes;n++){
     const k=keys[Math.floor(rng()*keys.length)];
@@ -525,7 +569,7 @@ function trainFocusedArch(arch){
 }
 
 // Preserve the already-optimized aquatic policy. Train every other environment deck independently.
-const TARGET_ARCHES=['armyAnt','hercules','sumatra','bee','mimicAggro','colorBlessing'];
+const TARGET_ARCHES=['colorBlessing'];
 const results={};
 const learned={...PREVIOUS_ARCHETYPES};
 
@@ -562,8 +606,8 @@ const summary=Object.fromEntries(TARGET_ARCHES.map(arch=>{
 }));
 
 const payload={
-  version:4,
-  source:'all-meta-intensive-selfplay-v1',
+  version:5,
+  source:'color-blessing-strategy-selfplay-v2',
   training:{
     seed:20260924,
     focusedArchetypes:TARGET_ARCHES,

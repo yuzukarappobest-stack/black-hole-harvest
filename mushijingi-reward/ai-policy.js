@@ -8,16 +8,24 @@
     "generations": 18,
     "population": 48,
     "approximateSimulator": true,
-    "games": 293568,
+    "games": 520128,
     "previousBenchmark": {
-      "score": 2.5128,
-      "winRate": 0.8372,
+      "score": 2.5348,
+      "winRate": 0.8424,
       "games": 768
     },
     "championBenchmark": {
-      "score": 2.432,
-      "winRate": 0.8099,
+      "score": 2.4969,
+      "winRate": 0.8307,
       "games": 768
+    },
+    "microSearch": {
+      "candidates": 720,
+      "finalists": 24,
+      "baselineScore": 2.5348,
+      "baselineWinRate": 0.8424,
+      "bestScore": 2.5195,
+      "bestWinRate": 0.8385
     },
     "generationStats": [
       {

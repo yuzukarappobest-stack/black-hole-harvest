@@ -4524,12 +4524,14 @@
       const attackScore=attacker?cpuBestAttackScore(attacker,mode):-Infinity;
       const handScore=handAction?cpuMainActionPlanScore(handAction,mode):-Infinity;
       const directPressure=fieldActive('player').length===0&&attacker;
+      const expert=cpuChooseExpertAction(usable,mode);
       const plannedFirst=mode==='veryStrong'?cpuChoosePlannedFirstAction(usable):handAction;
-      const chosenHand=plannedFirst||handAction;
-      const chosenHandScore=chosenHand?cpuMainActionPlanScore(chosenHand,mode):-Infinity;
+      const chosenHand=mode==='veryStrong'?(expert||plannedFirst||handAction):(expert&&cpuComboPriority(expert)>=18?expert:handAction);
+      const chosenHandScore=chosenHand?cpuMainActionPlanScore(chosenHand,mode)+cpuComboPriority(chosenHand):-Infinity;
 
       // With an open lane, pressure territory first. Otherwise compare tactical gain.
-      if(!directPressure&&chosenHand&&chosenHandScore>=attackScore-0.5){
+      const mustDevelop=chosenHand&&cpuDeckArchetype()==='armyAnt'&&passiveOfInst(chosenHand)?.type==='militaryLink';
+      if(!directPressure&&chosenHand&&(mustDevelop||chosenHandScore>=attackScore-0.5)){
         acted=await playCardFromHand('cpu',chosenHand);
         if(acted){render();continue;}
       }
@@ -4653,8 +4655,9 @@
     if(!hand.length)return false;
     const ranked=[...hand].sort((a,b)=>cpuCardKeepValue(a)-cpuCardKeepValue(b));
     const lowest=ranked[0];
-    const limit=state.cpu.bait.length<3?9:6.5;
-    return cpuCardKeepValue(lowest)<=limit;
+    const baitCount=state.cpu.bait.length;
+    if(baitCount<cpuResourceTarget())return cpuCardKeepValue(lowest)<=13;
+    return cpuCardKeepValue(lowest)<=5.5&&hand.length>=4;
   }
   function cpuFieldThreat(fc,side='player'){
     const c=fieldDef(fc);if(!c)return 0;
@@ -4671,6 +4674,125 @@
     const list=[...s.hand,...s.deck,...s.bait,...s.discard,...s.territory,...s.field.map(fc=>fc.inst)];
     return list.some(inst=>pattern.test(def(inst)?.name||''));
   }
+  function cpuResourceTarget(){
+    const arch=cpuDeckArchetype();
+    if(['bee','sumatra','hercules'].includes(arch))return 6;
+    if(arch==='armyAnt')return 5;
+    if(['colorBlessing','aquatic'].includes(arch))return 5;
+    if(arch==='mimicAggro')return 4;
+    return 5;
+  }
+  function cpuAceNames(){
+    const arch=cpuDeckArchetype();
+    if(arch==='bee')return ['オオスズメバチ（女王）','オオスズメバチ','タランチュラホーク'];
+    if(arch==='sumatra')return ['スマトラオオヒラタクワガタ','ゴライアスオオツノハナムグリ'];
+    if(arch==='hercules')return ['ヘラクレスオオカブト','ゴライアスオオツノハナムグリ'];
+    if(arch==='armyAnt')return ['ニセハナマオウカマキリ','リオック','バーチェルグンタイアリ メジャー'];
+    return [];
+  }
+  function cpuBestAceInHand(excludeUid=null){
+    const names=cpuAceNames();
+    const list=state.cpu.hand.filter(x=>x.uid!==excludeUid&&def(x).type==='insect'&&names.includes(def(x).name));
+    return [...list].sort((a,b)=>cpuCardKeepValue(b)-cpuCardKeepValue(a))[0]||null;
+  }
+  function cpuHasTempoSpell(effect){
+    return state.cpu.hand.some(x=>def(x).effect===effect&&canUseHandCardCPU(x));
+  }
+  function cpuReadyAttackCount(){
+    return fieldActive('cpu').filter(fc=>canAttackSide('cpu',fc)).length;
+  }
+  function cpuOpponentHasSingleBlocker(){return fieldActive('player').length===1;}
+  function cpuCanRemoveBlockerWith(inst){
+    const c=def(inst),targets=fieldActive('player');
+    if(targets.length!==1)return false;
+    const t=targets[0];
+    if(['destroyOpponent','eternalCocoon'].includes(c.effect))return true;
+    if(c.effect==='burn600')return t.damage+600>=maxHp(t);
+    if(c.effect==='burn1000')return t.damage+1000>=maxHp(t);
+    return false;
+  }
+  function cpuComboPriority(inst){
+    const c=def(inst),arch=cpuDeckArchetype();
+    if(!c)return 0;
+    let p=0;
+    if(c.effect==='handTempSummon'){
+      const ace=cpuBestAceInHand(inst.uid);
+      if(ace){
+        p+=20+cpuCardKeepValue(ace);
+        if(arch==='sumatra'&&def(ace).name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?18:-5;
+        if(arch==='bee'&&def(ace).name==='オオスズメバチ（女王）'){
+          const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+          p+=bees*7;
+        }
+      }
+    }
+    if(arch==='armyAnt'&&passiveOfInst(inst)?.type==='militaryLink'){
+      const links=fieldActive('cpu').filter(fc=>passiveOfField(fc)?.type==='militaryLink').length;
+      p+=16+links*10;
+    }
+    if(arch==='bee'&&c.name==='オオスズメバチ（女王）'){
+      const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+      p+=20+bees*8;
+    }
+    if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
+    if(arch==='hercules'&&c.name==='ヘラクレスオオカブト')p+=24;
+    if(c.effect==='worshipGreatSword'&&fieldActive('cpu').some(fc=>fc.attacked)&&visibleDiscard('cpu').some(x=>def(x).type==='enhance'&&Number(def(x).cost||0)<=3))p+=22;
+    if(cpuOpponentHasSingleBlocker()&&cpuReadyAttackCount()>0&&cpuCanRemoveBlockerWith(inst))p+=28;
+    return p;
+  }
+  function cpuChooseExpertAction(usable,mode){
+    if(!usable.length)return null;
+    const arch=cpuDeckArchetype();
+
+    // Clear the last blocker first so the remaining insects can hit territory.
+    const removal=usable.filter(cpuCanRemoveBlockerWith).sort((a,b)=>cpuComboPriority(b)-cpuComboPriority(a))[0];
+    if(removal&&cpuReadyAttackCount()>0)return removal;
+
+    // Exact archetype playbooks.
+    if(arch==='armyAnt'){
+      const links=usable.filter(x=>passiveOfInst(x)?.type==='militaryLink');
+      if(links.length){
+        return [...links].sort((a,b)=>{
+          const ca=def(a),cb=def(b);
+          // Major scales best after bodies are established; cheap links first.
+          const va=(ca.name.includes('マイナー')?8:ca.name.includes('メディア')?7:4)-Number(ca.cost||0);
+          const vb=(cb.name.includes('マイナー')?8:cb.name.includes('メディア')?7:4)-Number(cb.cost||0);
+          return vb-va;
+        })[0];
+      }
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      if(tama)return tama;
+    }
+
+    if(arch==='bee'){
+      const queen=usable.find(x=>def(x).name==='オオスズメバチ（女王）');
+      const beeBait=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+      if(queen&&beeBait)return queen;
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      if(tama&&beeBait)return tama;
+    }
+
+    if(arch==='sumatra'){
+      const sumatra=usable.find(x=>def(x).name==='スマトラオオヒラタクワガタ');
+      if(sumatra&&baitHasRGB('cpu'))return sumatra;
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      if(tama&&baitHasRGB('cpu'))return tama;
+    }
+
+    if(arch==='hercules'){
+      const herc=usable.find(x=>def(x).name==='ヘラクレスオオカブト');
+      if(herc)return herc;
+      const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuBestAceInHand(x.uid));
+      if(tama)return tama;
+    }
+
+    const sword=usable.find(x=>def(x).effect==='worshipGreatSword'&&fieldActive('cpu').some(fc=>fc.attacked)&&visibleDiscard('cpu').some(y=>def(y).type==='enhance'&&Number(def(y).cost||0)<=3));
+    if(sword)return sword;
+
+    const ranked=[...usable].sort((a,b)=>(cpuComboPriority(b)+cpuMainActionPlanScore(b,mode))-(cpuComboPriority(a)+cpuMainActionPlanScore(a,mode)));
+    return ranked[0]||null;
+  }
+
   function chooseBaitCPUSmart(hand,mode){
     const missingColors=(()=>{
       const colors=new Set(faceUpBait('cpu').filter(x=>def(x).type==='insect').map(x=>baitCardColor(x)).filter(Boolean));
@@ -4696,13 +4818,15 @@
     const best=ranked[0];
     if(!best)return null;
 
-    // Early game still needs resources; later, preserve a hand full of combo pieces.
+    // Competitive decks need to reach their engine cost first. Do not stall at 3-4 bait.
     const baitCount=state.cpu.bait.length;
-    const threshold=baitCount<2?14:baitCount<4?10.5:baitCount<6?7.5:5.5;
-    const allCritical=ranked.every(x=>baitCost(x)>threshold);
-    if(allCritical&&hand.length<=3)return null;
-    if(baitCount>=5&&baitCost(best)>threshold)return null;
-    if(mode==='veryStrong'&&baitCount>=3&&baitCost(best)>threshold+1)return null;
+    const target=cpuResourceTarget();
+    if(baitCount<target)return best;
+
+    // Once the engine is online, stop converting combo pieces into bait.
+    const threshold=mode==='veryStrong'?6.5:7.5;
+    if(hand.length<=2&&baitCost(best)>threshold)return null;
+    if(baitCost(best)>threshold+1.5)return null;
     return best;
   }
 
@@ -4781,7 +4905,7 @@
     if(ca.effect==='handTempSummon'&&cb.type==='insect'&&Number(cb.cost||0)>=5)s+=7;
     return s;
   }
-  function cpuPlanSearchFrom(first,usable,depth=3){
+  function cpuPlanSearchFrom(first,usable,depth=4){
     const startBudget=state.cpu.cost;
     const firstCost=cpuAbstractCost(first,startBudget);
     if(firstCost>startBudget&&!(def(first).type==='insect'&&passiveOfInst(first)?.type==='altSacrifice2'))return -Infinity;
@@ -4811,7 +4935,7 @@
   function cpuMainActionPlanScore(inst,mode){
     if(mode==='veryStrong'){
       const usable=state.cpu.hand.filter(x=>canUseHandCardCPU(x));
-      return cpuPlanSearchFrom(inst,usable,3);
+      return cpuPlanSearchFrom(inst,usable,4);
     }
     return cpuMainActionScore(inst);
   }
@@ -4826,9 +4950,9 @@
   }
   function cpuChoosePlannedFirstAction(usable){
     if(!usable.length)return null;
-    const ranked=[...usable].sort((a,b)=>cpuPlanSearchFrom(b,usable,3)-cpuPlanSearchFrom(a,usable,3));
+    const ranked=[...usable].sort((a,b)=>cpuPlanSearchFrom(b,usable,4)-cpuPlanSearchFrom(a,usable,4));
     const best=ranked[0];
-    return best&&cpuPlanSearchFrom(best,usable,3)>=6.5?best:null;
+    return best&&cpuPlanSearchFrom(best,usable,4)>=6.5?best:null;
   }
 
   function cpuAttackOptionScore(fc,attack,mode){
@@ -4836,12 +4960,20 @@
     const base=attackPower('cpu',fc,attack);
     let score=base/110;
     const effectBonus={
-      mantisCombo:5,flip:4,stinkHorn:3.5,bounceOnce:6,persistentDamage:2.5,
-      oncePerEntry:2.2,selfDestruct:-0.5,queenOviposition:5,multiTwo:4,
-      directBaitReturn:3.5,sourceAttackLock:3.5,sourceAttackLockPersistent:4,
-      rainbowColor:2.5,banditArm:4,hawkEye:3.5
+      mantisCombo:7,flip:5,stinkHorn:4,bounceOnce:9,persistentDamage:3,
+      oncePerEntry:3,selfDestruct:-1,queenOviposition:8,multiTwo:5,
+      directBaitReturn:4,sourceAttackLock:4,sourceAttackLockPersistent:5,
+      rainbowColor:3,banditArm:5,hawkEye:5,cannibal:4
     };
     score+=effectBonus[attack.effect]||0;
+    if(attack.effect==='queenOviposition'){
+      score+=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length*5;
+    }
+    if(attack.effect==='bounceOnce'&&targets.length)score+=Math.max(...targets.map(t=>cpuFieldThreat(t,'player')))*0.5;
+    if(attack.effect==='cannibal'){
+      const fodder=fieldActive('cpu').filter(x=>x!==fc).sort((a,b)=>cpuFieldThreat(a,'cpu')-cpuFieldThreat(b,'cpu'))[0];
+      if(fodder)score-=cpuFieldThreat(fodder,'cpu')*0.3;
+    }
 
     if(!targets.length){
       const terr=state.player.territory.length;
@@ -4914,8 +5046,11 @@
       const dmg=base*(nw?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(t)));
       const remain=maxHp(t)-t.damage;
       const lethal=dmg>=remain;
-      let score=cpuFieldThreat(t,'player')+(lethal?18:0)+Math.min(dmg,remain)/180;
-      if(lethal)score-=Math.max(0,dmg-remain)/700;
+      let score=cpuFieldThreat(t,'player')+(lethal?24:0)+Math.min(dmg,remain)/180;
+      const p=passiveOfField(t);
+      if(p?.type==='taunt'||p?.type==='pollen')score+=12;
+      if(t.forceTargetTurn===state.turnSeq||t.forcedTargetTurn===state.turnSeq)score+=8;
+      if(lethal)score-=Math.max(0,dmg-remain)/850;
       if(mode==='veryStrong'&&lethal){
         const next=fieldActive('cpu').filter(x=>x!==fc&&canAttackSide('cpu',x)).reduce((m,x)=>Math.max(m,cpuBestAttackScore(x,'strong')),0);
         score+=next*0.25;
@@ -4926,7 +5061,16 @@
   }
   function chooseEnhanceTargetCPU(c,targets){
     if(currentCpuDifficulty()==='normal')return [...targets].sort((a,b)=>def(b.inst).cost-def(a.inst).cost)[0];
-    return [...targets].sort((a,b)=>cpuFieldThreat(b,'cpu')-cpuFieldThreat(a,'cpu'))[0];
+    const score=fc=>{
+      let v=cpuFieldThreat(fc,'cpu');
+      if(fc.temporaryDestroyTurn===state.turnSeq||fc.temporary)v-=5;
+      if(canAttackSide('cpu',fc))v+=cpuBestAttackScore(fc,'strong')*0.35;
+      if(cpuDeckArchetype()==='hercules'&&fieldDef(fc).name==='ヘラクレスオオカブト')v+=10;
+      if(cpuDeckArchetype()==='sumatra'&&fieldDef(fc).name==='スマトラオオヒラタクワガタ')v+=10;
+      if(cpuDeckArchetype()==='bee'&&fieldDef(fc).name==='オオスズメバチ（女王）')v+=8;
+      return v;
+    };
+    return [...targets].sort((a,b)=>score(b)-score(a))[0];
   }
   function chooseBurnTargetCPU(targets){
     if(!targets.length)return null;

@@ -4666,7 +4666,9 @@
     return v;
   }
   function cpuCardKeepValue(inst){
-    return cpuCardKeepValueBase(inst)+cpuStrategicBonus(inst);
+    const preserve=cpuPolicyValue('preserveWeight',1);
+    const ace=cpuPolicyValue('aceWeight',1);
+    return cpuCardKeepValueBase(inst)*preserve+cpuStrategicBonus(inst)*ace;
   }
   function cpuShouldSpendCardAsExtraBait(hand){
     if(!hand.length)return false;
@@ -5031,14 +5033,15 @@
     const best=ranked[0];
     const bestScore=best?cpuMainActionPlanScore(best,mode):-Infinity;
     // Don't dump weak cards just because they are legal.
-    const threshold=mode==='veryStrong'?6.5:7.5;
+    const baseThreshold=mode==='veryStrong'?6.5:7.5;
+    const threshold=cpuPolicyValue('deployThreshold',baseThreshold);
     return bestScore>=threshold?best:null;
   }
   function cpuChoosePlannedFirstAction(usable){
     if(!usable.length)return null;
     const ranked=[...usable].sort((a,b)=>cpuPlanSearchFrom(b,usable,4)-cpuPlanSearchFrom(a,usable,4));
     const best=ranked[0];
-    return best&&cpuPlanSearchFrom(best,usable,4)>=6.5?best:null;
+    return best&&cpuPlanSearchFrom(best,usable,4)>=cpuPolicyValue('deployThreshold',6.5)?best:null;
   }
 
   function cpuAttackOptionScore(fc,attack,mode){
@@ -5070,7 +5073,8 @@
         const noWeak=hasAttachment(t,'noWeakness')||(passiveOfField(t)?.type==='whiteShell'&&t.whiteShellTurn===state.turnSeq);
         const damage=base*(noWeak?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(t)));
         const lethal=damage>=maxHp(t)-t.damage;
-        let ts=cpuFieldThreat(t,'player')*0.35+damage/220+(lethal?12:0);
+        const rw=cpuPolicyValue('removalWeight',1);
+        let ts=cpuFieldThreat(t,'player')*0.35*rw+damage/220+(lethal?12*rw:0);
         bestTarget=Math.max(bestTarget,ts);
       }
       score+=bestTarget;
@@ -5132,7 +5136,8 @@
       const dmg=base*(nw?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(t)));
       const remain=maxHp(t)-t.damage;
       const lethal=dmg>=remain;
-      let score=cpuFieldThreat(t,'player')+(lethal?24:0)+Math.min(dmg,remain)/180;
+      const removalWeight=cpuPolicyValue('removalWeight',1);
+      let score=cpuFieldThreat(t,'player')*removalWeight+(lethal?24*removalWeight:0)+Math.min(dmg,remain)/180;
       const p=passiveOfField(t);
       if(p?.type==='taunt'||p?.type==='pollen')score+=12;
       if(t.forceTargetTurn===state.turnSeq||t.forcedTargetTurn===state.turnSeq)score+=8;
@@ -5164,7 +5169,8 @@
     const score=t=>{
       const lethal600=600>=maxHp(t)-t.damage;
       const lethal1000=1000>=maxHp(t)-t.damage;
-      return cpuFieldThreat(t,'player')+(lethal600?18:lethal1000?8:0);
+      const rw=cpuPolicyValue('removalWeight',1);
+      return cpuFieldThreat(t,'player')*rw+(lethal600?18*rw:lethal1000?8*rw:0);
     };
     return [...targets].sort((a,b)=>score(b)-score(a))[0];
   }

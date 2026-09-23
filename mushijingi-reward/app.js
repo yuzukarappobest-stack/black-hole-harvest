@@ -910,6 +910,7 @@
     if(c.effect==='bloodPact'&&s.territory.length>=2){
       const normal=effectiveCardCost(side,inst);
       let useTerritory=normal>s.cost;
+      if(side==='cpu'&&normal<=s.cost&&cpuShouldPayBloodPactWithTerritory(inst))useTerritory=true;
       if(side==='player'&&normal<=s.cost){
         const choice=await choose([
           {value:'cost',title:`${normal}コスト払う`,detail:'通常のコスト'},
@@ -2846,6 +2847,7 @@
         removeHand(s,inst);if(!s.discard.includes(inst))s.discard.push(inst);
       }else{
       let useTerritory=s.territory.length>=2&&normalCost>s.cost;
+      if(side==='cpu'&&s.territory.length>=2&&normalCost<=s.cost&&cpuShouldPayBloodPactWithTerritory(inst))useTerritory=true;
       if(side==='player'&&s.territory.length>=2&&normalCost<=s.cost){
         const pay=await choose([
           {value:'cost',title:`${normalCost}コスト払う`,detail:'通常のコストで使用'},
@@ -5191,10 +5193,90 @@
     return [...ready].sort((a,b)=>cpuBestAttackScore(b,'veryStrong')-cpuBestAttackScore(a,'veryStrong'))[0];
   }
 
+  function cpuColorBlessingMissingColors(){
+    const colors=new Set(faceUpBait('cpu')
+      .filter(x=>def(x).type==='insect')
+      .map(x=>baitCardColor(x))
+      .filter(Boolean));
+    return new Set(['red','blue','green'].filter(x=>!colors.has(x)));
+  }
+  function cpuColorBlessingDeployableThreats(excludeUid=null,budget=state?.cpu?.cost||0){
+    if(!state?.cpu||!baitHasRGB('cpu'))return [];
+    const pool=state.cpu.hand.filter(x=>x.uid!==excludeUid&&def(x).type==='insect');
+    const blessed=pool.filter(x=>passiveOfInst(x)?.type==='colorBlessing');
+    const ranked=[...blessed].sort((a,b)=>{
+      const ca=effectiveCardCost('cpu',a),cb=effectiveCardCost('cpu',b);
+      if(ca!==cb)return ca-cb;
+      return cpuMainActionScore(b)-cpuMainActionScore(a);
+    });
+    const out=[];let left=Math.max(0,budget);
+    for(const x of ranked){
+      const cost=effectiveCardCost('cpu',x);
+      if(cost<=left){out.push(x);left-=cost;}
+    }
+    return out;
+  }
+  function cpuColorBlessingBloodPactPlan(inst=null){
+    const s=state?.cpu,opp=fieldActive('player');
+    if(!s||!opp.length)return {useTerritory:false,castNow:false,lethal:false,score:-Infinity};
+    const normalCost=inst?effectiveCardCost('cpu',inst):4;
+    const ready=cpuReadyAttackCount();
+    const singleBlocker=opp.length===1;
+    const hitsNeeded=state.player.territory.length+1;
+    const deployFull=cpuColorBlessingDeployableThreats(inst?.uid||null,s.cost);
+    const deployAfterCost=cpuColorBlessingDeployableThreats(inst?.uid||null,Math.max(0,s.cost-normalCost));
+    const projectedAttackers=ready+deployFull.length;
+    const lethal=singleBlocker&&projectedAttackers>=hitsNeeded;
+    const immediateLethal=singleBlocker&&ready>=hitsNeeded;
+    const preservesDevelopment=deployFull.length>deployAfterCost.length;
+    const targetThreat=Math.max(0,...opp.map(fc=>cpuFieldThreat(fc,'player')));
+    const safeToSacrifice=s.territory.length>=3||lethal;
+    const territoryWeight=cpuPolicyValue('bloodPactTerritoryWeight',1.15);
+
+    // The alternative cost is strongest when it converts the same turn into
+    // additional discounted Color Blessing attackers. Never burn the last two
+    // territories for ordinary tempo unless it is a lethal line.
+    const useTerritory=s.territory.length>=2&&(
+      lethal||
+      (safeToSacrifice&&singleBlocker&&preservesDevelopment&&projectedAttackers>=2)||
+      (safeToSacrifice&&preservesDevelopment&&ready>=1&&targetThreat>=8)
+    );
+
+    // If there are discounted threats to deploy first, develop them before
+    // spending Blood Pact unless removing the blocker is already lethal.
+    const castNow=immediateLethal||
+      (useTerritory&&deployFull.length===0&&ready>=1)||
+      (!useTerritory&&singleBlocker&&ready>=1&&deployFull.length===0);
+
+    let score=targetThreat*1.25*cpuPolicyValue('removalWeight',1);
+    if(singleBlocker)score+=ready*4;
+    if(lethal)score+=45;
+    if(useTerritory)score+=(preservesDevelopment?14:4)*territoryWeight;
+    if(s.territory.length<=2&&!lethal&&useTerritory)score-=30;
+    return {useTerritory,castNow,lethal,immediateLethal,preservesDevelopment,score};
+  }
+  function cpuShouldPayBloodPactWithTerritory(inst){
+    return cpuDeckArchetype()==='colorBlessing'&&currentCpuDifficulty()!=='normal'&&cpuColorBlessingBloodPactPlan(inst).useTerritory;
+  }
+
   function cpuChooseExpertAction(usable,mode){
     if(!usable.length)return null;
     const arch=cpuDeckArchetype();
     if(mode==='veryStrong'&&arch==='aquatic')return cpuAquaticBossAction(usable);
+
+    if(mode==='veryStrong'&&arch==='colorBlessing'){
+      const blood=usable.find(x=>def(x).effect==='bloodPact');
+      const bloodPlan=blood?cpuColorBlessingBloodPactPlan(blood):null;
+      if(blood&&bloodPlan?.immediateLethal)return blood;
+
+      if(baitHasRGB('cpu')){
+        const blessed=usable.filter(x=>passiveOfInst(x)?.type==='colorBlessing')
+          .sort((a,b)=>cpuMainActionScore(b)-cpuMainActionScore(a));
+        if(blessed.length)return blessed[0];
+      }
+
+      if(blood&&bloodPlan?.castNow)return blood;
+    }
 
     if(arch==='aquatic'){
       // Public tournament lists use an aggressive beat plan: cheap pressure + blue bait ramp.
@@ -5218,7 +5300,10 @@
 
     // Clear the last blocker first so the remaining insects can hit territory.
     const removal=usable.filter(cpuCanRemoveBlockerWith).sort((a,b)=>cpuComboPriority(b)-cpuComboPriority(a))[0];
-    if(removal&&cpuReadyAttackCount()>0)return removal;
+    if(removal&&cpuReadyAttackCount()>0){
+      const holdColorBlood=mode==='veryStrong'&&arch==='colorBlessing'&&def(removal).effect==='bloodPact'&&!cpuColorBlessingBloodPactPlan(removal).castNow;
+      if(!holdColorBlood)return removal;
+    }
 
     // Exact archetype playbooks.
     if(arch==='armyAnt'){
@@ -5271,7 +5356,7 @@
       const colors=new Set(faceUpBait('cpu').filter(x=>def(x).type==='insect').map(x=>baitCardColor(x)).filter(Boolean));
       return new Set(['red','blue','green'].filter(x=>!colors.has(x)));
     })();
-    const wantsRGB=state.cpu.deckKey==='metaSumatra3Color'||cpuHasNameInOwnZones(/スマトラオオヒラタクワガタ|色彩の加護/);
+    const wantsRGB=state.cpu.deckKey==='metaSumatra3Color'||state.cpu.deckKey==='metaColorBlessing'||cpuHasNameInOwnZones(/スマトラオオヒラタクワガタ/);
     const wantsBeeBait=state.cpu.deckKey==='metaBee'||cpuHasNameInOwnZones(/オオスズメバチ（女王）/);
     const duplicateCount=new Map();
     for(const x of hand)duplicateCount.set(def(x).name,(duplicateCount.get(def(x).name)||0)+1);
@@ -5283,6 +5368,18 @@
       if(c.effect==='worshipGreatSword'&&!visibleDiscard('cpu').some(x=>def(x).type==='enhance'))score-=4;
       if(c.effect==='baitBoost')score+=1.5;
       if(wantsRGB&&c.type==='insect'&&missingColors.has(c.color))score-=4.5;
+      if(cpuDeckArchetype()==='colorBlessing'){
+        const rgbPriority=cpuPolicyValue('rgbBaitPriority',9);
+        if(c.type==='insect'&&missingColors.has(c.color)){
+          score-=rgbPriority;
+          // Preserve the actual payoff cards when another missing-color body is available.
+          if(passiveOfInst(i)?.type==='colorBlessing')score+=5;
+          if((duplicateCount.get(c.name)||0)>1)score-=2;
+        }else if(missingColors.size&&c.type==='insect'&&!['red','blue','green'].includes(c.color)){
+          score+=3;
+        }
+        if(c.effect==='bloodPact')score+=12;
+      }
       if(wantsBeeBait&&c.type==='insect'&&/バチ/.test(c.name)&&c.name!=='オオスズメバチ（女王）'&&Number(c.cost||0)<=5)score-=3.2;
       if(cpuHasNameInOwnZones(/ヒアリ/)&&c.type==='insect'&&c.color==='red')score-=1;
       if(cpuDeckArchetype()==='aquatic'){
@@ -5327,6 +5424,20 @@
       if(p?.type==='sumatraNature'){
         score+=baitHasRGB('cpu')?14:-6;
       }
+      if(cpuDeckArchetype()==='colorBlessing'){
+        if(p?.type==='colorBlessing'){
+          score+=baitHasRGB('cpu')?16:2;
+          if(baitHasRGB('cpu')&&cost<=2)score+=8;
+        }
+        const missing=cpuColorBlessingMissingColors();
+        if(!baitHasRGB('cpu')&&c.type==='insect'&&missing.has(c.color)){
+          const alternatives=s.hand.filter(x=>x.uid!==inst.uid&&def(x).type==='insect'&&def(x).color===c.color);
+          if(!alternatives.length)score-=10;
+        }
+        const downUseful=s.bait.some(x=>x.faceDown&&def(x).type==='insect'&&['red','blue','green'].includes(baitCardColor(x)));
+        if(p?.type==='shineEntry'&&downUseful)score+=10;
+        if(c.name==='ゲンジボタル'&&downUseful)score+=6;
+      }
       if(c.name==='オオスズメバチ（女王）'){
         const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
         score+=bees*4+(bees?8:-2);
@@ -5364,6 +5475,7 @@
       recoverInsect:Math.max(0,...visibleDiscard('cpu').filter(x=>def(x).type==='insect').map(cpuCardKeepValue))*0.65,
       destroyOpponent:opp.length?Math.max(...opp.map(fc=>cpuFieldThreat(fc,'player')))*0.95:0,
       eternalCocoon:opp.length?Math.max(...opp.map(fc=>cpuFieldThreat(fc,'player')))*1.0:0,
+      bloodPact:opp.length?(cpuDeckArchetype()==='colorBlessing'?cpuColorBlessingBloodPactPlan(inst).score:Math.max(...opp.map(fc=>cpuFieldThreat(fc,'player')))*1.1):0,
       worshipGreatSword:fieldActive('cpu').some(fc=>fc.attacked)&&visibleDiscard('cpu').some(x=>def(x).type==='enhance'&&Number(def(x).cost||0)<=3)?13:-8
     };
     score+=effectScore[c.effect]??2.2;
@@ -5378,6 +5490,7 @@
   function cpuAbstractCost(inst,budget){
     const c=def(inst),base=Math.max(0,effectiveCardCost('cpu',inst));
     if(c.type==='insect'&&passiveOfInst(inst)?.type==='altSacrifice2'&&base>budget&&fieldActive('cpu').length>=2)return 0;
+    if(c.effect==='bloodPact'&&cpuShouldPayBloodPactWithTerritory(inst))return 0;
     return base;
   }
   function cpuPlanPairSynergy(a,b){

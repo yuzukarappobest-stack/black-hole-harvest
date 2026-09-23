@@ -400,12 +400,12 @@ function aquaticLeagueEval(p,gen,index,hall=[]){
   }
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
-function benchmarkAquatic(p,label){
+function benchmarkAquatic(p){
   let pts=0,games=0,wins=0,losses=0,draws=0;
   for(const [opp,variants] of Object.entries(OPPONENT_VARIANTS)){
     for(let v=0;v<variants.length;v++){
       for(let n=0;n<16;n++){
-        const seed=hash('aquatic-benchmark-v2:'+label+':'+opp+':'+v+':'+n);
+        const seed=hash('aquatic-benchmark-v3:'+opp+':'+v+':'+n);
         for(const seat of [0,1]){
           const r=seat===0
             ?runGame('aquatic',p,opp,variants[v],seed^(seat?0x27d4eb2d:0))
@@ -459,8 +459,8 @@ function trainAquaticIntensive(){
   }
 
   // Final tournament: champion must beat the previously deployed policy on the same benchmark.
-  const oldBench=benchmarkAquatic(previous,'previous');
-  const newBench=benchmarkAquatic(champion.p,'champion');
+  const oldBench=benchmarkAquatic(previous);
+  const newBench=benchmarkAquatic(champion.p);
   const chosen=newBench.score>=oldBench.score?champion.p:previous;
 
   return {
@@ -474,7 +474,90 @@ function trainAquaticIntensive(){
   };
 }
 
+
+function quickBenchmarkAquatic(p){
+  let pts=0,games=0,wins=0,losses=0,draws=0;
+  for(const [opp,variants] of Object.entries(OPPONENT_VARIANTS)){
+    for(let v=0;v<variants.length;v++){
+      for(let n=0;n<6;n++){
+        const seed=hash('aquatic-micro-v1:'+opp+':'+v+':'+n);
+        const r1=runGame('aquatic',p,opp,variants[v],seed);
+        pts+=scoreGame(r1,0);games++;AQUATIC_GAME_COUNT++;
+        if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
+        const r2=runGame(opp,variants[v],'aquatic',p,seed^0x517cc1b7);
+        pts+=scoreGame(r2,1);games++;AQUATIC_GAME_COUNT++;
+        if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
+      }
+    }
+  }
+  return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
+}
+function microMutate(base,rng,scale){
+  const out={...base};
+  const keys=Object.keys(PARAMS);
+  const changes=2+Math.floor(rng()*5);
+  for(let n=0;n<changes;n++){
+    const k=keys[Math.floor(rng()*keys.length)];
+    const [lo,hi,step]=PARAMS[k];
+    if(['resourceTarget','finisherResourceTarget','blueBaitFloor','tempSummonBaitFloor'].includes(k)){
+      if(rng()<.55)out[k]=clamp(Math.round(Number(out[k])+(rng()<.5?-1:1)),lo,hi);
+    }else{
+      out[k]=clamp(Number(out[k])+(rng()*2-1)*step*scale,lo,hi);
+    }
+  }
+  return out;
+}
+function refineAquaticLocal(seedPolicy){
+  const rng=mulberry32(hash('aquatic-micro-20260924'));
+  const candidates=[{...seedPolicy}];
+
+  // Coordinate probes make sure every learned knob is explicitly tested both ways.
+  for(const [k,[lo,hi,step]] of Object.entries(PARAMS)){
+    for(const dir of [-1,1]){
+      const p={...seedPolicy};
+      if(['resourceTarget','finisherResourceTarget','blueBaitFloor','tempSummonBaitFloor'].includes(k)){
+        p[k]=clamp(Math.round(Number(p[k])+dir),lo,hi);
+      }else{
+        p[k]=clamp(Number(p[k])+dir*step*.5,lo,hi);
+      }
+      candidates.push(p);
+    }
+  }
+
+  // Dense random search around the already-strong deployed policy.
+  while(candidates.length<720){
+    const scale=.18+rng()*.65;
+    candidates.push(microMutate(seedPolicy,rng,scale));
+  }
+
+  const quick=candidates.map((p,i)=>({p,i,...quickBenchmarkAquatic(p)}))
+    .sort((a,b)=>b.score-a.score);
+
+  // Re-test finalists on the larger, exactly shared benchmark.
+  const finalists=quick.slice(0,24).map(x=>({
+    p:x.p,
+    quickScore:x.score,
+    quickWinRate:x.winRate,
+    full:benchmarkAquatic(x.p)
+  })).sort((a,b)=>b.full.score-a.full.score);
+
+  const baseline=benchmarkAquatic(seedPolicy);
+  const best=finalists[0];
+  const chosen=best&&best.full.score>baseline.score+1e-9?best.p:seedPolicy;
+
+  return {
+    policy:chosen,
+    baseline,
+    best:best?{quickScore:best.quickScore,quickWinRate:best.quickWinRate,full:best.full,p:best.p}:null,
+    candidates:candidates.length,
+    finalists:finalists.length
+  };
+}
+
 const intensive=trainAquaticIntensive();
+const microRefine=refineAquaticLocal(intensive.policy);
+intensive.policy=microRefine.policy;
+intensive.games=AQUATIC_GAME_COUNT;
 const previousArchetypes=PREVIOUS_POLICY?.archetypes||{};
 const learned={};
 for(const arch of Object.keys(META)){
@@ -504,6 +587,14 @@ const payload={
       winRate:Number(intensive.newBench.winRate.toFixed(4)),
       games:intensive.newBench.games
     },
+    microSearch:{
+      candidates:microRefine.candidates,
+      finalists:microRefine.finalists,
+      baselineScore:Number(microRefine.baseline.score.toFixed(4)),
+      baselineWinRate:Number(microRefine.baseline.winRate.toFixed(4)),
+      bestScore:Number((microRefine.best?.full.score??microRefine.baseline.score).toFixed(4)),
+      bestWinRate:Number((microRefine.best?.full.winRate??microRefine.baseline.winRate).toFixed(4))
+    },
     generationStats:intensive.generationStats
   },
   archetypes:learned
@@ -514,6 +605,11 @@ console.log('Aquatic intensive self-play complete:',{
   games:intensive.games,
   previous:intensive.oldBench,
   champion:intensive.newBench,
-  selected: intensive.newBench.score>=intensive.oldBench.score?'champion':'previous',
+  selected: intensive.newBench.score>=intensive.oldBench.score?'league-champion-or-base':'previous-base',
+  microSearch:{
+    baseline:microRefine.baseline,
+    best:microRefine.best?.full||null,
+    improved:microRefine.best?microRefine.best.full.score>microRefine.baseline.score:false
+  },
   policy:learned.aquatic
 });

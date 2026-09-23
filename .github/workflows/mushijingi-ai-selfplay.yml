@@ -33,4 +33,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add mushijingi-reward/ai-policy.js
           git commit -m "Update Mushijingi AI policy from self-play"
-          git push
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main

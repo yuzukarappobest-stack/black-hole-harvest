@@ -287,7 +287,7 @@ function actionCandidates(me,opp,p){
         const lethal=single&&(ready+fullDeploy)>=hitsNeeded;
         const preserves=fullDeploy>afterDeploy;
         const safe=me.territory.length>=3||lethal;
-        const payTerritory=me.territory.length>=2&&(
+        let payTerritory=me.territory.length>=2&&(
           cost>me.bait.length||
           (me.arch==='colorBlessing'&&(lethal||(safe&&single&&preserves&&(ready+fullDeploy)>=2)))
         );

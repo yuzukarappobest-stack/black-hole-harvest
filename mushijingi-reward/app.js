@@ -4829,7 +4829,7 @@
   }
   function cpuAquaticBossResourceTarget(){
     if(cpuAquaticBlueBaitCount()<4)return 4;
-    if(cpuAquaticHighCostInHand())return 6;
+    if(cpuAquaticHighCostInHand())return Math.max(5,Math.min(7,Math.round(cpuPolicyValue('finisherResourceTarget',6))));
     if(state.cpu.hand.some(x=>def(x).name==='ゴライアスオオツノハナムグリ'))return 5;
     return 4;
   }
@@ -4906,7 +4906,7 @@
     if(cpuTempSummonCreatesLethal())return true;
     const target=cpuAquaticBestTempBait();
     if(!target)return false;
-    if(state.cpu.bait.length<5)return false;
+    if(state.cpu.bait.length<Math.max(4,Math.round(cpuPolicyValue('tempSummonBaitFloor',5))))return false;
     const c=def(target);
     if(['モンシロチョウ','モンキチョウ','チッチゼミ'].includes(c.name))return false;
     if(baitCardColor(target)==='blue'){
@@ -4914,7 +4914,7 @@
       if(Math.floor(after/2)<Math.floor(before/2)||after<4)return false;
     }
     // Kagero should produce a meaningful tempo swing, not just a body.
-    return cpuTempSummonValue(target)>=15||
+    return cpuTempSummonValue(target)>=cpuPolicyValue('tempSummonMinValue',15)||
       ['ヘラクレスオオカブト','サカダチコノハナナフシ','シタベニオオバッタ','ゴライアスオオツノハナムグリ'].includes(c.name);
   }
   function cpuAquaticBloodPactValue(){
@@ -4922,7 +4922,7 @@
     if(!opp.length)return -Infinity;
     const best=Math.max(...opp.map(fc=>cpuFieldThreat(fc,'player')));
     const ready=cpuReadyAttackCount();
-    let v=best*1.6;
+    let v=best*1.6*cpuPolicyValue('bloodPactWeight',1);
     if(opp.length===1&&ready>=1)v+=24+ready*6;
     if(state.player.territory.length<=2&&opp.length===1&&ready>=1)v+=18;
     if(state.cpu.territory.length<=2&&state.cpu.cost<4)v-=14;
@@ -4939,7 +4939,7 @@
 
     if(c.type==='insect'){
       if(c.passive?.type==='aquaticCost'){
-        score+=cost===0?24:cost===1?17:cost===2?8:0;
+        score+=(cost===0?24:cost===1?17:cost===2?8:0)+cpuPolicyValue('aquaticCheapBonus',0);
       }
       if(['モンシロチョウ','モンキチョウ'].includes(name)){
         score+=cpuAquaticHasPartnerOnField(name)?18:6;
@@ -4982,7 +4982,9 @@
     const flash=usable.find(x=>def(x).effect==='baitTempSummon');
     if(flash&&cpuAquaticBossShouldUseFlash())return flash;
 
-    return [...usable].sort((a,b)=>cpuAquaticBossActionScore(b)-cpuAquaticBossActionScore(a))[0]||null;
+    const ranked=[...usable].sort((a,b)=>cpuAquaticBossActionScore(b)-cpuAquaticBossActionScore(a));
+    const best=ranked[0]||null;
+    return best&&cpuAquaticBossActionScore(best)>=cpuPolicyValue('deployThreshold',5.5)?best:null;
   }
   function cpuAquaticBossAttackChoice(fc){
     const ats=availableAttacks('cpu',fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('cpu',fc,a));
@@ -4998,7 +5000,7 @@
         const strongest=[...targets].sort((a,b)=>cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'))[0];
         const normalDmg=damage?attackPower('cpu',fc,damage)*(hasAttachment(strongest,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(strongest))):0;
         const killable=damage&&normalDmg>=maxHp(strongest)-strongest.damage;
-        if((targets.length===1&&otherReady>=1)||(!killable&&cpuFieldThreat(strongest,'player')>=8))return bounce;
+        if((targets.length===1&&otherReady>=1)||(!killable&&cpuFieldThreat(strongest,'player')>=cpuPolicyValue('bounceThreatThreshold',8)))return bounce;
       }
       if(damage)return damage;
     }
@@ -5010,7 +5012,7 @@
         if(bait.length){
           const strong=Math.max(...targets.map(t=>cpuFieldThreat(t,'player')));
           const weak=Math.min(...bait.map(cpuAquaticOpponentBaitDanger));
-          if(strong-weak>=3)return swap;
+          if(strong-weak>=cpuPolicyValue('reverseSwapDelta',3))return swap;
         }
       }
     }

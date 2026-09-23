@@ -1336,6 +1336,25 @@
     state=null;deckBuilderScreen.classList.add('hidden');gameScreen.classList.add('hidden');startScreen.classList.remove('hidden');closeModal(null);
     renderCustomDeckChoices();refreshBattleGate();
   }
+  function renderSetDecisionHandPreview(container){
+    if(!container||!state?.player)return;
+    container.classList.add('set-hand-preview');
+    const label=document.createElement('div');
+    label.className='set-hand-preview-label';
+    label.textContent=`現在の手札 ${state.player.hand.length}枚`;
+    container.appendChild(label);
+
+    const grid=document.createElement('div');
+    grid.className='set-hand-preview-grid';
+    for(const inst of state.player.hand){
+      const node=cardElement(inst,{hand:true});
+      node.classList.add('set-hand-preview-card');
+      node.removeAttribute('style');
+      grid.appendChild(node);
+    }
+    container.appendChild(grid);
+  }
+
   async function beginTurn(){
     if(state.over)return;
     const side=state.turn,s=sideObj(side);
@@ -1374,7 +1393,7 @@
       const setChoice=await choose([
         {value:'place',title:'エサを置く',detail:'手札から1枚を選んでエサにする'},
         {value:'skip',title:'置かない',detail:'そのままメインフェイズへ進む'}
-      ],'セットフェイズの前に選んでください。','エサを置く？');
+      ],'手札を確認して、このターンにエサを置くか決めてください。','エサを置く？',renderSetDecisionHandPreview);
 
       if(!state||state.over||state.turn!=='player')return;
 
@@ -5530,14 +5549,28 @@
     message(text);log(text);render();showResultPopup(winner,text);
   }
 
-  function choose(options,text,title='選択'){
+  function choose(options,text,title='選択',previewRenderer=null){
     return new Promise(resolve=>{
-      modalResolver=resolve;$('modalTitle').textContent=title;$('modalText').textContent=text;const wrap=$('modalOptions');wrap.innerHTML='';
+      modalResolver=resolve;
+      $('modalTitle').textContent=title;
+      $('modalText').textContent=text;
+      const preview=$('modalPreview');
+      if(preview){
+        preview.innerHTML='';
+        preview.className='modal-preview';
+        if(typeof previewRenderer==='function')previewRenderer(preview);
+      }
+      const wrap=$('modalOptions');wrap.innerHTML='';
       options.forEach(o=>{const b=document.createElement('button');b.className=`modal-option ${o.value===null?'cancel':''}`;b.innerHTML=`<b>${escapeHtml(o.title)}</b>${o.detail?`<small>${escapeHtml(o.detail)}</small>`:''}`;b.onclick=()=>closeModal(o.value);wrap.appendChild(b);});
       modal.classList.remove('hidden');
     });
   }
-  function closeModal(value){if(modal.classList.contains('hidden'))return;modal.classList.add('hidden');const r=modalResolver;modalResolver=null;if(r)r(value);}
+  function closeModal(value){
+    if(modal.classList.contains('hidden'))return;
+    modal.classList.add('hidden');
+    const preview=$('modalPreview');if(preview)preview.innerHTML='';
+    const r=modalResolver;modalResolver=null;if(r)r(value);
+  }
   function chooseSimple(text,pairs){return choose(pairs.map(([value,title])=>({value,title,detail:''})),text,'選択');}
   function chooseField(text,targets,cancel){
     const opts=targets.map(fc=>({value:fc.inst.uid,title:fieldDef(fc).name,detail:`${colorJa[effectiveColor(fc)]} / HP ${Math.max(0,maxHp(fc)-fc.damage)}/${maxHp(fc)}`}));

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, viewport-fit=cover, user-scalable=yes" />
   <meta name="theme-color" content="#172117" />
   <title>蟲神器 SOLO - 学習ごほうび</title>
-  <link rel="stylesheet" href="./styles.css?v=13" />
+  <link rel="stylesheet" href="./styles.css?v=14" />
 </head>
 <body>
   <div id="app">
@@ -143,7 +143,11 @@
           <div class="builder-catalog-head">
             <h3>カードを追加</h3>
             <div class="builder-filters">
-              <input id="cardSearchInput" type="search" placeholder="カード名で検索">
+              <div class="card-search-box">
+                <input id="cardSearchInput" type="search" inputmode="search" enterkeyhint="search" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="カード名で検索">
+                <button id="cardSearchBtn" type="button">検索</button>
+                <button id="cardSearchClearBtn" type="button" class="search-clear-btn">クリア</button>
+              </div>
               <select id="cardSetFilter">
                 <option value="all">すべての弾</option>
                 <option value="starter">スターター</option>
@@ -306,8 +310,8 @@
     </div>
   </div>
 
-  <script src="./cards.js?v=13"></script>
-  <script src="./engine.js?v=13"></script>
-  <script src="./app.js?v=13"></script>
+  <script src="./cards.js?v=14"></script>
+  <script src="./engine.js?v=14"></script>
+  <script src="./app.js?v=14"></script>
 </body>
 </html>

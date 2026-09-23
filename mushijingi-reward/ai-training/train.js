@@ -186,7 +186,7 @@ function actionCandidates(me,opp,p){
     const c=cards[id],cost=effectiveCost(me,id);
     if(c.type==='insect'&&cost<=me.bait.length){
       let score=cardValue(me.arch,c,p)*p.aceWeight-cost*.35;
-      if(cost<=1)score+=2*p.aggression;
+      if(cost<=1)score+=2*p.aggression+Number(p.cheapDeployBonus||0);
       if(c.passive?.type==='aquaticCost')score+=3+(me.arch==='aquatic'?Number(p.aquaticCheapBonus||0):0);
       if(me.arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')score+=rgbBait(me)?12:-5;
       if(me.arch==='bee'&&c.name==='オオスズメバチ（女王）')score+=me.bait.filter(x=>isWasp(cards[x])&&Number(cards[x].cost||0)<=5).length*4;
@@ -338,6 +338,7 @@ const PARAMS={
   resourceTarget:[3,7,.7],finisherResourceTarget:[4,7,.7],blueBaitFloor:[2,6,.65],aggression:[.75,2.2,.18],
   directAttackWeight:[.8,2.5,.2],tempSummonBaitFloor:[2,7,.7],tempSummonMinValue:[7,22,1.4],
   preserveWeight:[.7,1.8,.12],removalWeight:[.75,2,.14],aceWeight:[.8,2,.14],deployThreshold:[3.5,11,.75],
+  comboWeight:[.6,2.2,.16],cheapDeployBonus:[0,6,.6],
   bloodPactWeight:[.7,2.7,.2],aquaticCheapBonus:[0,7,.7],bounceThreatThreshold:[3,12,.9],reverseSwapDelta:[.5,8,.7]
 };
 function mutate(base,rng,scale=1){
@@ -355,151 +356,101 @@ function scoreGame(result,ourSeat){
   const signedMargin=ourSeat===0?result.margin:-result.margin;
   return (win?3:0)+clamp(signedMargin,-3,3)*.08;
 }
-function opponentVariants(arch){
-  const base=DEFAULTS[arch];
-  const rng=mulberry32(hash('opp-variants:'+arch));
+function withPolicyDefaults(arch,p){
+  const base={...DEFAULTS[arch]};
+  return {
+    comboWeight:1,
+    cheapDeployBonus:0,
+    finisherResourceTarget:base.resourceTarget||5,
+    blueBaitFloor:2,
+    bloodPactWeight:1,
+    aquaticCheapBonus:0,
+    bounceThreatThreshold:7,
+    reverseSwapDelta:3,
+    ...base,
+    ...(p||{})
+  };
+}
+const PREVIOUS_ARCHETYPES=PREVIOUS_POLICY?.archetypes||{};
+const BASE_POLICY=Object.fromEntries(
+  Object.keys(META).map(arch=>[arch,withPolicyDefaults(arch,PREVIOUS_ARCHETYPES[arch])])
+);
+
+function opponentVariantsFor(arch){
+  const base=BASE_POLICY[arch];
+  const rng=mulberry32(hash('all-meta-opponents-v1:'+arch));
   const out=[{...base}];
-  while(out.length<4)out.push(mutate(base,rng,1.45));
+  while(out.length<3)out.push(mutate(base,rng,.9));
   return out;
 }
-const OPPONENT_VARIANTS=Object.fromEntries(Object.keys(META).filter(x=>x!=='aquatic').map(a=>[a,opponentVariants(a)]));
+const ALL_OPPONENT_VARIANTS=Object.fromEntries(
+  Object.keys(META).map(arch=>[arch,opponentVariantsFor(arch)])
+);
 
-let AQUATIC_GAME_COUNT=0;
-function aquaticLeagueEval(p,gen,index,hall=[]){
+let TOTAL_GAME_COUNT=0;
+function leagueEvalArch(arch,p,gen,index,hall=[]){
   let pts=0,games=0,wins=0,losses=0,draws=0;
-  const opponents=Object.keys(OPPONENT_VARIANTS);
-  for(const opp of opponents){
-    const variants=OPPONENT_VARIANTS[opp];
+  for(const opp of Object.keys(META).filter(x=>x!==arch)){
+    const variants=ALL_OPPONENT_VARIANTS[opp];
     for(let v=0;v<variants.length;v++){
-      for(let n=0;n<6;n++){
-        const seed=hash('aquatic-league-v2:'+opp+':'+v+':'+gen+':'+index+':'+n);
-        const r1=runGame('aquatic',p,opp,variants[v],seed);
-        pts+=scoreGame(r1,0);games++;AQUATIC_GAME_COUNT++;
+      for(let n=0;n<4;n++){
+        const seed=hash('all-meta-league-v1:'+arch+':'+opp+':'+v+':'+gen+':'+index+':'+n);
+        const r1=runGame(arch,p,opp,variants[v],seed);
+        pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
         if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
 
-        const r2=runGame(opp,variants[v],'aquatic',p,seed^0x9e3779b9);
-        pts+=scoreGame(r2,1);games++;AQUATIC_GAME_COUNT++;
+        const r2=runGame(opp,variants[v],arch,p,seed^0x9e3779b9);
+        pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
         if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
       }
     }
   }
 
-  // Hall-of-fame mirror matches prevent overfitting to static opponents.
   for(let h=0;h<hall.length;h++){
     const hp=hall[h];
-    for(let n=0;n<6;n++){
-      const seed=hash('aquatic-hof-v2:'+h+':'+gen+':'+index+':'+n);
-      const r1=runGame('aquatic',p,'aquatic',hp,seed);
-      pts+=scoreGame(r1,0);games++;AQUATIC_GAME_COUNT++;
+    for(let n=0;n<4;n++){
+      const seed=hash('all-meta-hof-v1:'+arch+':'+h+':'+gen+':'+index+':'+n);
+      const r1=runGame(arch,p,arch,hp,seed);
+      pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
 
-      const r2=runGame('aquatic',hp,'aquatic',p,seed^0x85ebca6b);
-      pts+=scoreGame(r2,1);games++;AQUATIC_GAME_COUNT++;
+      const r2=runGame(arch,hp,arch,p,seed^0x85ebca6b);
+      pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
       if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
     }
   }
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
-function benchmarkAquatic(p){
+
+function benchmarkArch(arch,p,rounds=10){
   let pts=0,games=0,wins=0,losses=0,draws=0;
-  for(const [opp,variants] of Object.entries(OPPONENT_VARIANTS)){
+  for(const opp of Object.keys(META).filter(x=>x!==arch)){
+    const variants=ALL_OPPONENT_VARIANTS[opp];
     for(let v=0;v<variants.length;v++){
-      for(let n=0;n<16;n++){
-        const seed=hash('aquatic-benchmark-v3:'+opp+':'+v+':'+n);
-        for(const seat of [0,1]){
-          const r=seat===0
-            ?runGame('aquatic',p,opp,variants[v],seed^(seat?0x27d4eb2d:0))
-            :runGame(opp,variants[v],'aquatic',p,seed^0x27d4eb2d);
-          pts+=scoreGame(r,seat);games++;AQUATIC_GAME_COUNT++;
-          if(r.winner===seat)wins++;else if(r.winner===-1)draws++;else losses++;
-        }
-      }
-    }
-  }
-  return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
-}
-function normalizeAquaticSeed(p){
-  return {...DEFAULTS.aquatic,...(p||{})};
-}
-function trainAquaticIntensive(){
-  const rng=mulberry32(hash('aquatic-intense-20260924'));
-  const previous=normalizeAquaticSeed(PREVIOUS_POLICY?.archetypes?.aquatic);
-  let population=[previous,{...DEFAULTS.aquatic}];
-  while(population.length<48){
-    const parent=population[Math.floor(rng()*population.length)];
-    population.push(mutate(parent,rng,1.8));
-  }
-
-  const hall=[];
-  let champion={p:previous,score:-Infinity,winRate:0};
-  const generationStats=[];
-  for(let gen=0;gen<18;gen++){
-    const scored=population.map((p,i)=>{
-      const e=aquaticLeagueEval(p,gen,i,hall.slice(-5));
-      return {p,...e};
-    }).sort((a,b)=>b.score-a.score);
-
-    if(scored[0].score>champion.score)champion=scored[0];
-    hall.push({...scored[0].p});
-    if(hall.length>8)hall.shift();
-
-    generationStats.push({
-      gen,
-      score:Number(scored[0].score.toFixed(4)),
-      winRate:Number(scored[0].winRate.toFixed(4))
-    });
-
-    const elite=scored.slice(0,8).map(x=>x.p);
-    population=[...elite, previous, champion.p];
-    while(population.length<48){
-      const parent=elite[Math.floor(rng()*elite.length)];
-      const scale=Math.max(.28,1.35-gen*.055);
-      population.push(mutate(parent,rng,scale));
-    }
-  }
-
-  // Final tournament: champion must beat the previously deployed policy on the same benchmark.
-  const oldBench=benchmarkAquatic(previous);
-  const newBench=benchmarkAquatic(champion.p);
-  const chosen=newBench.score>=oldBench.score?champion.p:previous;
-
-  return {
-    policy:chosen,
-    champion,
-    previous,
-    oldBench,
-    newBench,
-    generationStats,
-    games:AQUATIC_GAME_COUNT
-  };
-}
-
-
-function quickBenchmarkAquatic(p){
-  let pts=0,games=0,wins=0,losses=0,draws=0;
-  for(const [opp,variants] of Object.entries(OPPONENT_VARIANTS)){
-    for(let v=0;v<variants.length;v++){
-      for(let n=0;n<6;n++){
-        const seed=hash('aquatic-micro-v1:'+opp+':'+v+':'+n);
-        const r1=runGame('aquatic',p,opp,variants[v],seed);
-        pts+=scoreGame(r1,0);games++;AQUATIC_GAME_COUNT++;
+      for(let n=0;n<rounds;n++){
+        const seed=hash('all-meta-benchmark-v1:'+arch+':'+opp+':'+v+':'+n);
+        const r1=runGame(arch,p,opp,variants[v],seed);
+        pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
         if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
-        const r2=runGame(opp,variants[v],'aquatic',p,seed^0x517cc1b7);
-        pts+=scoreGame(r2,1);games++;AQUATIC_GAME_COUNT++;
+
+        const r2=runGame(opp,variants[v],arch,p,seed^0x27d4eb2d);
+        pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
         if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
       }
     }
   }
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
+
 function microMutate(base,rng,scale){
   const out={...base};
-  const keys=Object.keys(PARAMS);
-  const changes=2+Math.floor(rng()*5);
+  const keys=['resourceTarget','aggression','directAttackWeight','tempSummonBaitFloor','tempSummonMinValue',
+    'preserveWeight','removalWeight','aceWeight','deployThreshold','comboWeight','cheapDeployBonus'];
+  const changes=2+Math.floor(rng()*4);
   for(let n=0;n<changes;n++){
     const k=keys[Math.floor(rng()*keys.length)];
     const [lo,hi,step]=PARAMS[k];
-    if(['resourceTarget','finisherResourceTarget','blueBaitFloor','tempSummonBaitFloor'].includes(k)){
+    if(['resourceTarget','tempSummonBaitFloor'].includes(k)){
       if(rng()<.55)out[k]=clamp(Math.round(Number(out[k])+(rng()<.5?-1:1)),lo,hi);
     }else{
       out[k]=clamp(Number(out[k])+(rng()*2-1)*step*scale,lo,hi);
@@ -507,109 +458,129 @@ function microMutate(base,rng,scale){
   }
   return out;
 }
-function refineAquaticLocal(seedPolicy){
-  const rng=mulberry32(hash('aquatic-micro-20260924'));
-  const candidates=[{...seedPolicy}];
 
-  // Coordinate probes make sure every learned knob is explicitly tested both ways.
-  for(const [k,[lo,hi,step]] of Object.entries(PARAMS)){
-    for(const dir of [-1,1]){
-      const p={...seedPolicy};
-      if(['resourceTarget','finisherResourceTarget','blueBaitFloor','tempSummonBaitFloor'].includes(k)){
-        p[k]=clamp(Math.round(Number(p[k])+dir),lo,hi);
-      }else{
-        p[k]=clamp(Number(p[k])+dir*step*.5,lo,hi);
-      }
-      candidates.push(p);
+function trainFocusedArch(arch){
+  const previous=withPolicyDefaults(arch,BASE_POLICY[arch]);
+  const rng=mulberry32(hash('all-meta-train-v1:'+arch+':20260924'));
+
+  let population=[previous];
+  while(population.length<36)population.push(mutate(previous,rng,1.15));
+
+  const hall=[];
+  let champion={p:previous,score:-Infinity,winRate:0};
+  const generationStats=[];
+
+  for(let gen=0;gen<12;gen++){
+    const scored=population.map((p,i)=>({p,...leagueEvalArch(arch,p,gen,i,hall.slice(-4))}))
+      .sort((a,b)=>b.score-a.score);
+    if(scored[0].score>champion.score)champion=scored[0];
+    hall.push({...scored[0].p});
+    if(hall.length>6)hall.shift();
+
+    generationStats.push({
+      gen,
+      score:Number(scored[0].score.toFixed(4)),
+      winRate:Number(scored[0].winRate.toFixed(4))
+    });
+
+    const elite=scored.slice(0,6).map(x=>x.p);
+    population=[...elite,previous,champion.p];
+    while(population.length<36){
+      const parent=elite[Math.floor(rng()*elite.length)];
+      population.push(mutate(parent,rng,Math.max(.32,1.05-gen*.055)));
     }
   }
 
-  // Dense random search around the already-strong deployed policy.
-  while(candidates.length<720){
-    const scale=.18+rng()*.65;
-    candidates.push(microMutate(seedPolicy,rng,scale));
-  }
+  // Fair identical-seed benchmark.
+  const baseline=benchmarkArch(arch,previous,10);
+  const leagueBest=benchmarkArch(arch,champion.p,10);
+  let seedPolicy=leagueBest.score>baseline.score?champion.p:previous;
 
-  const quick=candidates.map((p,i)=>({p,i,...quickBenchmarkAquatic(p)}))
+  // Local refinement around whichever is stronger.
+  const candidates=[seedPolicy];
+  while(candidates.length<240)candidates.push(microMutate(seedPolicy,rng,.18+rng()*.55));
+  const quick=candidates.map((p,i)=>({p,i,...benchmarkArch(arch,p,3)}))
     .sort((a,b)=>b.score-a.score);
+  const finalists=quick.slice(0,12).map(x=>({p:x.p,quick:x,full:benchmarkArch(arch,x.p,10)}))
+    .sort((a,b)=>b.full.score-a.full.score);
 
-  // Re-test finalists on the larger, exactly shared benchmark.
-  const finalists=quick.slice(0,24).map(x=>({
-    p:x.p,
-    quickScore:x.score,
-    quickWinRate:x.winRate,
-    full:benchmarkAquatic(x.p)
-  })).sort((a,b)=>b.full.score-a.full.score);
-
-  const baseline=benchmarkAquatic(seedPolicy);
-  const best=finalists[0];
-  const chosen=best&&best.full.score>baseline.score+1e-9?best.p:seedPolicy;
+  const seedBench=benchmarkArch(arch,seedPolicy,10);
+  const localBest=finalists[0];
+  const chosen=localBest&&localBest.full.score>seedBench.score?localBest.p:seedPolicy;
+  const chosenBench=localBest&&localBest.full.score>seedBench.score?localBest.full:seedBench;
 
   return {
+    arch,
     policy:chosen,
+    previous,
     baseline,
-    best:best?{quickScore:best.quickScore,quickWinRate:best.quickWinRate,full:best.full,p:best.p}:null,
+    leagueBest,
+    seedBench,
+    localBest:localBest?localBest.full:null,
+    chosenBench,
+    generationStats,
     candidates:candidates.length,
     finalists:finalists.length
   };
 }
 
-const intensive=trainAquaticIntensive();
-const microRefine=refineAquaticLocal(intensive.policy);
-intensive.policy=microRefine.policy;
-intensive.games=AQUATIC_GAME_COUNT;
-const previousArchetypes=PREVIOUS_POLICY?.archetypes||{};
-const learned={};
-for(const arch of Object.keys(META)){
-  learned[arch]=arch==='aquatic'
-    ?Object.fromEntries(Object.entries(intensive.policy).map(([k,v])=>[k,Number(Number(v).toFixed(3))]))
-    :{...(previousArchetypes[arch]||DEFAULTS[arch])};
+// Preserve the already-optimized aquatic policy. Train every other environment deck independently.
+const TARGET_ARCHES=['armyAnt','hercules','sumatra','bee','mimicAggro','colorBlessing'];
+const results={};
+const learned={...PREVIOUS_ARCHETYPES};
+
+for(const arch of TARGET_ARCHES){
+  const result=trainFocusedArch(arch);
+  results[arch]=result;
+  learned[arch]=Object.fromEntries(
+    Object.entries(result.policy).map(([k,v])=>[k,Number(Number(v).toFixed(3))])
+  );
+  console.log('Focused training result',arch,{
+    baseline:result.baseline,
+    leagueBest:result.leagueBest,
+    localBest:result.localBest,
+    chosen:result.chosenBench,
+    policy:learned[arch]
+  });
 }
-learned.generic={...(previousArchetypes.generic||DEFAULTS.generic)};
+
+learned.aquatic={...BASE_POLICY.aquatic};
+learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
+
+const summary=Object.fromEntries(TARGET_ARCHES.map(arch=>{
+  const r=results[arch];
+  return [arch,{
+    baselineScore:Number(r.baseline.score.toFixed(4)),
+    baselineWinRate:Number(r.baseline.winRate.toFixed(4)),
+    chosenScore:Number(r.chosenBench.score.toFixed(4)),
+    chosenWinRate:Number(r.chosenBench.winRate.toFixed(4)),
+    improved:r.chosenBench.score>r.baseline.score+1e-9,
+    candidates:r.candidates,
+    finalists:r.finalists,
+    generations:r.generationStats
+  }];
+}));
 
 const payload={
-  version:3,
-  source:'aquatic-intensive-selfplay-v2',
+  version:4,
+  source:'all-meta-intensive-selfplay-v1',
   training:{
     seed:20260924,
-    focusedArchetype:'aquatic',
-    generations:18,
-    population:48,
+    focusedArchetypes:TARGET_ARCHES,
+    aquaticPreserved:true,
+    generations:12,
+    population:36,
     approximateSimulator:true,
-    games:intensive.games,
-    previousBenchmark:{
-      score:Number(intensive.oldBench.score.toFixed(4)),
-      winRate:Number(intensive.oldBench.winRate.toFixed(4)),
-      games:intensive.oldBench.games
-    },
-    championBenchmark:{
-      score:Number(intensive.newBench.score.toFixed(4)),
-      winRate:Number(intensive.newBench.winRate.toFixed(4)),
-      games:intensive.newBench.games
-    },
-    microSearch:{
-      candidates:microRefine.candidates,
-      finalists:microRefine.finalists,
-      baselineScore:Number(microRefine.baseline.score.toFixed(4)),
-      baselineWinRate:Number(microRefine.baseline.winRate.toFixed(4)),
-      bestScore:Number((microRefine.best?.full.score??microRefine.baseline.score).toFixed(4)),
-      bestWinRate:Number((microRefine.best?.full.winRate??microRefine.baseline.winRate).toFixed(4))
-    },
-    generationStats:intensive.generationStats
+    games:TOTAL_GAME_COUNT,
+    summary
   },
   archetypes:learned
 };
+
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Aquatic intensive self-play complete:',{
-  games:intensive.games,
-  previous:intensive.oldBench,
-  champion:intensive.newBench,
-  selected: intensive.newBench.score>=intensive.oldBench.score?'league-champion-or-base':'previous-base',
-  microSearch:{
-    baseline:microRefine.baseline,
-    best:microRefine.best?.full||null,
-    improved:microRefine.best?microRefine.best.full.score>microRefine.baseline.score:false
-  },
-  policy:learned.aquatic
+console.log('All-meta intensive self-play complete',{
+  games:TOTAL_GAME_COUNT,
+  summary,
+  policies:Object.fromEntries(TARGET_ARCHES.map(a=>[a,learned[a]]))
 });

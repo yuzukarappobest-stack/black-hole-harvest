@@ -1172,6 +1172,10 @@
     }
     if(state.turn!=='player')return;
     if(state.phase==='set'){
+      bar.appendChild(btn('やっぱり置かない','action-btn secondary',()=>{
+        log('あなたはエサを置かずにメインフェイズへ進みます。');
+        finishSetPhase();
+      }));
       return;
     }
     if(state.phase==='main'){

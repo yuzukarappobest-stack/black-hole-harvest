@@ -830,7 +830,21 @@ window.MUSHI_DATA = (() => {
     random5:{name:'ランダム（第5弾）',ids:booster5Ids,randomCount:20},
     random6:{name:'ランダム（第6弾）',ids:booster6Ids,randomCount:20},
     random7:{name:'ランダム（第7弾）',ids:booster7Ids,randomCount:20},
-    random8:{name:'ランダム（第8弾）',ids:booster8Ids,randomCount:20}
+    random8:{name:'ランダム（第8弾）',ids:booster8Ids,randomCount:20},
+
+    // ===== 公開大会・公開レシピを元にした環境デッキ =====
+    // 2026/1/18 蟲友杯 第一部優勝「ビート水生型」
+    metaAquatic:{name:'環境：水生昆虫',ids:[
+      34,331,37,37,430,305,305,310,310,419,313,313,61,61,62,62,230,230,351,123
+    ]},
+    // 公開「関西型色彩」20枚リスト
+    metaColorBlessing:{name:'環境：色彩の加護',ids:[
+      2,2,719,719,733,733,706,706,209,209,240,240,527,527,749,749,545,351,230,345
+    ]},
+    // 2026/4/26 蟲友杯 第三部優勝「ベイツ型擬態アグロ」
+    metaMimicAggro:{name:'環境：擬態アグロ',ids:[
+      2,2,720,242,242,714,714,730,730,97,97,240,240,438,438,763,351,658,659,254
+    ]}
   };
 
   return {cards,decks,booster1Ids,booster2Ids,booster3Ids,booster4Ids,booster5Ids,booster6Ids,booster7Ids,booster8Ids};

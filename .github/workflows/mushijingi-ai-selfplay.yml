@@ -24,15 +24,37 @@ jobs:
       - name: Run self-play training
         run: node mushijingi-reward/ai-training/train.js
       - name: Commit learned policy
+        shell: bash
         run: |
-          if git diff --quiet -- mushijingi-reward/ai-policy.js mushijingi-reward/index.html; then
-            echo "Policy unchanged."
-            exit 0
-          fi
+          cp mushijingi-reward/ai-policy.js /tmp/mushijingi-ai-policy.js
+          REV="$(sha256sum /tmp/mushijingi-ai-policy.js | cut -c1-12)"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mushijingi-reward/ai-policy.js mushijingi-reward/index.html
-          git commit -m "Update Mushijingi AI policy from self-play"
-          git fetch origin main
-          git rebase origin/main
-          git push origin HEAD:main
+
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+            cp /tmp/mushijingi-ai-policy.js mushijingi-reward/ai-policy.js
+            REV="$REV" node - <<'NODE'
+          const fs=require('fs');
+          const p='mushijingi-reward/index.html';
+          let s=fs.readFileSync(p,'utf8');
+          s=s.replace(/ai-policy\.js\?v=[^"]+/,'ai-policy.js?v='+process.env.REV);
+          fs.writeFileSync(p,s,'utf8');
+          NODE
+
+            if git diff --quiet -- mushijingi-reward/ai-policy.js mushijingi-reward/index.html; then
+              echo "Policy unchanged."
+              exit 0
+            fi
+
+            git add mushijingi-reward/ai-policy.js mushijingi-reward/index.html
+            git commit -m "Update Mushijingi AI policy from self-play"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            echo "Push raced with another update; retrying ($attempt/3)..."
+          done
+
+          echo "Failed to publish learned policy after retries."
+          exit 1

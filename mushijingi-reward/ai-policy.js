@@ -1,25 +1,121 @@
 (() => {
   window.MUSHI_AI_POLICY = {
-  "version": 2,
-  "source": "selfplay-v1",
+  "version": 3,
+  "source": "aquatic-intensive-selfplay-v2",
   "training": {
-    "seed": 20260923,
-    "generations": 5,
-    "population": 14,
+    "seed": 20260924,
+    "focusedArchetype": "aquatic",
+    "generations": 18,
+    "population": 48,
     "approximateSimulator": true,
-    "scores": {
-      "aquatic": 2.5658,
-      "armyAnt": 2.375,
-      "hercules": 1.3867,
-      "sumatra": 1.5642,
-      "bee": 2.8125,
-      "mimicAggro": 1.0033,
-      "colorBlessing": 1.7583
-    }
+    "games": 293568,
+    "previousBenchmark": {
+      "score": 2.5128,
+      "winRate": 0.8372,
+      "games": 768
+    },
+    "championBenchmark": {
+      "score": 2.432,
+      "winRate": 0.8099,
+      "games": 768
+    },
+    "generationStats": [
+      {
+        "gen": 0,
+        "score": 2.6206,
+        "winRate": 0.8715
+      },
+      {
+        "gen": 1,
+        "score": 2.5406,
+        "winRate": 0.8467
+      },
+      {
+        "gen": 2,
+        "score": 2.5107,
+        "winRate": 0.8365
+      },
+      {
+        "gen": 3,
+        "score": 2.459,
+        "winRate": 0.8179
+      },
+      {
+        "gen": 4,
+        "score": 2.4683,
+        "winRate": 0.8214
+      },
+      {
+        "gen": 5,
+        "score": 2.4924,
+        "winRate": 0.8276
+      },
+      {
+        "gen": 6,
+        "score": 2.5074,
+        "winRate": 0.8333
+      },
+      {
+        "gen": 7,
+        "score": 2.4932,
+        "winRate": 0.8305
+      },
+      {
+        "gen": 8,
+        "score": 2.5148,
+        "winRate": 0.8362
+      },
+      {
+        "gen": 9,
+        "score": 2.4622,
+        "winRate": 0.819
+      },
+      {
+        "gen": 10,
+        "score": 2.4634,
+        "winRate": 0.8218
+      },
+      {
+        "gen": 11,
+        "score": 2.5708,
+        "winRate": 0.8563
+      },
+      {
+        "gen": 12,
+        "score": 2.4934,
+        "winRate": 0.8276
+      },
+      {
+        "gen": 13,
+        "score": 2.5198,
+        "winRate": 0.8391
+      },
+      {
+        "gen": 14,
+        "score": 2.4972,
+        "winRate": 0.8305
+      },
+      {
+        "gen": 15,
+        "score": 2.5413,
+        "winRate": 0.8448
+      },
+      {
+        "gen": 16,
+        "score": 2.4663,
+        "winRate": 0.8218
+      },
+      {
+        "gen": 17,
+        "score": 2.4951,
+        "winRate": 0.8305
+      }
+    ]
   },
   "archetypes": {
     "aquatic": {
       "resourceTarget": 4,
+      "finisherResourceTarget": 6,
       "blueBaitFloor": 5,
       "aggression": 1.495,
       "directAttackWeight": 1.497,
@@ -28,7 +124,11 @@
       "preserveWeight": 1.256,
       "removalWeight": 1.133,
       "aceWeight": 1.059,
-      "deployThreshold": 5.7
+      "deployThreshold": 5.7,
+      "bloodPactWeight": 1.4,
+      "aquaticCheapBonus": 2.5,
+      "bounceThreatThreshold": 7,
+      "reverseSwapDelta": 3
     },
     "armyAnt": {
       "resourceTarget": 3,

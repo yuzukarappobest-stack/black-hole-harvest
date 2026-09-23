@@ -25,13 +25,13 @@ jobs:
         run: node mushijingi-reward/ai-training/train.js
       - name: Commit learned policy
         run: |
-          if git diff --quiet -- mushijingi-reward/ai-policy.js; then
+          if git diff --quiet -- mushijingi-reward/ai-policy.js mushijingi-reward/index.html; then
             echo "Policy unchanged."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add mushijingi-reward/ai-policy.js
+          git add mushijingi-reward/ai-policy.js mushijingi-reward/index.html
           git commit -m "Update Mushijingi AI policy from self-play"
           git fetch origin main
           git rebase origin/main

@@ -4687,7 +4687,7 @@
     const arch=cpuDeckArchetype();
     let b=0;
 
-    if(arch==='armyAnt'&&mode!=='veryStrong'){
+    if(arch==='armyAnt'){
       if(c.name.includes('バーチェルグンタイアリ'))b+=5;
       if(c.name==='ニセハナマオウカマキリ')b+=5;
       if(c.name==='リオック')b+=4;
@@ -5549,7 +5549,7 @@
     }
 
     // Exact archetype playbooks.
-    if(arch==='armyAnt'){
+    if(arch==='armyAnt'&&mode!=='veryStrong'){
       const links=usable.filter(x=>passiveOfInst(x)?.type==='militaryLink');
       if(links.length){
         return [...links].sort((a,b)=>{

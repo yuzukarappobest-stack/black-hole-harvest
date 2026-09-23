@@ -271,7 +271,7 @@ function actionCandidates(me,opp,p){
         const best=bestInsect(me.discard,me.arch,p);
         out.push({kind:'recover',id,target:best,cost,score:best!=null?cardValue(me.arch,cards[best],p)*.55:0});
       }else if(c.effect==='bloodPact'&&opp.field.length&&(cost<=me.bait.length||me.territory.length>=2)){
-        const t=[...legalTargets].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
+        const t=[...opp.field].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
         const ready=me.field.filter(u=>!u.attacked&&u.delay<=0).length;
         const hitsNeeded=opp.territory.length+1;
         const single=opp.field.length===1;

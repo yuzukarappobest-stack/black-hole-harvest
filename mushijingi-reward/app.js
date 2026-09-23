@@ -1435,6 +1435,12 @@
   async function chooseOwnedInstance(side,text,list){
     if(!list.length)return null;
     if(side==='player')return await chooseInstances(text,list);
+    if(cpuAquaticBossActive()&&String(text||'').includes('逆立ち返しで場に出す相手のエサ')){
+      return [...list].sort((a,b)=>cpuAquaticOpponentBaitDanger(a)-cpuAquaticOpponentBaitDanger(b))[0]||null;
+    }
+    if(cpuAquaticBossActive()&&String(text||'').includes('場に出すエサの虫')){
+      return [...list].sort((a,b)=>cpuTempSummonValue(b)-cpuTempSummonValue(a))[0]||null;
+    }
     if(currentCpuDifficulty()==='normal')return chooseBestInstance(list);
     return [...list].sort((a,b)=>cpuInstanceChoiceScore(text,b)-cpuInstanceChoiceScore(text,a))[0]||null;
   }
@@ -4496,7 +4502,7 @@
   async function cpuTurnSmart(mode){
     if(state.over)return;
     const s=state.cpu;
-    message(`CPU（${cpuDifficultyLabel(mode)}）が考えています…`);
+    message(cpuAquaticBossActive()?'CPU（水生ボスAI）が考えています…':`CPU（${cpuDifficultyLabel(mode)}）が考えています…`);
 
     if(s.hand.length){
       const bait=chooseBaitCPUSmart(s.hand,mode);
@@ -4539,7 +4545,11 @@
 
       // With an open lane, pressure territory first. Otherwise compare tactical gain.
       const mustDevelop=chosenHand&&cpuDeckArchetype()==='armyAnt'&&passiveOfInst(chosenHand)?.type==='militaryLink';
-      if(!directPressure&&chosenHand&&(mustDevelop||chosenHandScore>=attackScore-0.5)){
+      const aquaticDevelop=cpuAquaticBossActive()&&chosenHand&&(
+        (def(chosenHand).type==='insect'&&effectiveCardCost('cpu',chosenHand)<=1)||
+        (['モンシロチョウ','モンキチョウ'].includes(def(chosenHand).name)&&cpuAquaticHasPartnerOnField(def(chosenHand).name))
+      );
+      if((!directPressure||aquaticDevelop)&&chosenHand&&(mustDevelop||aquaticDevelop||chosenHandScore>=attackScore-0.5)){
         acted=await playCardFromHand('cpu',chosenHand);
         if(acted){render();continue;}
       }
@@ -4563,7 +4573,10 @@
 
   function canUseHandCardCPU(inst){
     if(!canUseHandCard('cpu',inst))return false;
-    if(currentCpuDifficulty()!=='normal'&&def(inst).effect==='baitTempSummon')return cpuShouldUseBaitTempSummon();
+    if(currentCpuDifficulty()!=='normal'&&def(inst).effect==='baitTempSummon'){
+      if(cpuAquaticBossActive())return cpuAquaticBossShouldUseFlash();
+      return cpuShouldUseBaitTempSummon();
+    }
     return true;
   }
 
@@ -4798,9 +4811,253 @@
     return true;
   }
 
+  function cpuAquaticBossActive(){
+    return currentCpuDifficulty()==='veryStrong'&&cpuDeckArchetype()==='aquatic';
+  }
+  function cpuAquaticBlueBaitCount(){
+    return faceUpBait('cpu').filter(x=>def(x).type==='insect'&&baitCardColor(x)==='blue').length;
+  }
+  function cpuAquaticPartnerName(name){
+    return name==='モンシロチョウ'?'モンキチョウ':name==='モンキチョウ'?'モンシロチョウ':null;
+  }
+  function cpuAquaticHasPartnerOnField(name){
+    const partner=cpuAquaticPartnerName(name);
+    return !!partner&&fieldActive('cpu').some(fc=>fieldDef(fc).name===partner);
+  }
+  function cpuAquaticHighCostInHand(){
+    return state.cpu.hand.some(x=>['ヘラクレスオオカブト','サカダチコノハナナフシ','シタベニオオバッタ'].includes(def(x).name));
+  }
+  function cpuAquaticBossResourceTarget(){
+    if(cpuAquaticBlueBaitCount()<4)return 4;
+    if(cpuAquaticHighCostInHand())return 6;
+    if(state.cpu.hand.some(x=>def(x).name==='ゴライアスオオツノハナムグリ'))return 5;
+    return 4;
+  }
+  function cpuAquaticBossBaitScore(inst){
+    const c=def(inst);
+    let score=cpuCardKeepValue(inst);
+    const blue=cpuAquaticBlueBaitCount();
+    const name=c.name||'';
+
+    // Blue bait is the engine. Prefer putting expendable blue insects there.
+    if(c.type==='insect'&&c.color==='blue'){
+      score-=blue<4?12:blue<5?6:2;
+      if(c.passive?.type==='flyOut')score-=2.5; // in hand, the territory trigger is already lost
+      if(c.passive?.type==='cover')score-=2;
+    }
+
+    // Butterflies are early attackers when the emblem pair is available.
+    if(['モンシロチョウ','モンキチョウ'].includes(name)){
+      const partner=cpuAquaticPartnerName(name);
+      const pairInHand=state.cpu.hand.some(x=>x.uid!==inst.uid&&def(x).name===partner);
+      const pairOnField=fieldActive('cpu').some(fc=>fieldDef(fc).name===partner);
+      if(pairInHand||pairOnField)score+=blue<4?7:11;
+    }
+
+    // Preserve actual finishers and tactical spells.
+    if(['ヘラクレスオオカブト','サカダチコノハナナフシ'].includes(name))score+=20;
+    if(name==='シタベニオオバッタ')score+=12;
+    if(c.passive?.type==='aquaticCost')score+=8;
+    if(c.effect==='bloodPact')score+=14;
+    if(c.effect==='baitTempSummon')score+=8;
+
+    // Chitchi / Ant-on are excellent engine bait if drawn in hand.
+    if(name==='チッチゼミ')score-=4;
+    if(name==='アントアンカブトハナムグリ')score-=3;
+    if(name==='ゴライアスオオツノハナムグリ'&&blue<4)score-=2;
+
+    return score;
+  }
+  function cpuAquaticBossChooseBait(hand){
+    if(!hand.length)return null;
+    const ranked=[...hand].sort((a,b)=>cpuAquaticBossBaitScore(a)-cpuAquaticBossBaitScore(b));
+    const best=ranked[0];
+    const baitCount=state.cpu.bait.length;
+    const target=cpuAquaticBossResourceTarget();
+
+    if(baitCount<target)return best;
+
+    // Keep ramping to 5-6 only when it unlocks a real finisher.
+    if(baitCount<6&&cpuAquaticHighCostInHand()&&cpuAquaticBossBaitScore(best)<11)return best;
+    if(hand.length>=5&&cpuAquaticBossBaitScore(best)<5.5)return best;
+    return null;
+  }
+  function cpuAquaticOpponentBaitDanger(inst){
+    const c=def(inst);
+    if(!c)return 99;
+    let v=Number(c.cost||0)*1.2+Number(c.hp||0)/300+cpuMaxPrintedAttack(c)/180;
+    if(c.passive)v+=2;
+    v+=(c.attacks||[]).filter(a=>a.effect).length*1.3;
+    return v;
+  }
+  function cpuAquaticBestTempBait(){
+    const list=faceUpBait('cpu').filter(x=>def(x).type==='insect');
+    if(!list.length)return null;
+    const blue=cpuAquaticBlueBaitCount();
+    const candidates=list.filter(x=>{
+      if(baitCardColor(x)!=='blue')return true;
+      const after=blue-1;
+      return Math.floor(after/2)===Math.floor(blue/2)&&after>=4;
+    });
+    const pool=candidates.length?candidates:list;
+    return [...pool].sort((a,b)=>cpuTempSummonValue(b)-cpuTempSummonValue(a))[0]||null;
+  }
+  function cpuAquaticBossShouldUseFlash(){
+    if(cpuTempSummonCreatesLethal())return true;
+    const target=cpuAquaticBestTempBait();
+    if(!target)return false;
+    if(state.cpu.bait.length<5)return false;
+    const c=def(target);
+    if(['モンシロチョウ','モンキチョウ','チッチゼミ'].includes(c.name))return false;
+    if(baitCardColor(target)==='blue'){
+      const before=cpuAquaticBlueBaitCount(),after=before-1;
+      if(Math.floor(after/2)<Math.floor(before/2)||after<4)return false;
+    }
+    // Kagero should produce a meaningful tempo swing, not just a body.
+    return cpuTempSummonValue(target)>=15||
+      ['ヘラクレスオオカブト','サカダチコノハナナフシ','シタベニオオバッタ','ゴライアスオオツノハナムグリ'].includes(c.name);
+  }
+  function cpuAquaticBloodPactValue(){
+    const opp=fieldActive('player');
+    if(!opp.length)return -Infinity;
+    const best=Math.max(...opp.map(fc=>cpuFieldThreat(fc,'player')));
+    const ready=cpuReadyAttackCount();
+    let v=best*1.6;
+    if(opp.length===1&&ready>=1)v+=24+ready*6;
+    if(state.player.territory.length<=2&&opp.length===1&&ready>=1)v+=18;
+    if(state.cpu.territory.length<=2&&state.cpu.cost<4)v-=14;
+    return v;
+  }
+  function cpuAquaticBossActionScore(inst){
+    const c=def(inst);
+    let score=cpuMainActionPlanScore(inst,'veryStrong')+cpuComboPriority(inst);
+    const name=c.name||'';
+    const cost=effectiveCardCost('cpu',inst);
+
+    if(c.effect==='bloodPact')score+=cpuAquaticBloodPactValue();
+    if(c.effect==='baitTempSummon')score+=cpuAquaticBossShouldUseFlash()?22:-100;
+
+    if(c.type==='insect'){
+      if(c.passive?.type==='aquaticCost'){
+        score+=cost===0?24:cost===1?17:cost===2?8:0;
+      }
+      if(['モンシロチョウ','モンキチョウ'].includes(name)){
+        score+=cpuAquaticHasPartnerOnField(name)?18:6;
+        const partner=cpuAquaticPartnerName(name);
+        if(state.cpu.hand.some(x=>x.uid!==inst.uid&&def(x).name===partner))score+=8;
+      }
+      if(name==='ヘラクレスオオカブト')score+=fieldActive('player').length?24:13;
+      if(name==='サカダチコノハナナフシ'){
+        const oppBait=state.player.bait.filter(x=>isFaceUpBait(x)&&def(x).type==='insect');
+        score+=fieldActive('player').length&&oppBait.length?23:5;
+      }
+      if(name==='ゴライアスオオツノハナムグリ')score+=8;
+      if(name==='シタベニオオバッタ')score+=8;
+    }
+    return score;
+  }
+  function cpuAquaticBossAction(usable){
+    if(!usable.length)return null;
+
+    // If one removal opens the lane, do that before anything else.
+    const blood=usable.find(x=>def(x).effect==='bloodPact');
+    if(blood&&cpuAquaticBloodPactValue()>=28)return blood;
+
+    // Swarm with free/1-cost aquatic bodies first.
+    const cheapAquatic=usable.filter(x=>def(x).type==='insect'&&passiveOfInst(x)?.type==='aquaticCost'&&effectiveCardCost('cpu',x)<=1);
+    if(cheapAquatic.length){
+      return [...cheapAquatic].sort((a,b)=>cpuAquaticBossActionScore(b)-cpuAquaticBossActionScore(a))[0];
+    }
+
+    // Complete the emblem pair aggressively.
+    const pair=usable.find(x=>['モンシロチョウ','モンキチョウ'].includes(def(x).name)&&cpuAquaticHasPartnerOnField(def(x).name));
+    if(pair)return pair;
+
+    // Establish at least two attackers before probing territory.
+    const cheap=usable.filter(x=>def(x).type==='insect'&&effectiveCardCost('cpu',x)<=1);
+    if(cheap.length&&fieldActive('cpu').filter(fc=>canAttackSide('cpu',fc)).length<2){
+      return [...cheap].sort((a,b)=>cpuAquaticBossActionScore(b)-cpuAquaticBossActionScore(a))[0];
+    }
+
+    const flash=usable.find(x=>def(x).effect==='baitTempSummon');
+    if(flash&&cpuAquaticBossShouldUseFlash())return flash;
+
+    return [...usable].sort((a,b)=>cpuAquaticBossActionScore(b)-cpuAquaticBossActionScore(a))[0]||null;
+  }
+  function cpuAquaticBossAttackChoice(fc){
+    const ats=availableAttacks('cpu',fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('cpu',fc,a));
+    if(!ats.length)return null;
+    const targets=attackableTargets('cpu');
+    const name=fieldDef(fc).name;
+
+    if(name==='ヘラクレスオオカブト'){
+      const bounce=ats.find(a=>a.effect==='bounceOnce');
+      const damage=[...ats].filter(a=>a.effect!=='bounceOnce').sort((a,b)=>attackPower('cpu',fc,b)-attackPower('cpu',fc,a))[0];
+      if(bounce&&targets.length){
+        const otherReady=fieldActive('cpu').filter(x=>x!==fc&&canAttackSide('cpu',x)).length;
+        const strongest=[...targets].sort((a,b)=>cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'))[0];
+        const normalDmg=damage?attackPower('cpu',fc,damage)*(hasAttachment(strongest,'noWeakness')?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(strongest))):0;
+        const killable=damage&&normalDmg>=maxHp(strongest)-strongest.damage;
+        if((targets.length===1&&otherReady>=1)||(!killable&&cpuFieldThreat(strongest,'player')>=8))return bounce;
+      }
+      if(damage)return damage;
+    }
+
+    if(name==='サカダチコノハナナフシ'){
+      const swap=ats.find(a=>a.effect==='reverseSwap');
+      if(swap&&targets.length){
+        const bait=state.player.bait.filter(x=>isFaceUpBait(x)&&def(x).type==='insect');
+        if(bait.length){
+          const strong=Math.max(...targets.map(t=>cpuFieldThreat(t,'player')));
+          const weak=Math.min(...bait.map(cpuAquaticOpponentBaitDanger));
+          if(strong-weak>=3)return swap;
+        }
+      }
+    }
+
+    return [...ats].sort((a,b)=>cpuAttackOptionScore(fc,b,'veryStrong')-cpuAttackOptionScore(fc,a,'veryStrong'))[0];
+  }
+  function cpuAquaticBossAttacker(){
+    const ready=fieldActive('cpu').filter(fc=>canAttackSide('cpu',fc));
+    if(!ready.length)return null;
+    const opp=fieldActive('player');
+
+    // Against an open lane, expend the weakest attacker first. This deliberately
+    // probes territory for <fly out>/<cover> before committing the finishers.
+    if(!opp.length){
+      return [...ready].sort((a,b)=>cpuFieldThreat(a,'cpu')-cpuFieldThreat(b,'cpu'))[0];
+    }
+
+    // Hercules can remove the final wall so the rest of the board attacks territory.
+    if(opp.length===1&&ready.length>=2){
+      const herc=ready.find(fc=>fieldDef(fc).name==='ヘラクレスオオカブト'&&cpuAquaticBossAttackChoice(fc)?.effect==='bounceOnce');
+      if(herc)return herc;
+    }
+
+    // Reverse-swap a premium defender into a weak bait before ordinary combat.
+    const saka=ready.find(fc=>fieldDef(fc).name==='サカダチコノハナナフシ'&&cpuAquaticBossAttackChoice(fc)?.effect==='reverseSwap');
+    if(saka)return saka;
+
+    // Prefer the smallest attacker that can secure a kill; preserve big attacks for the next blocker.
+    const lethal=[];
+    for(const fc of ready){
+      const attack=cpuAquaticBossAttackChoice(fc);if(!attack)continue;
+      const power=attackPower('cpu',fc,attack);
+      for(const t of attackableTargets('cpu')){
+        const nw=hasAttachment(t,'noWeakness')||(passiveOfField(t)?.type==='whiteShell'&&t.whiteShellTurn===state.turnSeq);
+        const dmg=power*(nw?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(t)));
+        if(dmg>=maxHp(t)-t.damage)lethal.push({fc,over:dmg-(maxHp(t)-t.damage),power});
+      }
+    }
+    if(lethal.length)return lethal.sort((a,b)=>a.over-b.over||a.power-b.power)[0].fc;
+
+    return [...ready].sort((a,b)=>cpuBestAttackScore(b,'veryStrong')-cpuBestAttackScore(a,'veryStrong'))[0];
+  }
+
   function cpuChooseExpertAction(usable,mode){
     if(!usable.length)return null;
     const arch=cpuDeckArchetype();
+    if(mode==='veryStrong'&&arch==='aquatic')return cpuAquaticBossAction(usable);
 
     if(arch==='aquatic'){
       // Public tournament lists use an aggressive beat plan: cheap pressure + blue bait ramp.
@@ -4872,6 +5129,7 @@
   }
 
   function chooseBaitCPUSmart(hand,mode){
+    if(mode==='veryStrong'&&cpuDeckArchetype()==='aquatic')return cpuAquaticBossChooseBait(hand);
     const missingColors=(()=>{
       const colors=new Set(faceUpBait('cpu').filter(x=>def(x).type==='insect').map(x=>baitCardColor(x)).filter(Boolean));
       return new Set(['red','blue','green'].filter(x=>!colors.has(x)));
@@ -5092,6 +5350,7 @@
     return score;
   }
   function chooseAttackCPUByMode(fc,mode){
+    if(mode==='veryStrong'&&cpuDeckArchetype()==='aquatic')return cpuAquaticBossAttackChoice(fc);
     const ats=availableAttacks('cpu',fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack('cpu',fc,a));
     if(!ats.length)return null;
     return [...ats].sort((a,b)=>cpuAttackOptionScore(fc,b,mode)-cpuAttackOptionScore(fc,a,mode))[0];
@@ -5101,6 +5360,7 @@
     return a?cpuAttackOptionScore(fc,a,mode):-Infinity;
   }
   function chooseCpuAttackerSmart(mode){
+    if(mode==='veryStrong'&&cpuDeckArchetype()==='aquatic')return cpuAquaticBossAttacker();
     const ready=fieldActive('cpu').filter(fc=>canAttackSide('cpu',fc));
     if(!ready.length)return null;
     return [...ready].sort((a,b)=>cpuBestAttackScore(b,mode)-cpuBestAttackScore(a,mode))[0];
@@ -5122,6 +5382,9 @@
   function chooseAttackTargetCPU(fc,attack,targets){
     const mode=currentCpuDifficulty();
     const base=attackPower('cpu',fc,attack);
+    if(cpuAquaticBossActive()&&attack.effect==='reverseSwap'){
+      return [...targets].sort((a,b)=>cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'))[0];
+    }
     if(mode==='normal'){
       return [...targets].sort((a,b)=>{
         const nwa=hasAttachment(a,'noWeakness')||(passiveOfField(a)?.type==='whiteShell'&&a.whiteShellTurn===state.turnSeq);
@@ -5165,6 +5428,7 @@
   }
   function chooseBurnTargetCPU(targets){
     if(!targets.length)return null;
+    if(cpuAquaticBossActive())return [...targets].sort((a,b)=>cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'))[0];
     if(currentCpuDifficulty()==='normal')return [...targets].sort((a,b)=>((600>=maxHp(b)-b.damage)?1000:0)+def(b.inst).cost*50-(((600>=maxHp(a)-a.damage)?1000:0)+def(a.inst).cost*50))[0];
     const score=t=>{
       const lethal600=600>=maxHp(t)-t.damage;

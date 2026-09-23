@@ -174,3 +174,12 @@ button{font:inherit}.hidden{display:none!important}
 @media(min-width:701px){
   .builder-filters{grid-template-columns:minmax(150px,1.5fr) repeat(4,minmax(105px,.8fr));max-width:900px}
 }
+
+/* iOS-friendly card search */
+.card-search-box{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
+.card-search-box input{min-width:0}
+.card-search-box button{border:1px solid #7d6a37;border-radius:9px;background:#d9bc50;color:#17170f;padding:9px 12px;font-weight:900;cursor:pointer}
+.card-search-box .search-clear-btn{background:#303c31;color:#fff;border-color:#59685b}
+@media(max-width:700px){
+  .card-search-box{grid-column:1/-1}
+}

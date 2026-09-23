@@ -41,6 +41,9 @@
     }
     battleAccessAvailable = sessionStorage.getItem(BATTLE_ACCESS_KEY) === "1";
     refreshBattleGate();
+    // Safari may restore the search field value after initial rendering.
+    // Re-render once pageshow fires so the restored Japanese query is applied.
+    if(deckBuilderScreen && !deckBuilderScreen.classList.contains('hidden')) renderCardCatalog();
   });
 
   const {cards, decks} = window.MUSHI_DATA;
@@ -351,8 +354,11 @@
       || cardSetOrder(a)-cardSetOrder(b)
       || a.id-b.id;
   }
+  function normalizedCardSearchText(value){
+    return String(value||'').normalize('NFKC').trim().toLocaleLowerCase('ja');
+  }
   function filteredCatalogCards(){
-    const q=String($('cardSearchInput')?.value||'').trim().toLowerCase();
+    const q=normalizedCardSearchText($('cardSearchInput')?.value);
     const set=$('cardSetFilter')?.value||'all';
     const type=$('cardTypeFilter')?.value||'all';
     const color=$('cardColorFilter')?.value||'all';
@@ -361,7 +367,7 @@
       if(set!=='all'&&card.set!==set)return false;
       if(type!=='all'&&card.type!==type)return false;
       if(color!=='all'&&(card.type!=='insect'||card.color!==color))return false;
-      if(q&&!String(card.name||'').toLowerCase().includes(q))return false;
+      if(q&&!normalizedCardSearchText(card.name).includes(q))return false;
       return true;
     }).sort((a,b)=>compareBuilderCards(a,b,sortMode));
   }
@@ -4502,7 +4508,27 @@
     renderCardCatalog();
     renderBuilderDeckList();
   });
-  $('cardSearchInput').addEventListener('input',()=>renderCardCatalog());
+  const cardSearchInput=$('cardSearchInput');
+  const runCardSearch=()=>renderCardCatalog();
+  for(const eventName of ['input','change','search','compositionend']){
+    cardSearchInput.addEventListener(eventName,runCardSearch);
+  }
+  cardSearchInput.addEventListener('keydown',(event)=>{
+    if(event.key==='Enter'){
+      event.preventDefault();
+      cardSearchInput.blur();
+      runCardSearch();
+    }
+  });
+  $('cardSearchBtn').addEventListener('click',()=>{
+    cardSearchInput.blur();
+    runCardSearch();
+  });
+  $('cardSearchClearBtn').addEventListener('click',()=>{
+    cardSearchInput.value='';
+    runCardSearch();
+    cardSearchInput.focus();
+  });
 
   document.querySelectorAll('#startScreen .deck-choice[data-deck]').forEach(button=>{
     button.addEventListener('click',()=>chooseTurnOrder(button.dataset.deck));

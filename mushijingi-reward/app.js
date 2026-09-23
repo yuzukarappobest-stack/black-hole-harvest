@@ -5394,21 +5394,47 @@
         return (kb+def(b.inst).cost*100-(maxHp(b)-b.damage))-(ka+def(a.inst).cost*100-(maxHp(a)-a.damage));
       })[0];
     }
-    const targetScore=t=>{
+    const attackResult=t=>{
       const nw=hasAttachment(t,'noWeakness')||(passiveOfField(t)?.type==='whiteShell'&&t.whiteShellTurn===state.turnSeq);
       const dmg=base*(nw?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(t)));
       const remain=maxHp(t)-t.damage;
-      const lethal=dmg>=remain;
+      return {dmg,remain,lethal:dmg>=remain};
+    };
+    const killable=targets.filter(t=>attackResult(t).lethal);
+
+    // Fundamental combat rule for smart CPU:
+    // if this attacker can remove a body, take a guaranteed removal rather than
+    // chip a more valuable enemy and leave both insects alive.
+    if(killable.length){
+      const killScore=t=>{
+        const {dmg,remain}=attackResult(t);
+        const removalWeight=cpuPolicyValue('removalWeight',1);
+        let score=cpuFieldThreat(t,'player')*removalWeight;
+        const p=passiveOfField(t);
+        if(p?.type==='taunt'||p?.type==='pollen')score+=12;
+        if(t.forceTargetTurn===state.turnSeq||t.forcedTargetTurn===state.turnSeq)score+=8;
+        // Among multiple kills, prefer valuable enemies but avoid wasting huge damage
+        // when a smaller attack can remove a similar target.
+        score-=Math.max(0,dmg-remain)/700;
+        if(mode==='veryStrong'){
+          const next=fieldActive('cpu').filter(x=>x!==fc&&canAttackSide('cpu',x)).reduce((m,x)=>Math.max(m,cpuBestAttackScore(x,'strong')),0);
+          score+=next*0.2;
+        }
+        return score;
+      };
+      return [...killable].sort((a,b)=>killScore(b)-killScore(a))[0];
+    }
+
+    // No guaranteed kill exists: now chip the most strategically dangerous insect.
+    const targetScore=t=>{
+      const {dmg,remain}=attackResult(t);
       const removalWeight=cpuPolicyValue('removalWeight',1);
-      let score=cpuFieldThreat(t,'player')*removalWeight+(lethal?24*removalWeight:0)+Math.min(dmg,remain)/180;
+      let score=cpuFieldThreat(t,'player')*removalWeight+Math.min(dmg,remain)/180;
       const p=passiveOfField(t);
       if(p?.type==='taunt'||p?.type==='pollen')score+=12;
       if(t.forceTargetTurn===state.turnSeq||t.forcedTargetTurn===state.turnSeq)score+=8;
-      if(lethal)score-=Math.max(0,dmg-remain)/850;
-      if(mode==='veryStrong'&&lethal){
-        const next=fieldActive('cpu').filter(x=>x!==fc&&canAttackSide('cpu',x)).reduce((m,x)=>Math.max(m,cpuBestAttackScore(x,'strong')),0);
-        score+=next*0.25;
-      }
+      // Prefer damage that meaningfully advances a future KO instead of tiny scratches.
+      score+=Math.min(1,dmg/Math.max(1,remain))*4;
       return score;
     };
     return [...targets].sort((a,b)=>targetScore(b)-targetScore(a))[0];
@@ -5430,13 +5456,18 @@
     if(!targets.length)return null;
     if(cpuAquaticBossActive())return [...targets].sort((a,b)=>cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'))[0];
     if(currentCpuDifficulty()==='normal')return [...targets].sort((a,b)=>((600>=maxHp(b)-b.damage)?1000:0)+def(b.inst).cost*50-(((600>=maxHp(a)-a.damage)?1000:0)+def(a.inst).cost*50))[0];
+    const damage=targets.some(t=>600>=maxHp(t)-t.damage)?600:1000;
+    const killable=targets.filter(t=>damage>=maxHp(t)-t.damage);
+    const pool=killable.length?killable:targets;
     const score=t=>{
-      const lethal600=600>=maxHp(t)-t.damage;
-      const lethal1000=1000>=maxHp(t)-t.damage;
+      const remain=maxHp(t)-t.damage;
       const rw=cpuPolicyValue('removalWeight',1);
-      return cpuFieldThreat(t,'player')*rw+(lethal600?18*rw:lethal1000?8*rw:0);
+      let v=cpuFieldThreat(t,'player')*rw;
+      if(killable.length)v-=Math.max(0,damage-remain)/700;
+      else v+=Math.min(1,damage/Math.max(1,remain))*4;
+      return v;
     };
-    return [...targets].sort((a,b)=>score(b)-score(a))[0];
+    return [...pool].sort((a,b)=>score(b)-score(a))[0];
   }
   function bestColorAgainstCPU(target,oppSide){
     const opp=fieldActive(oppSide);

@@ -4670,6 +4670,7 @@
     if(key==='metaAquatic')return 'aquatic';
     if(key==='metaColorBlessing')return 'colorBlessing';
     if(key==='metaMimicAggro')return 'mimicAggro';
+    if(key==='metaTermite')return 'termite';
     return 'generic';
   }
   function cpuZoneHasName(side,name){
@@ -4718,6 +4719,14 @@
     }else if(arch==='mimicAggro'){
       if(c.passive?.type==='mimic'||c.passive?.type==='batesMimic')b+=4;
       if(Number(c.cost||0)<=2&&c.type==='insect')b+=1.5;
+    }else if(arch==='termite'){
+      const down=state.cpu.discard.filter(x=>x.discardFaceDown).length;
+      const visible=visibleDiscard('cpu').length;
+      if(c.passive?.type==='colony')b+=7+down*2.5+(visible?3:0);
+      if(c.effect==='pupaWintering')b+=visible<2&&state.cpu.hand.length>=3?7:2;
+      if(c.effect==='underworldGuide'&&visibleDiscard('cpu').some(x=>def(x).type==='insect'))b+=6;
+      if(['intercept400','intercept800'].includes(c.effect))b+=1.5;
+      if(c.passive?.type==='poisonJuiceTerritory')b+=2;
     }else if(arch==='aquatic'){
       if(c.passive?.type==='aquaticCost')b+=5;
       if(c.color==='blue'&&c.type==='insect')b+=2;
@@ -4786,7 +4795,7 @@
   }
   function cpuResourceTarget(){
     const arch=cpuDeckArchetype();
-    const defaults={bee:6,sumatra:6,hercules:6,armyAnt:5,colorBlessing:5,aquatic:4,mimicAggro:4,generic:5};
+    const defaults={bee:6,sumatra:6,hercules:6,armyAnt:5,colorBlessing:5,aquatic:4,mimicAggro:4,termite:3,generic:5};
     return Math.max(2,Math.min(7,Math.round(cpuPolicyValue('resourceTarget',defaults[arch]??5))));
   }
   function cpuAceNames(){
@@ -5507,6 +5516,28 @@
       if(jaw&&cpuSingleAttack500Value()>=12)return jaw;
     }
 
+    if(mode==='veryStrong'&&arch==='termite'){
+      const visible=visibleDiscard('cpu');
+      const down=state.cpu.discard.filter(x=>x.discardFaceDown).length;
+      const winter=usable.find(x=>def(x).effect==='pupaWintering');
+      if(winter&&visible.length<2&&state.cpu.hand.length>=3)return winter;
+
+      const guide=usable.find(x=>def(x).effect==='underworldGuide');
+      if(guide&&fieldActive('cpu').every(fc=>passiveOfField(fc)?.type!=='colony')&&
+         visible.some(x=>passiveOfInst(x)?.type==='colony'))return guide;
+
+      const colonies=usable.filter(x=>passiveOfInst(x)?.type==='colony');
+      if(colonies.length){
+        if(down<2){
+          return [...colonies].sort((a,b)=>
+            effectiveCardCost('cpu',a)-effectiveCardCost('cpu',b)||
+            cpuMainActionScore(b)-cpuMainActionScore(a)
+          )[0];
+        }
+        return [...colonies].sort((a,b)=>cpuMainActionScore(b)-cpuMainActionScore(a))[0];
+      }
+    }
+
     if(mode==='veryStrong'&&arch==='colorBlessing'){
       const blood=usable.find(x=>def(x).effect==='bloodPact');
       const bloodPlan=blood?cpuColorBlessingBloodPactPlan(blood):null;
@@ -5641,6 +5672,13 @@
         if(c.name==='ミツツボアリ'&&state.cpu.bait.length<4)score+=6;
         if(passiveOfInst(i)?.type==='militaryLink'&&fieldActive('cpu').filter(fc=>passiveOfField(fc)?.type==='militaryLink').length<2)score+=5;
       }
+      if(cpuDeckArchetype()==='termite'){
+        const down=state.cpu.discard.filter(x=>x.discardFaceDown).length;
+        const colonyOnField=fieldActive('cpu').filter(fc=>passiveOfField(fc)?.type==='colony').length;
+        if(passiveOfInst(i)?.type==='colony')score+=down<3||colonyOnField===0?8:4;
+        if(c.effect==='pupaWintering'&&visibleDiscard('cpu').length<2)score+=6;
+        if(c.effect==='underworldGuide'&&visibleDiscard('cpu').some(x=>def(x).type==='insect'))score+=5;
+      }
       if(cpuDeckArchetype()==='hercules'){
         if(c.name==='ヘラクレスオオカブト'||c.effect==='handTempSummon')score+=15;
         if(c.name==='ゴライアスオオツノハナムグリ')score-=2;
@@ -5687,6 +5725,12 @@
       if(p?.type==='militaryLink')score+=fieldActive('cpu').filter(fc=>passiveOfField(fc)?.type==='militaryLink').length*5;
       if(p?.type==='sumatraNature'){
         score+=baitHasRGB('cpu')?14:-6;
+      }
+      if(cpuDeckArchetype()==='termite'&&p?.type==='colony'){
+        const down=s.discard.filter(x=>x.discardFaceDown).length;
+        const visible=visibleDiscard('cpu').length;
+        score+=8+down*5+(visible?6:0);
+        if(cost<=2&&down<2)score+=5;
       }
       if(cpuDeckArchetype()==='colorBlessing'){
         if(p?.type==='colorBlessing'){
@@ -5745,6 +5789,10 @@
       blackMountain:cpuMimicBlackMountainValue(),
       flyLarvae:cpuMimicFlyLarvaeValue(),
       singleAttack500:cpuSingleAttack500Value(),
+      pupaWintering:s.hand.length>=2?(visibleDiscard('cpu').length<2?12:4):-20,
+      underworldGuide:visibleDiscard('cpu').some(x=>def(x).type==='insect')
+        ?10+Math.max(0,...visibleDiscard('cpu').filter(x=>def(x).type==='insect').map(cpuCardKeepValue))*0.45
+        :-20,
       worshipGreatSword:fieldActive('cpu').some(fc=>fc.attacked)&&visibleDiscard('cpu').some(x=>def(x).type==='enhance'&&Number(def(x).cost||0)<=3)?13:-8
     };
     score+=effectScore[c.effect]??2.2;

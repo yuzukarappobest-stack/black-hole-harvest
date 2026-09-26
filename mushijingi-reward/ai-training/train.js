@@ -84,7 +84,11 @@ function baseValue(c){
   }else if(c.type==='enhance'){
     v+=2+(c.effect==='attack500'?3:1);
   }else{
-    const map={handTempSummon:5,baitTempSummon:2,recoverInsect:3,bloodPact:6,worshipGreatSword:5,silkwormGag:6,burn1000:6};
+    const map={
+      handTempSummon:5,baitTempSummon:2,recoverInsect:3,bloodPact:6,worshipGreatSword:5,
+      silkwormGag:6,burn1000:6,burn600:4,destroyOpponent:7,sameNameBurn:4,
+      lightningStorm:7,blastStorm:5,queenBeeSummon:8,intercept400:3,intercept800:5
+    };
     v+=2+(map[c.effect]||1);
   }
   return v;
@@ -273,6 +277,10 @@ function bestTempHandInsect(side,list,p){
     return vb-va;
   })[0];
 }
+function simSpellTargets(opp){
+  const forced=opp.field.filter(u=>cards[u.id]?.passive?.type==='spellTaunt');
+  return forced.length?forced:opp.field;
+}
 function deathTriggerCard(c){
   const text=String(c?.passive?.text||'')+' '+(c?.attacks||[]).map(a=>String(a.text||'')).join(' ');
   return /破壊されたとき|破壊されるとき/.test(text)||['toxicRevenge','poisonBubble','abyssRevival'].includes(c?.passive?.type);
@@ -311,16 +319,45 @@ function actionCandidates(me,opp,p){
         const blessingInZones=[...opp.hand,...opp.deck,...opp.bait,...opp.field.map(u=>u.id)].some(x=>cards[x]?.passive?.type==='colorBlessing');
         const score=(opp.arch==='colorBlessing'?38:8)+(blessingInZones?12:0);
         out.push({kind:'gagColor',id,cost,score});
-      }else if(c.effect==='burn1000'&&cost<=me.bait.length&&opp.field.length){
-        const killable=opp.field.filter(u=>Number(cards[u.id]?.hp||0)-Number(u.damage||0)<=1000);
-        const pool=killable.length?killable:opp.field;
+      }else if(c.effect==='queenBeeSummon'&&cost<=me.bait.length){
+        const wasps=me.hand.filter(x=>x!==id&&cards[x]?.type==='insect'&&isWasp(cards[x]));
+        if(wasps.length){
+          const picks=[...wasps].sort((a,b)=>cardValue(me.arch,cards[b],p)-cardValue(me.arch,cards[a],p)).slice(0,2);
+          const score=picks.reduce((sum,x)=>sum+tempSummonValue(me,x,p),0)*.82+(picks.length===2?10:3);
+          out.push({kind:'queenBeeSummon',id,picks,cost,score});
+        }
+      }else if(['burn600','burn1000','intercept400','intercept800'].includes(c.effect)&&cost<=me.bait.length&&opp.field.length){
+        const amount={burn600:600,burn1000:1000,intercept400:400,intercept800:800}[c.effect];
+        const targets=simSpellTargets(opp);
+        const killable=targets.filter(u=>Number(cards[u.id]?.hp||0)-Number(u.damage||0)<=amount);
+        const pool=killable.length?killable:targets;
         const target=[...pool].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
         let score=target?threat(opp,target)*p.removalWeight*1.8:0;
-        if(target&&killable.includes(target))score+=18;
-        if(target&&cards[target.id]?.passive?.type==='colorBlessing')score+=16;
-        out.push({kind:'burn1000',id,target,cost,score});
+        if(target&&killable.includes(target))score+=16+amount/200;
+        if(target&&cards[target.id]?.passive?.type==='colorBlessing')score+=14;
+        out.push({kind:'burn',id,target,cost,amount,score});
+      }else if(c.effect==='destroyOpponent'&&cost<=me.bait.length&&opp.field.length){
+        const targets=simSpellTargets(opp);
+        const target=[...targets].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
+        out.push({kind:'destroy',id,target,cost,score:target?threat(opp,target)*p.removalWeight*2.1+22:0});
+      }else if(c.effect==='sameNameBurn'&&cost<=me.bait.length&&opp.field.length){
+        const targets=simSpellTargets(opp);
+        const target=[...targets].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
+        const second=target?opp.field.find(u=>u!==target&&cards[u.id]?.name===cards[target.id]?.name):null;
+        const kill1=target&&Number(cards[target.id]?.hp||0)-Number(target.damage||0)<=500;
+        const kill2=second&&Number(cards[second.id]?.hp||0)-Number(second.damage||0)<=500;
+        const score=(target?threat(opp,target)*p.removalWeight*.8:0)+(kill1?12:0)+(second?8:0)+(kill2?10:0);
+        out.push({kind:'sameNameBurn',id,target,second,cost,score});
+      }else if(['lightningStorm','blastStorm'].includes(c.effect)&&cost<=me.bait.length&&opp.field.length){
+        const amount=c.effect==='lightningStorm'?1000:600;
+        const targets=simSpellTargets(opp);
+        const target=[...targets].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
+        const hadCopy=me.discard.some(x=>cards[x]?.name===c.name);
+        let score=target?threat(opp,target)*p.removalWeight*1.6+(Number(cards[target.id]?.hp||0)-Number(target.damage||0)<=amount?18:0):0;
+        if(hadCopy)score+=22;
+        out.push({kind:'stormBurn',id,target,cost,amount,hadCopy,score});
       }else if(c.effect==='bloodPact'&&opp.field.length&&(cost<=me.bait.length||me.territory.length>=2)){
-        const t=[...opp.field].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
+        const t=[...simSpellTargets(opp)].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
         const ready=me.field.filter(u=>!u.attacked&&u.delay<=0).length;
         const hitsNeeded=opp.territory.length+1;
         const single=opp.field.length===1;
@@ -433,13 +470,40 @@ function playBestActions(me,opp,p){
       budget-=a.cost;me.discard.push(a.id);opp.spellCounter=true;
     }else if(a.kind==='gagColor'){
       budget-=a.cost;me.discard.push(a.id);opp.gagged=true;
-    }else if(a.kind==='burn1000'){
+    }else if(a.kind==='queenBeeSummon'){
+      budget-=a.cost;me.discard.push(a.id);
+      for(const x of a.picks||[]){
+        if(moveOne(me.hand,x))me.field.push({id:x,damage:0,buff:0,temp:true,delay:0,bounceUsed:false,attacked:false,mimicShield:cards[x]?.passive?.type==='mimic'});
+      }
+    }else if(a.kind==='burn'){
       budget-=a.cost;me.discard.push(a.id);
       if(a.target&&opp.field.includes(a.target)){
-        a.target.damage+=1000;
+        a.target.damage+=a.amount;
         if(a.target.damage>=Number(cards[a.target.id]?.hp||0)){
           opp.discard.push(a.target.id);opp.field.splice(opp.field.indexOf(a.target),1);
         }
+      }
+    }else if(a.kind==='destroy'){
+      budget-=a.cost;me.discard.push(a.id);
+      if(a.target&&opp.field.includes(a.target)){opp.discard.push(a.target.id);opp.field.splice(opp.field.indexOf(a.target),1);}
+    }else if(a.kind==='sameNameBurn'){
+      budget-=a.cost;me.discard.push(a.id);
+      for(const t of [a.target,a.second].filter(Boolean)){
+        if(!opp.field.includes(t))continue;
+        t.damage+=500;
+        if(t.damage>=Number(cards[t.id]?.hp||0)){opp.discard.push(t.id);opp.field.splice(opp.field.indexOf(t),1);}
+      }
+    }else if(a.kind==='stormBurn'){
+      budget-=a.cost;me.discard.push(a.id);
+      const hit=t=>{
+        if(!t||!opp.field.includes(t))return;
+        t.damage+=a.amount;
+        if(t.damage>=Number(cards[t.id]?.hp||0)){opp.discard.push(t.id);opp.field.splice(opp.field.indexOf(t),1);}
+      };
+      hit(a.target);
+      if(a.hadCopy&&opp.field.length){
+        const second=[...simSpellTargets(opp)].sort((x,y)=>threat(opp,y)-threat(opp,x))[0];
+        hit(second);
       }
     }else if(a.kind==='bloodPact'){
       if(a.payTerritory||a.cost>budget)me.territory.splice(0,Math.min(2,me.territory.length));
@@ -774,132 +838,131 @@ function trainFocusedArch(arch){
   };
 }
 
-// ===== 色彩対策CPU 専用学習 v7 =====
+// ===== 色彩対策 構成ランダム探索 v8 =====
 const TARGET_ARCH='colorCounter';
 const TARGET_OPP='colorBlessing';
-const TARGET_WIN_RATE=0.90;
-const MIN_TRAINING_GAMES=2000000;
-const MAX_GENERATIONS=220;
-const POPULATION=72;
 
 function colorOpponentVariants(){
   const base=BASE_POLICY[TARGET_OPP];
-  const rng=mulberry32(hash('color-counter-train-v7-opponents'));
+  const rng=mulberry32(hash('color-counter-search-v8-opponents'));
   const out=[{...base}];
   while(out.length<10)out.push(mutate(base,rng,.95));
   return out;
 }
 const COLOR_OPPONENTS=colorOpponentVariants();
 
-function evalVsColor(p,gen,index,rounds=7){
+const SEARCH_POLICY=withPolicyDefaults(TARGET_ARCH,BASE_POLICY.colorCounter);
+
+function validDeck(ids){
+  if(!Array.isArray(ids)||ids.length!==20)return false;
+  const counts=new Map();
+  for(const id of ids){
+    if(!cards[id])return false;
+    counts.set(id,(counts.get(id)||0)+1);
+    if(counts.get(id)>2)return false;
+  }
+  return true;
+}
+function deckKey(ids){return [...ids].sort((a,b)=>a-b).join(',');}
+function deckCounts(ids){
+  const m=new Map();for(const id of ids)m.set(id,(m.get(id)||0)+1);return m;
+}
+function benchmarkDeck(ids,rounds=20,tag='d'){
   let pts=0,games=0,wins=0,losses=0,draws=0;
   for(let v=0;v<COLOR_OPPONENTS.length;v++){
     const op=COLOR_OPPONENTS[v];
     for(let n=0;n<rounds;n++){
-      const seed=hash('color-counter-train-v7:'+v+':'+gen+':'+index+':'+n);
-      const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed);
+      const seed=hash('search-v8:'+tag+':'+v+':'+n);
+      const r1=runGame(TARGET_ARCH,SEARCH_POLICY,TARGET_OPP,op,seed,ids,null);
       pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
-      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,p,seed^0x9e3779b9);
+      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,SEARCH_POLICY,seed^0x9e3779b9,null,ids);
       pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
       if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
     }
   }
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
-function stableBench(p,rounds=800){
-  return evalVsColor(p,9999,9999,rounds);
+
+const BASE_DECK=[...decks.metaColorCounter.ids];
+const POOL=[
+  701,703,8,702,511,212,513,125,253,60,824,
+  117,124,350,463,558,559,661,662,
+  123,118,426,53,54,607,830,520,
+  240,527,230,345,405
+];
+const rng=mulberry32(hash('color-counter-random-decks-v8:20260926'));
+const candidates=[];
+const seen=new Set([deckKey(BASE_DECK)]);
+candidates.push(BASE_DECK);
+
+while(candidates.length<2600){
+  const d=[...BASE_DECK];
+  const changes=1+Math.floor(rng()*7);
+  for(let k=0;k<changes;k++){
+    const i=Math.floor(rng()*d.length);
+    const counts=deckCounts(d);
+    let replacement=null;
+    for(let guard=0;guard<30;guard++){
+      const x=POOL[Math.floor(rng()*POOL.length)];
+      if((counts.get(x)||0)<2 || x===d[i]){replacement=x;break;}
+    }
+    if(replacement!=null)d[i]=replacement;
+  }
+  if(!validDeck(d))continue;
+  const key=deckKey(d);
+  if(seen.has(key))continue;
+  seen.add(key);candidates.push(d);
 }
 
-// Start from the deck-search policy, not from the failed control-heavy experiments.
-const seedPolicy=withPolicyDefaults(TARGET_ARCH,{
-  ...BASE_POLICY.bee,
-  resourceTarget:6,
-  aggression:1.35,
-  directAttackWeight:1.55,
-  preserveWeight:1.25,
-  removalWeight:1.3,
-  aceWeight:1.5,
-  deployThreshold:7,
-  engineBaitPriority:8,
-  cheapDeployBonus:0.8,
-  comboWeight:1.2
-});
-const seedBench=evalVsColor(seedPolicy,-2,-2,180);
-
-const rng=mulberry32(hash('color-counter-train-v7:20260926'));
-let population=[seedPolicy];
-while(population.length<POPULATION)population.push(mutate(seedPolicy,rng,1.1));
-
-let champion={p:seedPolicy,...evalVsColor(seedPolicy,-1,-1,30)};
-const generations=[];
-
-for(let gen=0;gen<MAX_GENERATIONS;gen++){
-  const scored=population.map((p,i)=>({p,...evalVsColor(p,gen,i,7)}))
-    .sort((a,b)=>b.score-a.score);
-
-  if(scored[0].score>champion.score)champion=scored[0];
-
-  const verify=evalVsColor(champion.p,gen,999,40);
-  generations.push({
-    gen,
-    score:Number(verify.score.toFixed(4)),
-    winRate:Number(verify.winRate.toFixed(4)),
-    games:TOTAL_GAME_COUNT
-  });
-  console.log('Color-counter v7 generation',gen,generations[generations.length-1]);
-
-  if(verify.winRate>=TARGET_WIN_RATE && TOTAL_GAME_COUNT>=MIN_TRAINING_GAMES){
-    champion={p:champion.p,...verify};
-    break;
-  }
-
-  const elite=scored.slice(0,10).map(x=>x.p);
-  population=[champion.p,...elite];
-  while(population.length<POPULATION){
-    const parent=elite[Math.floor(rng()*elite.length)]||champion.p;
-    population.push(mutate(parent,rng,Math.max(.16,.95-gen*.0035)));
-  }
-}
-
-// Dense local search around the champion.
-const locals=[champion.p];
-while(locals.length<800)locals.push(microMutate(champion.p,rng,.07+rng()*.5));
-const quick=locals.map((p,i)=>({p,...evalVsColor(p,6000,i,3)}))
+// Wide screen.
+const wide=candidates.map((ids,i)=>({ids,...benchmarkDeck(ids,12,'wide-'+i)}))
   .sort((a,b)=>b.score-a.score);
-const finalists=quick.slice(0,32).map((x,i)=>({p:x.p,...evalVsColor(x.p,7000,i,40)}))
-  .sort((a,b)=>b.score-a.score);
-if(finalists[0]&&finalists[0].score>champion.score)champion=finalists[0];
+console.log('v8 wide top',wide.slice(0,15).map((x,i)=>({rank:i+1,winRate:x.winRate,score:x.score,ids:x.ids})));
 
-// Large independent final validation.
-const finalBench=stableBench(champion.p,800);
-const learned={...PREVIOUS_ARCHETYPES};
-learned.colorCounter=Object.fromEntries(Object.entries(champion.p).map(([k,v])=>[k,Number(Number(v).toFixed(3))]));
-learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
+// Medium confirmation.
+const medium=wide.slice(0,45).map((x,i)=>({ids:x.ids,...benchmarkDeck(x.ids,140,'mid-'+i)}))
+  .sort((a,b)=>b.score-a.score);
+console.log('v8 medium top',medium.slice(0,12).map((x,i)=>({rank:i+1,winRate:x.winRate,score:x.score,ids:x.ids})));
+
+// Large confirmation.
+const large=medium.slice(0,12).map((x,i)=>({ids:x.ids,...benchmarkDeck(x.ids,700,'large-'+i)}))
+  .sort((a,b)=>b.score-a.score);
+const base=benchmarkDeck(BASE_DECK,700,'base');
+const best=large[0];
+console.log('v8 final',{base,best});
 
 const payload={
-  version:14,
-  source:'color-counter-targeted-policy-v7',
+  version:15,
+  source:'color-counter-random-deck-search-v8',
   training:{
     seed:20260926,
-    focusedArchetypes:[TARGET_ARCH],
     targetOpponent:TARGET_OPP,
-    targetWinRate:TARGET_WIN_RATE,
-    minimumTrainingGames:MIN_TRAINING_GAMES,
     approximateSimulator:true,
     colorWeaknessMode:true,
     games:TOTAL_GAME_COUNT,
-    seedWinRate:Number(seedBench.winRate.toFixed(4)),
-    seedRecord:{wins:seedBench.wins,losses:seedBench.losses,draws:seedBench.draws,games:seedBench.games},
-    finalWinRate:Number(finalBench.winRate.toFixed(4)),
-    finalScore:Number(finalBench.score.toFixed(4)),
-    finalRecord:{wins:finalBench.wins,losses:finalBench.losses,draws:finalBench.draws,games:finalBench.games},
-    generations,
-    bestGeneration:generations.reduce((best,row)=>!best||row.winRate>best.winRate?row:best,null)
+    candidates:candidates.length,
+    base:{
+      winRate:Number(base.winRate.toFixed(4)),
+      score:Number(base.score.toFixed(4)),
+      record:{wins:base.wins,losses:base.losses,draws:base.draws,games:base.games}
+    },
+    bestDeck:{
+      ids:best.ids,
+      names:best.ids.map(id=>cards[id]?.name||String(id)),
+      winRate:Number(best.winRate.toFixed(4)),
+      score:Number(best.score.toFixed(4)),
+      record:{wins:best.wins,losses:best.losses,draws:best.draws,games:best.games}
+    },
+    top:large.slice(0,8).map(x=>({
+      ids:x.ids,
+      names:x.ids.map(id=>cards[id]?.name||String(id)),
+      winRate:Number(x.winRate.toFixed(4)),
+      score:Number(x.score.toFixed(4))
+    }))
   },
-  archetypes:learned
+  archetypes:{...PREVIOUS_ARCHETYPES}
 };
-
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Color counter v7 targeted training complete',payload.training);
+console.log('Color counter v8 deck search complete',payload.training);

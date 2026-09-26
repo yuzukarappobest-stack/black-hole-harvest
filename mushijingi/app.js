@@ -4727,8 +4727,7 @@
       if(c.name==='オオスズメバチ（女王）')b+=11;
       if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
       if(c.effect==='handTempSummon')b+=8;
-      if(c.effect==='silkwormGag')b+=12;
-      if(c.effect==='burn1000')b+=9;
+      if(c.effect==='silkwormGag')b+=14;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;
@@ -4869,8 +4868,7 @@
     }
     if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
     if(arch==='hercules'&&c.name==='ヘラクレスオオカブト')p+=24;
-    if(arch==='colorCounter'&&c.effect==='silkwormGag')p+=34;
-    if(arch==='colorCounter'&&c.effect==='burn1000'&&fieldActive('player').length)p+=18;
+    if(arch==='colorCounter'&&c.effect==='silkwormGag')p+=38;
     if(arch==='colorCounter'&&c.effect==='spellDanceCounter'){
       const lock=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type));
       p+=lock?30:8;

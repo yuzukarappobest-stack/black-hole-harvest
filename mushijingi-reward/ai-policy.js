@@ -1,7 +1,7 @@
 (() => {
   window.MUSHI_AI_POLICY = {
-  "version": 7,
-  "source": "color-counter-targeted-selfplay-v1",
+  "version": 8,
+  "source": "color-counter-silence-selfplay-v2",
   "training": {
     "seed": 20260926,
     "focusedArchetypes": [
@@ -12,733 +12,733 @@
     "minimumTrainingGames": 800000,
     "approximateSimulator": true,
     "games": 1115200,
-    "finalWinRate": 0.7169,
-    "finalScore": 2.1516,
+    "finalWinRate": 0.5357,
+    "finalScore": 1.6072,
     "finalRecord": {
-      "wins": 5735,
-      "losses": 2255,
-      "draws": 10,
+      "wins": 4286,
+      "losses": 3714,
+      "draws": 0,
       "games": 8000
     },
     "generations": [
       {
         "gen": 0,
-        "score": 2.1422,
-        "winRate": 0.7141,
+        "score": 1.5891,
+        "winRate": 0.5297,
         "games": 9472
       },
       {
         "gen": 1,
-        "score": 2.1244,
-        "winRate": 0.7078,
+        "score": 1.5797,
+        "winRate": 0.5266,
         "games": 18304
       },
       {
         "gen": 2,
-        "score": 2.1156,
-        "winRate": 0.7047,
+        "score": 1.6219,
+        "winRate": 0.5406,
         "games": 27136
       },
       {
         "gen": 3,
-        "score": 2.2276,
-        "winRate": 0.7422,
+        "score": 1.6359,
+        "winRate": 0.5453,
         "games": 35968
       },
       {
         "gen": 4,
-        "score": 2.109,
-        "winRate": 0.7031,
+        "score": 1.6359,
+        "winRate": 0.5453,
         "games": 44800
       },
       {
         "gen": 5,
-        "score": 2.1896,
-        "winRate": 0.7297,
+        "score": 1.5562,
+        "winRate": 0.5188,
         "games": 53632
       },
       {
         "gen": 6,
-        "score": 2.2597,
-        "winRate": 0.7531,
+        "score": 1.5984,
+        "winRate": 0.5328,
         "games": 62464
       },
       {
         "gen": 7,
-        "score": 2.1712,
-        "winRate": 0.7234,
+        "score": 1.6847,
+        "winRate": 0.5609,
         "games": 71296
       },
       {
         "gen": 8,
-        "score": 2.1006,
-        "winRate": 0.7,
+        "score": 1.5234,
+        "winRate": 0.5078,
         "games": 80128
       },
       {
         "gen": 9,
-        "score": 2.2435,
-        "winRate": 0.7469,
+        "score": 1.6406,
+        "winRate": 0.5469,
         "games": 88960
       },
       {
         "gen": 10,
-        "score": 2.0726,
-        "winRate": 0.6906,
+        "score": 1.5141,
+        "winRate": 0.5047,
         "games": 97792
       },
       {
         "gen": 11,
-        "score": 2.2319,
-        "winRate": 0.7438,
+        "score": 1.5938,
+        "winRate": 0.5313,
         "games": 106624
       },
       {
         "gen": 12,
-        "score": 2.1567,
-        "winRate": 0.7188,
+        "score": 1.6547,
+        "winRate": 0.5516,
         "games": 115456
       },
       {
         "gen": 13,
-        "score": 2.1852,
-        "winRate": 0.7281,
+        "score": 1.7857,
+        "winRate": 0.5953,
         "games": 124288
       },
       {
         "gen": 14,
-        "score": 2.1641,
-        "winRate": 0.7203,
+        "score": 1.6734,
+        "winRate": 0.5578,
         "games": 133120
       },
       {
         "gen": 15,
-        "score": 2.1409,
-        "winRate": 0.7141,
+        "score": 1.5375,
+        "winRate": 0.5125,
         "games": 141952
       },
       {
         "gen": 16,
-        "score": 2.2221,
-        "winRate": 0.7406,
+        "score": 1.5609,
+        "winRate": 0.5203,
         "games": 150784
       },
       {
         "gen": 17,
-        "score": 2.1902,
-        "winRate": 0.7297,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 159616
       },
       {
         "gen": 18,
-        "score": 2.1411,
-        "winRate": 0.7141,
+        "score": 1.5797,
+        "winRate": 0.5266,
         "games": 168448
       },
       {
         "gen": 19,
-        "score": 2.0477,
-        "winRate": 0.6813,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 177280
       },
       {
         "gen": 20,
-        "score": 2.1571,
-        "winRate": 0.7188,
+        "score": 1.5609,
+        "winRate": 0.5203,
         "games": 186112
       },
       {
         "gen": 21,
-        "score": 2.0187,
-        "winRate": 0.6719,
+        "score": 1.4859,
+        "winRate": 0.4953,
         "games": 194944
       },
       {
         "gen": 22,
-        "score": 2.1377,
-        "winRate": 0.7125,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 203776
       },
       {
         "gen": 23,
-        "score": 2.1493,
-        "winRate": 0.7156,
+        "score": 1.6078,
+        "winRate": 0.5359,
         "games": 212608
       },
       {
         "gen": 24,
-        "score": 2.1103,
-        "winRate": 0.7031,
+        "score": 1.5656,
+        "winRate": 0.5219,
         "games": 221440
       },
       {
         "gen": 25,
-        "score": 2.0948,
-        "winRate": 0.6984,
+        "score": 1.5375,
+        "winRate": 0.5125,
         "games": 230272
       },
       {
         "gen": 26,
-        "score": 2.0258,
-        "winRate": 0.675,
+        "score": 1.5281,
+        "winRate": 0.5094,
         "games": 239104
       },
       {
         "gen": 27,
-        "score": 2.1098,
-        "winRate": 0.7031,
+        "score": 1.6452,
+        "winRate": 0.5484,
         "games": 247936
       },
       {
         "gen": 28,
-        "score": 2.219,
-        "winRate": 0.7391,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 256768
       },
       {
         "gen": 29,
-        "score": 2.1604,
-        "winRate": 0.7203,
+        "score": 1.5839,
+        "winRate": 0.5281,
         "games": 265600
       },
       {
         "gen": 30,
-        "score": 2.1693,
-        "winRate": 0.7234,
+        "score": 1.6594,
+        "winRate": 0.5531,
         "games": 274432
       },
       {
         "gen": 31,
-        "score": 2.2096,
-        "winRate": 0.7359,
+        "score": 1.6172,
+        "winRate": 0.5391,
         "games": 283264
       },
       {
         "gen": 32,
-        "score": 2.1007,
-        "winRate": 0.7,
+        "score": 1.5188,
+        "winRate": 0.5062,
         "games": 292096
       },
       {
         "gen": 33,
-        "score": 2.1208,
-        "winRate": 0.7063,
+        "score": 1.6781,
+        "winRate": 0.5594,
         "games": 300928
       },
       {
         "gen": 34,
-        "score": 2.1139,
-        "winRate": 0.7047,
+        "score": 1.6359,
+        "winRate": 0.5453,
         "games": 309760
       },
       {
         "gen": 35,
-        "score": 2.1046,
-        "winRate": 0.7016,
+        "score": 1.5938,
+        "winRate": 0.5313,
         "games": 318592
       },
       {
         "gen": 36,
-        "score": 2.2159,
-        "winRate": 0.7391,
+        "score": 1.6076,
+        "winRate": 0.5359,
         "games": 327424
       },
       {
         "gen": 37,
-        "score": 2.0801,
-        "winRate": 0.6922,
+        "score": 1.5984,
+        "winRate": 0.5328,
         "games": 336256
       },
       {
         "gen": 38,
-        "score": 2.1907,
-        "winRate": 0.7297,
+        "score": 1.6031,
+        "winRate": 0.5344,
         "games": 345088
       },
       {
         "gen": 39,
-        "score": 2.1234,
-        "winRate": 0.7078,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 353920
       },
       {
         "gen": 40,
-        "score": 2.1221,
-        "winRate": 0.7078,
+        "score": 1.5427,
+        "winRate": 0.5141,
         "games": 362752
       },
       {
         "gen": 41,
-        "score": 2.1997,
-        "winRate": 0.7328,
+        "score": 1.6922,
+        "winRate": 0.5641,
         "games": 371584
       },
       {
         "gen": 42,
-        "score": 2.206,
-        "winRate": 0.7344,
+        "score": 1.5516,
+        "winRate": 0.5172,
         "games": 380416
       },
       {
         "gen": 43,
-        "score": 2.1604,
-        "winRate": 0.7188,
+        "score": 1.5935,
+        "winRate": 0.5313,
         "games": 389248
       },
       {
         "gen": 44,
-        "score": 2.1998,
-        "winRate": 0.7328,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 398080
       },
       {
         "gen": 45,
-        "score": 2.0764,
-        "winRate": 0.6922,
+        "score": 1.6641,
+        "winRate": 0.5547,
         "games": 406912
       },
       {
         "gen": 46,
-        "score": 2.2318,
-        "winRate": 0.7438,
+        "score": 1.5234,
+        "winRate": 0.5078,
         "games": 415744
       },
       {
         "gen": 47,
-        "score": 2.1058,
-        "winRate": 0.7016,
+        "score": 1.5562,
+        "winRate": 0.5188,
         "games": 424576
       },
       {
         "gen": 48,
-        "score": 2.1896,
-        "winRate": 0.7297,
+        "score": 1.6031,
+        "winRate": 0.5344,
         "games": 433408
       },
       {
         "gen": 49,
-        "score": 2.1197,
-        "winRate": 0.7063,
+        "score": 1.6219,
+        "winRate": 0.5406,
         "games": 442240
       },
       {
         "gen": 50,
-        "score": 2.1127,
-        "winRate": 0.7047,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 451072
       },
       {
         "gen": 51,
-        "score": 2.2039,
-        "winRate": 0.7344,
+        "score": 1.6078,
+        "winRate": 0.5359,
         "games": 459904
       },
       {
         "gen": 52,
-        "score": 2.1467,
-        "winRate": 0.7156,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 468736
       },
       {
         "gen": 53,
-        "score": 2.1597,
-        "winRate": 0.7203,
+        "score": 1.6172,
+        "winRate": 0.5391,
         "games": 477568
       },
       {
         "gen": 54,
-        "score": 2.1488,
-        "winRate": 0.7141,
+        "score": 1.5562,
+        "winRate": 0.5188,
         "games": 486400
       },
       {
         "gen": 55,
-        "score": 2.2354,
-        "winRate": 0.7453,
+        "score": 1.4203,
+        "winRate": 0.4734,
         "games": 495232
       },
       {
         "gen": 56,
-        "score": 2.1649,
-        "winRate": 0.7219,
+        "score": 1.7156,
+        "winRate": 0.5719,
         "games": 504064
       },
       {
         "gen": 57,
-        "score": 2.1368,
-        "winRate": 0.7109,
+        "score": 1.556,
+        "winRate": 0.5188,
         "games": 512896
       },
       {
         "gen": 58,
-        "score": 2.2084,
-        "winRate": 0.7359,
+        "score": 1.5516,
+        "winRate": 0.5172,
         "games": 521728
       },
       {
         "gen": 59,
-        "score": 2.1116,
-        "winRate": 0.7016,
+        "score": 1.5708,
+        "winRate": 0.5234,
         "games": 530560
       },
       {
         "gen": 60,
-        "score": 2.0719,
-        "winRate": 0.6906,
+        "score": 1.5938,
+        "winRate": 0.5313,
         "games": 539392
       },
       {
         "gen": 61,
-        "score": 2.1916,
-        "winRate": 0.7297,
+        "score": 1.7156,
+        "winRate": 0.5719,
         "games": 548224
       },
       {
         "gen": 62,
-        "score": 2.1094,
-        "winRate": 0.7031,
+        "score": 1.65,
+        "winRate": 0.55,
         "games": 557056
       },
       {
         "gen": 63,
-        "score": 2.0691,
-        "winRate": 0.6891,
+        "score": 1.6359,
+        "winRate": 0.5453,
         "games": 565888
       },
       {
         "gen": 64,
-        "score": 2.0584,
-        "winRate": 0.6859,
+        "score": 1.6418,
+        "winRate": 0.5469,
         "games": 574720
       },
       {
         "gen": 65,
-        "score": 2.0942,
-        "winRate": 0.6984,
+        "score": 1.5945,
+        "winRate": 0.5313,
         "games": 583552
       },
       {
         "gen": 66,
-        "score": 2.0677,
-        "winRate": 0.6891,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 592384
       },
       {
         "gen": 67,
-        "score": 2.0756,
-        "winRate": 0.6922,
+        "score": 1.5837,
+        "winRate": 0.5281,
         "games": 601216
       },
       {
         "gen": 68,
-        "score": 2.1068,
-        "winRate": 0.7016,
+        "score": 1.5891,
+        "winRate": 0.5297,
         "games": 610048
       },
       {
         "gen": 69,
-        "score": 2.1513,
-        "winRate": 0.7172,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 618880
       },
       {
         "gen": 70,
-        "score": 2.1422,
-        "winRate": 0.7141,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 627712
       },
       {
         "gen": 71,
-        "score": 2.1224,
-        "winRate": 0.7078,
+        "score": 1.5422,
+        "winRate": 0.5141,
         "games": 636544
       },
       {
         "gen": 72,
-        "score": 2.0812,
-        "winRate": 0.6937,
+        "score": 1.6734,
+        "winRate": 0.5578,
         "games": 645376
       },
       {
         "gen": 73,
-        "score": 2.2422,
-        "winRate": 0.7469,
+        "score": 1.5891,
+        "winRate": 0.5297,
         "games": 654208
       },
       {
         "gen": 74,
-        "score": 2.1386,
-        "winRate": 0.7125,
+        "score": 1.6687,
+        "winRate": 0.5563,
         "games": 663040
       },
       {
         "gen": 75,
-        "score": 2.0625,
-        "winRate": 0.6875,
+        "score": 1.6031,
+        "winRate": 0.5344,
         "games": 671872
       },
       {
         "gen": 76,
-        "score": 2.0577,
-        "winRate": 0.6859,
+        "score": 1.5481,
+        "winRate": 0.5156,
         "games": 680704
       },
       {
         "gen": 77,
-        "score": 2.1043,
-        "winRate": 0.7016,
+        "score": 1.6078,
+        "winRate": 0.5359,
         "games": 689536
       },
       {
         "gen": 78,
-        "score": 2.1649,
-        "winRate": 0.7219,
+        "score": 1.6594,
+        "winRate": 0.5531,
         "games": 698368
       },
       {
         "gen": 79,
-        "score": 2.1402,
-        "winRate": 0.7141,
+        "score": 1.5656,
+        "winRate": 0.5219,
         "games": 707200
       },
       {
         "gen": 80,
-        "score": 2.0821,
-        "winRate": 0.6937,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 716032
       },
       {
         "gen": 81,
-        "score": 2.174,
-        "winRate": 0.725,
+        "score": 1.5188,
+        "winRate": 0.5062,
         "games": 724864
       },
       {
         "gen": 82,
-        "score": 2.0719,
-        "winRate": 0.6906,
+        "score": 1.6172,
+        "winRate": 0.5391,
         "games": 733696
       },
       {
         "gen": 83,
-        "score": 2.0812,
-        "winRate": 0.6937,
+        "score": 1.7578,
+        "winRate": 0.5859,
         "games": 742528
       },
       {
         "gen": 84,
-        "score": 2.1211,
-        "winRate": 0.7063,
+        "score": 1.6406,
+        "winRate": 0.5469,
         "games": 751360
       },
       {
         "gen": 85,
-        "score": 2.153,
-        "winRate": 0.7172,
+        "score": 1.6453,
+        "winRate": 0.5484,
         "games": 760192
       },
       {
         "gen": 86,
-        "score": 2.1046,
-        "winRate": 0.7016,
+        "score": 1.6083,
+        "winRate": 0.5359,
         "games": 769024
       },
       {
         "gen": 87,
-        "score": 2.1358,
-        "winRate": 0.7109,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 777856
       },
       {
         "gen": 88,
-        "score": 2.2117,
-        "winRate": 0.7359,
+        "score": 1.5281,
+        "winRate": 0.5094,
         "games": 786688
       },
       {
         "gen": 89,
-        "score": 2.2013,
-        "winRate": 0.7328,
+        "score": 1.5656,
+        "winRate": 0.5219,
         "games": 795520
       },
       {
         "gen": 90,
-        "score": 2.1246,
-        "winRate": 0.7078,
+        "score": 1.6219,
+        "winRate": 0.5406,
         "games": 804352
       },
       {
         "gen": 91,
-        "score": 2.1465,
-        "winRate": 0.7141,
+        "score": 1.534,
+        "winRate": 0.5109,
         "games": 813184
       },
       {
         "gen": 92,
-        "score": 2.1309,
-        "winRate": 0.7094,
+        "score": 1.575,
+        "winRate": 0.525,
         "games": 822016
       },
       {
         "gen": 93,
-        "score": 2.1818,
-        "winRate": 0.7266,
+        "score": 1.6781,
+        "winRate": 0.5594,
         "games": 830848
       },
       {
         "gen": 94,
-        "score": 2.1194,
-        "winRate": 0.7047,
+        "score": 1.5703,
+        "winRate": 0.5234,
         "games": 839680
       },
       {
         "gen": 95,
-        "score": 2.2034,
-        "winRate": 0.7344,
+        "score": 1.6313,
+        "winRate": 0.5437,
         "games": 848512
       },
       {
         "gen": 96,
-        "score": 2.0698,
-        "winRate": 0.6891,
+        "score": 1.5656,
+        "winRate": 0.5219,
         "games": 857344
       },
       {
         "gen": 97,
-        "score": 2.1876,
-        "winRate": 0.7297,
+        "score": 1.6266,
+        "winRate": 0.5422,
         "games": 866176
       },
       {
         "gen": 98,
-        "score": 2.1228,
-        "winRate": 0.7078,
+        "score": 1.5938,
+        "winRate": 0.5313,
         "games": 875008
       },
       {
         "gen": 99,
-        "score": 2.1281,
-        "winRate": 0.7094,
+        "score": 1.5844,
+        "winRate": 0.5281,
         "games": 883840
       },
       {
         "gen": 100,
-        "score": 2.2058,
-        "winRate": 0.7344,
+        "score": 1.7063,
+        "winRate": 0.5687,
         "games": 892672
       },
       {
         "gen": 101,
-        "score": 2.2512,
-        "winRate": 0.75,
+        "score": 1.6734,
+        "winRate": 0.5578,
         "games": 901504
       },
       {
         "gen": 102,
-        "score": 2.1142,
-        "winRate": 0.7047,
+        "score": 1.7063,
+        "winRate": 0.5687,
         "games": 910336
       },
       {
         "gen": 103,
-        "score": 2.1281,
-        "winRate": 0.7094,
+        "score": 1.7391,
+        "winRate": 0.5797,
         "games": 919168
       },
       {
         "gen": 104,
-        "score": 2.1194,
-        "winRate": 0.7063,
+        "score": 1.5047,
+        "winRate": 0.5016,
         "games": 928000
       },
       {
         "gen": 105,
-        "score": 2.0858,
-        "winRate": 0.6953,
+        "score": 1.6219,
+        "winRate": 0.5406,
         "games": 936832
       },
       {
         "gen": 106,
-        "score": 2.1075,
-        "winRate": 0.7016,
+        "score": 1.5797,
+        "winRate": 0.5266,
         "games": 945664
       },
       {
         "gen": 107,
-        "score": 2.1437,
-        "winRate": 0.7141,
+        "score": 1.5656,
+        "winRate": 0.5219,
         "games": 954496
       },
       {
         "gen": 108,
-        "score": 2.1738,
-        "winRate": 0.7234,
+        "score": 1.5891,
+        "winRate": 0.5297,
         "games": 963328
       },
       {
         "gen": 109,
-        "score": 2.1216,
-        "winRate": 0.7063,
+        "score": 1.6641,
+        "winRate": 0.5547,
         "games": 972160
       },
       {
         "gen": 110,
-        "score": 2.1348,
-        "winRate": 0.7109,
+        "score": 1.6922,
+        "winRate": 0.5641,
         "games": 980992
       },
       {
         "gen": 111,
-        "score": 2.0109,
-        "winRate": 0.6703,
+        "score": 1.6594,
+        "winRate": 0.5531,
         "games": 989824
       },
       {
         "gen": 112,
-        "score": 2.2851,
-        "winRate": 0.7609,
+        "score": 1.6219,
+        "winRate": 0.5406,
         "games": 998656
       },
       {
         "gen": 113,
-        "score": 2.0953,
-        "winRate": 0.6984,
+        "score": 1.6594,
+        "winRate": 0.5531,
         "games": 1007488
       },
       {
         "gen": 114,
-        "score": 2.1555,
-        "winRate": 0.7188,
+        "score": 1.6125,
+        "winRate": 0.5375,
         "games": 1016320
       },
       {
         "gen": 115,
-        "score": 2.1268,
-        "winRate": 0.7094,
+        "score": 1.575,
+        "winRate": 0.525,
         "games": 1025152
       },
       {
         "gen": 116,
-        "score": 2.053,
-        "winRate": 0.6844,
+        "score": 1.6172,
+        "winRate": 0.5391,
         "games": 1033984
       },
       {
         "gen": 117,
-        "score": 2.0474,
-        "winRate": 0.6828,
+        "score": 1.5141,
+        "winRate": 0.5047,
         "games": 1042816
       },
       {
         "gen": 118,
-        "score": 2.0454,
-        "winRate": 0.6813,
+        "score": 1.6406,
+        "winRate": 0.5469,
         "games": 1051648
       },
       {
         "gen": 119,
-        "score": 2.0439,
-        "winRate": 0.6813,
+        "score": 1.6734,
+        "winRate": 0.5578,
         "games": 1060480
       }
     ]
@@ -910,26 +910,26 @@
       "deployThreshold": 7
     },
     "colorCounter": {
-      "comboWeight": 1.318,
-      "cheapDeployBonus": 1.463,
-      "finisherResourceTarget": 5,
+      "comboWeight": 1.31,
+      "cheapDeployBonus": 1.234,
+      "finisherResourceTarget": 4,
       "blueBaitFloor": 4,
-      "bloodPactWeight": 0.848,
-      "rgbBaitPriority": 7.48,
-      "bloodPactTerritoryWeight": 0.884,
-      "engineBaitPriority": 7.82,
-      "aquaticCheapBonus": 0.067,
-      "bounceThreatThreshold": 3.031,
-      "reverseSwapDelta": 4.212,
+      "bloodPactWeight": 0.841,
+      "rgbBaitPriority": 7.971,
+      "bloodPactTerritoryWeight": 1.016,
+      "engineBaitPriority": 7.112,
+      "aquaticCheapBonus": 0.387,
+      "bounceThreatThreshold": 4.264,
+      "reverseSwapDelta": 2.731,
       "resourceTarget": 5,
-      "aggression": 2.158,
-      "directAttackWeight": 1.833,
+      "aggression": 1.538,
+      "directAttackWeight": 1.742,
       "tempSummonBaitFloor": 7,
-      "tempSummonMinValue": 14.198,
-      "preserveWeight": 0.998,
-      "removalWeight": 1.468,
-      "aceWeight": 1.608,
-      "deployThreshold": 5.188
+      "tempSummonMinValue": 11.685,
+      "preserveWeight": 1.315,
+      "removalWeight": 1.545,
+      "aceWeight": 1.873,
+      "deployThreshold": 4.493
     }
   }
 };

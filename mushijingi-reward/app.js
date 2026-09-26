@@ -4720,9 +4720,13 @@
       if(c.effect==='handTempSummon')b+=5;
       if(c.effect==='worshipGreatSword')b+=visibleDiscard('cpu').some(x=>def(x).type==='enhance')?4:-4;
     }else if(arch==='colorCounter'){
-      // 色彩対策CPU：ハチの高速展開を維持し、1000火力で色彩の主力だけをテンポ良く除去する。
+      // 色彩対策CPU：ハチの高速展開＋威嚇の面＋1000火力。
       if(c.name==='オオスズメバチ（女王）')b+=12;
       if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
+      if(c.passive?.type==='spellTaunt'){
+        const protectedAce=fieldActive('cpu').some(fc=>['オオスズメバチ（女王）','オオスズメバチ','タランチュラホーク'].includes(fieldDef(fc)?.name));
+        b+=protectedAce?10:5;
+      }
       if(c.effect==='handTempSummon')b+=9;
       if(c.effect==='burn1000')b+=10;
     }else if(arch==='colorBlessing'){

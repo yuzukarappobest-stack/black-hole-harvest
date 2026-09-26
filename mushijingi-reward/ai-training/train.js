@@ -754,34 +754,28 @@ function trainFocusedArch(arch){
   };
 }
 
-// ===== 色彩の加護ピンポイント対策学習 =====
-const TARGET_ARCH='colorCounter';
+// ===== 色彩の加護 相性ベンチマーク =====
 const TARGET_OPP='colorBlessing';
-const TARGET_WIN_RATE=0.90;
-const MIN_TRAINING_GAMES=800000;
-const MAX_GENERATIONS=120;
-const POPULATION=64;
 
 function colorOpponentVariants(){
   const base=BASE_POLICY[TARGET_OPP];
-  const rng=mulberry32(hash('color-counter-opponents-v1'));
+  const rng=mulberry32(hash('color-counter-benchmark-opponents-v1'));
   const out=[{...base}];
   while(out.length<8)out.push(mutate(base,rng,.9));
   return out;
 }
 const COLOR_OPPONENTS=colorOpponentVariants();
 
-function colorCounterEval(p,gen,index,rounds=8){
+function benchmarkVsColor(arch,p,rounds=900){
   let pts=0,games=0,wins=0,losses=0,draws=0;
   for(let v=0;v<COLOR_OPPONENTS.length;v++){
     const op=COLOR_OPPONENTS[v];
     for(let n=0;n<rounds;n++){
-      const seed=hash('color-counter-silence-v2:'+v+':'+gen+':'+index+':'+n);
-      const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed);
+      const seed=hash('color-benchmark-v1:'+arch+':'+v+':'+n);
+      const r1=runGame(arch,p,TARGET_OPP,op,seed);
       pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
-
-      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,p,seed^0x9e3779b9);
+      const r2=runGame(TARGET_OPP,op,arch,p,seed^0x9e3779b9);
       pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
       if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
     }
@@ -789,79 +783,26 @@ function colorCounterEval(p,gen,index,rounds=8){
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
 
-const previous=withPolicyDefaults(TARGET_ARCH,DEFAULTS[TARGET_ARCH]);
-const rng=mulberry32(hash('color-counter-silence-v2:20260926'));
-let population=[previous];
-while(population.length<POPULATION)population.push(mutate(previous,rng,1.2));
-let champion={p:previous,...colorCounterEval(previous,-1,-1,40)};
-const generationStats=[];
-
-for(let gen=0;gen<MAX_GENERATIONS;gen++){
-  const scored=population.map((p,i)=>({p,...colorCounterEval(p,gen,i,8)})).sort((a,b)=>b.score-a.score);
-  if(scored[0].score>champion.score)champion=scored[0];
-
-  const verify=colorCounterEval(champion.p,gen,999,40);
-  generationStats.push({
-    gen,
-    score:Number(verify.score.toFixed(4)),
-    winRate:Number(verify.winRate.toFixed(4)),
-    games:TOTAL_GAME_COUNT
-  });
-  console.log('Color-counter generation',gen,generationStats[generationStats.length-1]);
-
-  // Do not accept an early lucky run: train at least 800k games.
-  if(verify.winRate>=TARGET_WIN_RATE && TOTAL_GAME_COUNT>=MIN_TRAINING_GAMES){
-    champion={p:champion.p,...verify};
-    break;
-  }
-
-  const elite=scored.slice(0,8).map(x=>x.p);
-  population=[champion.p,...elite];
-  while(population.length<POPULATION){
-    const parent=elite[Math.floor(rng()*elite.length)]||champion.p;
-    population.push(mutate(parent,rng,Math.max(.22,1.05-gen*.009)));
-  }
+const candidateArches=['aquatic','armyAnt','hercules','sumatra','bee','mimicAggro','termite','colorCounter'];
+const matchups={};
+for(const arch of candidateArches){
+  const p=BASE_POLICY[arch]||DEFAULTS[arch]||DEFAULTS.generic;
+  matchups[arch]=benchmarkVsColor(arch,p,900);
+  console.log('VS COLOR',arch,matchups[arch]);
 }
 
-// Dense local refinement around the champion.
-let local=[champion.p];
-while(local.length<520)local.push(microMutate(champion.p,rng,.10+rng()*.55));
-const quick=local.map((p,i)=>({p,...colorCounterEval(p,7000,i,4)})).sort((a,b)=>b.score-a.score);
-const finalists=quick.slice(0,24).map((x,i)=>({p:x.p,...colorCounterEval(x.p,8000,i,35)})).sort((a,b)=>b.score-a.score);
-if(finalists[0]&&finalists[0].score>champion.score)champion=finalists[0];
-
-// Final stress test: 8 perturbed Color Blessing policies, both seats.
-const finalBench=colorCounterEval(champion.p,9999,9999,500);
-const learned={...PREVIOUS_ARCHETYPES};
-learned.colorCounter=Object.fromEntries(Object.entries(champion.p).map(([k,v])=>[k,Number(Number(v).toFixed(3))]));
-learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
-
 const payload={
-  version:8,
-  source:'color-counter-silence-selfplay-v2',
+  version:9,
+  source:'color-counter-matchup-benchmark-v1',
   training:{
     seed:20260926,
-    focusedArchetypes:[TARGET_ARCH],
     targetOpponent:TARGET_OPP,
-    targetWinRate:TARGET_WIN_RATE,
-    minimumTrainingGames:MIN_TRAINING_GAMES,
-    approximateSimulator:true,
     games:TOTAL_GAME_COUNT,
-    finalWinRate:Number(finalBench.winRate.toFixed(4)),
-    finalScore:Number(finalBench.score.toFixed(4)),
-    finalRecord:{wins:finalBench.wins,losses:finalBench.losses,draws:finalBench.draws,games:finalBench.games},
-    generations:generationStats
+    approximateSimulator:true,
+    matchups
   },
-  archetypes:learned
+  archetypes:{...PREVIOUS_ARCHETYPES}
 };
-
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Color-counter targeted self-play complete',{
-  games:TOTAL_GAME_COUNT,
-  targetWinRate:TARGET_WIN_RATE,
-  final:finalBench,
-  policy:learned.colorCounter
-});
-
-// Training campaign trigger: color-counter-v1
+console.log('Color matchup benchmark complete',payload.training);

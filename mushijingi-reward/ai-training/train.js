@@ -844,3 +844,5 @@ console.log('Color-counter targeted self-play complete',{
   final:finalBench,
   policy:learned.colorCounter
 });
+
+// Training campaign trigger: color-counter-v1

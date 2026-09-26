@@ -1642,7 +1642,12 @@
       if(!fc.paidOwnCost)return;
       const choices=sideObj(other(side)).bait.filter(x=>isFaceUpBait(x)&&['red','blue','green'].includes(baitCardColor(x)));if(!choices.length)return;
       let use=side==='cpu'?true:await confirmYesNo('＜蛇の目＞で相手の色付きエサ1枚を裏向きにしますか？','蛇の目');if(!use)return;
-      const chosen=await chooseOwnedInstance(side,'裏向きにする相手のエサを選んでください。',choices);if(chosen){chosen.faceDown=true;log(`＜蛇の目＞ 「${def(chosen).name}」を裏向きにした。`);}
+      let chosen=null;
+      if(side==='cpu'){
+        const snakeEyeColorCounts=new Map(['red','blue','green'].map(col=>[col,choices.filter(x=>baitCardColor(x)===col).length]));
+        chosen=[...choices].sort((a,b)=>(snakeEyeColorCounts.get(baitCardColor(a))||99)-(snakeEyeColorCounts.get(baitCardColor(b))||99))[0]||null;
+      }else chosen=await chooseOwnedInstance(side,'裏向きにする相手のエサを選んでください。',choices);
+      if(chosen){chosen.faceDown=true;log(`＜蛇の目＞ 「${def(chosen).name}」を裏向きにした。`);}
       return;
     }
 
@@ -4669,6 +4674,7 @@
     if(key==='metaBee')return 'bee';
     if(key==='metaAquatic')return 'aquatic';
     if(key==='metaColorBlessing')return 'colorBlessing';
+    if(key==='metaColorCounter')return 'colorCounter';
     if(key==='metaMimicAggro')return 'mimicAggro';
     if(key==='metaTermite')return 'termite';
     return 'generic';
@@ -4713,6 +4719,16 @@
       if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2;
       if(c.effect==='handTempSummon')b+=5;
       if(c.effect==='worshipGreatSword')b+=visibleDiscard('cpu').some(x=>def(x).type==='enhance')?4:-4;
+    }else if(arch==='colorCounter'){
+      // 色彩対策CPU：色彩の加護のコスト軽減を止める盤面を最優先する。
+      if(c.passive?.type==='phaseMutation')b+=14;
+      if(c.passive?.type==='snakeEye')b+=7;
+      if(c.name==='クロテイオウゼミ')b+=6;
+      if(c.passive?.type==='faceDownBaitDiscount')b+=5;
+      if(c.passive?.type==='superClairvoyance')b+=8;
+      if(c.effect==='burn1000')b+=4;
+      // トノサマバッタの軽減用に、序盤の安い緑虫はエサへ回しやすくする。
+      if(c.type==='insect'&&c.color==='green'&&c.passive?.type!=='phaseMutation'&&faceUpColorCount('cpu','green')<2)b-=2.5;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;

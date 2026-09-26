@@ -34,6 +34,7 @@ const META={
   sumatra:'metaSumatra3Color',
   bee:'metaBee',
   mimicAggro:'metaMimicAggro',
+  termite:'metaTermite',
   colorBlessing:'metaColorBlessing',
   colorCounter:'metaColorCounter'
 };
@@ -45,6 +46,7 @@ const DEFAULTS={
   sumatra:{resourceTarget:6,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.45,tempSummonBaitFloor:6,tempSummonMinValue:13,preserveWeight:1.35,removalWeight:1.25,aceWeight:1.5,deployThreshold:8},
   bee:{resourceTarget:6,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.3,removalWeight:1.25,aceWeight:1.45,deployThreshold:8,engineBaitPriority:8},
   mimicAggro:{resourceTarget:4,blueBaitFloor:2,aggression:1.6,directAttackWeight:1.8,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:.95,removalWeight:.95,aceWeight:1.05,deployThreshold:5},
+  termite:{resourceTarget:3,blueBaitFloor:2,aggression:1.45,directAttackWeight:1.6,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:1.1,removalWeight:1.05,aceWeight:1.25,deployThreshold:5.5},
   colorBlessing:{resourceTarget:5,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.4,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.2,aceWeight:1.25,deployThreshold:7,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
   colorCounter:{resourceTarget:4,blueBaitFloor:2,aggression:1.65,directAttackWeight:1.9,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.25,removalWeight:1.5,aceWeight:1.7,deployThreshold:4.8,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
   generic:{resourceTarget:5,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.15,removalWeight:1.15,aceWeight:1.2,deployThreshold:7}

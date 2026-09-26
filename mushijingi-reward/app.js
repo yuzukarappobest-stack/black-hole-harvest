@@ -4720,16 +4720,12 @@
       if(c.effect==='handTempSummon')b+=5;
       if(c.effect==='worshipGreatSword')b+=visibleDiscard('cpu').some(x=>def(x).type==='enhance')?4:-4;
     }else if(arch==='colorCounter'){
-      // 色彩対策CPU：＜くちなし＞を最優先。色彩の加護・光る等の＜＞技をまとめて止める。
-      if(c.passive?.type==='silenceAll')b+=24;
-      if(c.passive?.type==='phaseMutation')b+=12;
-      if(c.effect==='spellDanceCounter')b+=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type))?12:5;
-      if(c.name==='クロテイオウゼミ')b+=6;
-      if(c.name==='オウサマミツギリゾウムシ')b+=5;
-      if(c.name==='オオミズアオ（幼虫）')b+=4;
-      if(c.name==='ツェツェバエ')b+=3;
-      if(c.effect==='burn1000')b+=5;
-      if(c.effect==='bloodPact')b+=5;
+      // 色彩対策CPU：ハチの高速展開＋口封じ＋1000火力。
+      if(c.name==='オオスズメバチ（女王）')b+=11;
+      if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
+      if(c.effect==='handTempSummon')b+=8;
+      if(c.effect==='silkwormGag')b+=12;
+      if(c.effect==='burn1000')b+=9;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;
@@ -4776,7 +4772,7 @@
         handTempSummon:5,worshipGreatSword:5,destroyOpponent:5,burn1000:4.5,burn600:3.5,
         allAttack300:4,allAttack200:3,recoverInsect:3.2,baitBoost:3,readyAttack:4,
         baitTempSummon:3.5,baitRushTwo:5,eternalCocoon:5,underworldGuide:4.5,
-        nextSpellDiscount:2.5,poisonFollowUp:3.5,spellDanceCounter:4.5
+        nextSpellDiscount:2.5,poisonFollowUp:3.5,spellDanceCounter:4.5,silkwormGag:5.5
       };
       v+=2+(effectValue[c.effect]||1.2);
     }
@@ -4812,12 +4808,13 @@
   }
   function cpuResourceTarget(){
     const arch=cpuDeckArchetype();
-    const defaults={bee:6,sumatra:6,hercules:6,armyAnt:5,colorBlessing:5,aquatic:4,mimicAggro:4,termite:3,generic:5};
+    const defaults={bee:6,colorCounter:5,sumatra:6,hercules:6,armyAnt:5,colorBlessing:5,aquatic:4,mimicAggro:4,termite:3,generic:5};
     return Math.max(2,Math.min(7,Math.round(cpuPolicyValue('resourceTarget',defaults[arch]??5))));
   }
   function cpuAceNames(){
     const arch=cpuDeckArchetype();
     if(arch==='bee')return ['オオスズメバチ（女王）','オオスズメバチ','タランチュラホーク'];
+    if(arch==='colorCounter')return ['オオスズメバチ（女王）','オオスズメバチ','タランチュラホーク'];
     if(arch==='sumatra')return ['スマトラオオヒラタクワガタ','ゴライアスオオツノハナムグリ'];
     if(arch==='hercules')return ['ヘラクレスオオカブト','ゴライアスオオツノハナムグリ'];
     if(arch==='armyAnt')return ['ニセハナマオウカマキリ','リオック','バーチェルグンタイアリ メジャー'];
@@ -4853,7 +4850,7 @@
       if(ace){
         p+=20+cpuCardKeepValue(ace);
         if(arch==='sumatra'&&def(ace).name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?18:-5;
-        if(arch==='bee'&&def(ace).name==='オオスズメバチ（女王）'){
+        if((arch==='bee'||arch==='colorCounter')&&def(ace).name==='オオスズメバチ（女王）'){
           const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
           p+=bees*7;
         }
@@ -4869,6 +4866,8 @@
     }
     if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
     if(arch==='hercules'&&c.name==='ヘラクレスオオカブト')p+=24;
+    if(arch==='colorCounter'&&c.effect==='silkwormGag')p+=34;
+    if(arch==='colorCounter'&&c.effect==='burn1000'&&fieldActive('player').length)p+=18;
     if(arch==='colorCounter'&&c.effect==='spellDanceCounter'){
       const lock=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type));
       p+=lock?30:8;

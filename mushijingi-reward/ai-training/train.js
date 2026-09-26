@@ -106,6 +106,7 @@ function aceBonus(arch,c){
   if(arch==='colorBlessing'&&c.passive?.type==='colorBlessing')return 6;
   if(arch==='colorCounter'&&n==='オオスズメバチ（女王）')return 9;
   if(arch==='colorCounter'&&c.effect==='handTempSummon')return 7;
+  if(arch==='colorCounter'&&c.effect==='burn1000')return 8;
   return 0;
 }
 function cardValue(arch,c,p){return baseValue(c)+aceBonus(arch,c)*p.aceWeight;}
@@ -198,6 +199,7 @@ function keepScore(side,id,p){
     if(c.type==='insect'&&isWasp(c)&&c.name!=='オオスズメバチ（女王）'&&Number(c.cost||0)<=5&&beeBait<2)v-=Number(p.engineBaitPriority||9);
     if(c.name==='オオスズメバチ（女王）')v+=16;
     if(c.effect==='handTempSummon')v+=12;
+    if(c.effect==='burn1000')v+=10;
   }
   if(arch==='sumatra'&&c.type==='insect'){
     const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
@@ -772,20 +774,45 @@ function trainFocusedArch(arch){
   };
 }
 
-// ===== 色彩対策デッキ構成探索 v6 =====
+// ===== 色彩対策CPU 専用学習 v7 =====
 const TARGET_ARCH='colorCounter';
 const TARGET_OPP='colorBlessing';
+const TARGET_WIN_RATE=0.90;
+const MIN_TRAINING_GAMES=2000000;
+const MAX_GENERATIONS=220;
+const POPULATION=72;
 
 function colorOpponentVariants(){
   const base=BASE_POLICY[TARGET_OPP];
-  const rng=mulberry32(hash('color-counter-deck-search-v6-opponents'));
+  const rng=mulberry32(hash('color-counter-train-v7-opponents'));
   const out=[{...base}];
-  while(out.length<10)out.push(mutate(base,rng,.9));
+  while(out.length<10)out.push(mutate(base,rng,.95));
   return out;
 }
 const COLOR_OPPONENTS=colorOpponentVariants();
 
-const SEARCH_POLICY=withPolicyDefaults(TARGET_ARCH,{
+function evalVsColor(p,gen,index,rounds=7){
+  let pts=0,games=0,wins=0,losses=0,draws=0;
+  for(let v=0;v<COLOR_OPPONENTS.length;v++){
+    const op=COLOR_OPPONENTS[v];
+    for(let n=0;n<rounds;n++){
+      const seed=hash('color-counter-train-v7:'+v+':'+gen+':'+index+':'+n);
+      const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed);
+      pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
+      if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
+      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,p,seed^0x9e3779b9);
+      pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
+      if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
+    }
+  }
+  return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
+}
+function stableBench(p,rounds=800){
+  return evalVsColor(p,9999,9999,rounds);
+}
+
+// Start from the deck-search policy, not from the failed control-heavy experiments.
+const seedPolicy=withPolicyDefaults(TARGET_ARCH,{
   ...BASE_POLICY.bee,
   resourceTarget:6,
   aggression:1.35,
@@ -794,168 +821,85 @@ const SEARCH_POLICY=withPolicyDefaults(TARGET_ARCH,{
   removalWeight:1.3,
   aceWeight:1.5,
   deployThreshold:7,
-  engineBaitPriority:8
+  engineBaitPriority:8,
+  cheapDeployBonus:0.8,
+  comboWeight:1.2
 });
+const seedBench=evalVsColor(seedPolicy,-2,-2,180);
 
-function deckLabel(ids){
-  const counts=new Map();
-  for(const id of ids)counts.set(id,(counts.get(id)||0)+1);
-  return [...counts.entries()].map(([id,n])=>(cards[id]?.name||id)+(n>1?'×'+n:'')).join(' / ');
-}
-function validDeck(ids){
-  if(ids.length!==20)return false;
-  const counts=new Map();
-  for(const id of ids){
-    if(!cards[id])return false;
-    counts.set(id,(counts.get(id)||0)+1);
-    if(counts.get(id)>2)return false;
-  }
-  return true;
-}
-function replacePair(deck,removeId,a,b){
-  const out=[...deck];
-  let removed=0;
-  for(let i=out.length-1;i>=0&&removed<2;i--){
-    if(out[i]===removeId){out.splice(i,1);removed++;}
-  }
-  if(removed!==2)return null;
-  out.push(a,b);
-  return validDeck(out)?out:null;
-}
-function benchmarkDeck(ids,p=SEARCH_POLICY,rounds=150,tag='deck'){
-  let pts=0,games=0,wins=0,losses=0,draws=0;
-  for(let v=0;v<COLOR_OPPONENTS.length;v++){
-    const op=COLOR_OPPONENTS[v];
-    for(let n=0;n<rounds;n++){
-      const seed=hash('deck-search-v6:'+tag+':'+v+':'+n);
-      const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed,ids,null);
-      pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
-      if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
-      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,p,seed^0x9e3779b9,null,ids);
-      pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
-      if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
-    }
-  }
-  return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
-}
+const rng=mulberry32(hash('color-counter-train-v7:20260926'));
+let population=[seedPolicy];
+while(population.length<POPULATION)population.push(mutate(seedPolicy,rng,1.1));
 
-const BASE_BEE=[...decks.metaBee.ids];
-const SLOT1_CANDIDATES=[
-  764, // keep original
-  60,  // ニホンミツバチ 1
-  53,  // セイヨウミツバチ 2
-  54,  // キムネクマバチ 2
-  607, // エゾオナガバチ 2
-  824, // ヤマトハキリバチ 2
-  830, // パンダアリバチ 2
-  253, // 電気虫の稲妻
-  863, // 蚕の口封じ
-  760, // 蟲術の演舞
-  240, // プラチナコガネ 1
-  527  // ニイニイゼミ 1
-];
+let champion={p:seedPolicy,...evalVsColor(seedPolicy,-1,-1,30)};
+const generations=[];
 
-const stage1=[];
-for(let i=0;i<SLOT1_CANDIDATES.length;i++){
-  for(let j=i;j<SLOT1_CANDIDATES.length;j++){
-    const a=SLOT1_CANDIDATES[i],b=SLOT1_CANDIDATES[j];
-    const ids=replacePair(BASE_BEE,764,a,b);
-    if(!ids)continue;
-    const result=benchmarkDeck(ids,SEARCH_POLICY,150,'s1-'+a+'-'+b);
-    stage1.push({ids,a,b,...result});
+for(let gen=0;gen<MAX_GENERATIONS;gen++){
+  const scored=population.map((p,i)=>({p,...evalVsColor(p,gen,i,7)}))
+    .sort((a,b)=>b.score-a.score);
+
+  if(scored[0].score>champion.score)champion=scored[0];
+
+  const verify=evalVsColor(champion.p,gen,999,40);
+  generations.push({
+    gen,
+    score:Number(verify.score.toFixed(4)),
+    winRate:Number(verify.winRate.toFixed(4)),
+    games:TOTAL_GAME_COUNT
+  });
+  console.log('Color-counter v7 generation',gen,generations[generations.length-1]);
+
+  if(verify.winRate>=TARGET_WIN_RATE && TOTAL_GAME_COUNT>=MIN_TRAINING_GAMES){
+    champion={p:champion.p,...verify};
+    break;
+  }
+
+  const elite=scored.slice(0,10).map(x=>x.p);
+  population=[champion.p,...elite];
+  while(population.length<POPULATION){
+    const parent=elite[Math.floor(rng()*elite.length)]||champion.p;
+    population.push(mutate(parent,rng,Math.max(.16,.95-gen*.0035)));
   }
 }
-stage1.sort((a,b)=>b.score-a.score);
-console.log('Stage1 top',stage1.slice(0,12).map(x=>({
-  replace:[cards[x.a]?.name,cards[x.b]?.name],winRate:x.winRate,score:x.score
-})));
 
-const stage1Final=stage1.slice(0,10).map((x,i)=>({
-  ...x,
-  full:benchmarkDeck(x.ids,SEARCH_POLICY,800,'s1full-'+i)
-})).sort((a,b)=>b.full.score-a.full.score);
+// Dense local search around the champion.
+const locals=[champion.p];
+while(locals.length<800)locals.push(microMutate(champion.p,rng,.07+rng()*.5));
+const quick=locals.map((p,i)=>({p,...evalVsColor(p,6000,i,3)}))
+  .sort((a,b)=>b.score-a.score);
+const finalists=quick.slice(0,32).map((x,i)=>({p:x.p,...evalVsColor(x.p,7000,i,40)}))
+  .sort((a,b)=>b.score-a.score);
+if(finalists[0]&&finalists[0].score>champion.score)champion=finalists[0];
 
-const bestAfterStage1=stage1Final[0];
-console.log('Stage1 winner',{
-  label:deckLabel(bestAfterStage1.ids),
-  result:bestAfterStage1.full
-});
-
-// Stage 2: optimize the two ナナホシテントウ slots around the best stage-1 list.
-const SLOT2_CANDIDATES=[
-  28,  // keep ナナホシ
-  60,  // ニホンミツバチ
-  53,  // セイヨウミツバチ
-  54,  // キムネクマバチ
-  607, // エゾオナガバチ
-  824, // ヤマトハキリバチ
-  830, // パンダアリバチ
-  240, // プラチナコガネ
-  527, // ニイニイゼミ
-  345  // ベニツチカメムシ
-];
-
-const stage2=[];
-for(let i=0;i<SLOT2_CANDIDATES.length;i++){
-  for(let j=i;j<SLOT2_CANDIDATES.length;j++){
-    const a=SLOT2_CANDIDATES[i],b=SLOT2_CANDIDATES[j];
-    const ids=replacePair(bestAfterStage1.ids,28,a,b);
-    if(!ids)continue;
-    const result=benchmarkDeck(ids,SEARCH_POLICY,120,'s2-'+a+'-'+b);
-    stage2.push({ids,a,b,...result});
-  }
-}
-stage2.sort((a,b)=>b.score-a.score);
-console.log('Stage2 top',stage2.slice(0,12).map(x=>({
-  replace:[cards[x.a]?.name,cards[x.b]?.name],winRate:x.winRate,score:x.score
-})));
-
-const stage2Final=stage2.slice(0,10).map((x,i)=>({
-  ...x,
-  full:benchmarkDeck(x.ids,SEARCH_POLICY,1000,'s2full-'+i)
-})).sort((a,b)=>b.full.score-a.full.score);
-
-const best=stage2Final[0]||bestAfterStage1;
-const bestResult=best.full||best;
-const baseResult=benchmarkDeck(BASE_BEE,SEARCH_POLICY,1000,'base-final');
+// Large independent final validation.
+const finalBench=stableBench(champion.p,800);
+const learned={...PREVIOUS_ARCHETYPES};
+learned.colorCounter=Object.fromEntries(Object.entries(champion.p).map(([k,v])=>[k,Number(Number(v).toFixed(3))]));
+learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
 
 const payload={
-  version:13,
-  source:'color-counter-deck-search-v6',
+  version:14,
+  source:'color-counter-targeted-policy-v7',
   training:{
     seed:20260926,
+    focusedArchetypes:[TARGET_ARCH],
     targetOpponent:TARGET_OPP,
+    targetWinRate:TARGET_WIN_RATE,
+    minimumTrainingGames:MIN_TRAINING_GAMES,
     approximateSimulator:true,
     colorWeaknessMode:true,
     games:TOTAL_GAME_COUNT,
-    baseBee:{
-      winRate:Number(baseResult.winRate.toFixed(4)),
-      score:Number(baseResult.score.toFixed(4)),
-      record:{wins:baseResult.wins,losses:baseResult.losses,draws:baseResult.draws,games:baseResult.games}
-    },
-    bestDeck:{
-      ids:best.ids,
-      names:best.ids.map(id=>cards[id]?.name||String(id)),
-      label:deckLabel(best.ids),
-      winRate:Number(bestResult.winRate.toFixed(4)),
-      score:Number(bestResult.score.toFixed(4)),
-      record:{wins:bestResult.wins,losses:bestResult.losses,draws:bestResult.draws,games:bestResult.games}
-    },
-    stage1Top:stage1Final.slice(0,5).map(x=>({
-      replacements:[x.a,x.b],
-      names:[cards[x.a]?.name,cards[x.b]?.name],
-      winRate:Number(x.full.winRate.toFixed(4)),
-      score:Number(x.full.score.toFixed(4))
-    })),
-    stage2Top:stage2Final.slice(0,5).map(x=>({
-      replacements:[x.a,x.b],
-      names:[cards[x.a]?.name,cards[x.b]?.name],
-      winRate:Number(x.full.winRate.toFixed(4)),
-      score:Number(x.full.score.toFixed(4))
-    }))
+    seedWinRate:Number(seedBench.winRate.toFixed(4)),
+    seedRecord:{wins:seedBench.wins,losses:seedBench.losses,draws:seedBench.draws,games:seedBench.games},
+    finalWinRate:Number(finalBench.winRate.toFixed(4)),
+    finalScore:Number(finalBench.score.toFixed(4)),
+    finalRecord:{wins:finalBench.wins,losses:finalBench.losses,draws:finalBench.draws,games:finalBench.games},
+    generations,
+    bestGeneration:generations.reduce((best,row)=>!best||row.winRate>best.winRate?row:best,null)
   },
-  archetypes:{...PREVIOUS_ARCHETYPES}
+  archetypes:learned
 };
+
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Color counter deck search complete',payload.training);
+console.log('Color counter v7 targeted training complete',payload.training);

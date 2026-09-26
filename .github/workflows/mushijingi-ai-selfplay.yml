@@ -15,7 +15,7 @@ permissions:
 jobs:
   train:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -35,20 +35,23 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
             cp /tmp/mushijingi-ai-policy.js mushijingi-reward/ai-policy.js
+            cp /tmp/mushijingi-ai-policy.js mushijingi/ai-policy.js
             REV="$REV" node - <<'NODE'
           const fs=require('fs');
-          const p='mushijingi-reward/index.html';
-          let s=fs.readFileSync(p,'utf8');
-          s=s.replace(/ai-policy\.js\?v=[^"]+/,'ai-policy.js?v='+process.env.REV);
-          fs.writeFileSync(p,s,'utf8');
+          for(const p of ['mushijingi-reward/index.html','mushijingi/index.html']){
+            if(!fs.existsSync(p))continue;
+            let s=fs.readFileSync(p,'utf8');
+            s=s.replace(/ai-policy\.js\?v=[^"]+/,'ai-policy.js?v='+process.env.REV);
+            fs.writeFileSync(p,s,'utf8');
+          }
           NODE
 
-            if git diff --quiet -- mushijingi-reward/ai-policy.js mushijingi-reward/index.html; then
+            if git diff --quiet -- mushijingi-reward/ai-policy.js mushijingi-reward/index.html mushijingi/ai-policy.js mushijingi/index.html; then
               echo "Policy unchanged."
               exit 0
             fi
 
-            git add mushijingi-reward/ai-policy.js mushijingi-reward/index.html
+            git add mushijingi-reward/ai-policy.js mushijingi-reward/index.html mushijingi/ai-policy.js mushijingi/index.html
             git commit -m "Update Mushijingi AI policy from self-play"
             if git push origin HEAD:main; then
               exit 0

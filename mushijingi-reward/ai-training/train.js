@@ -106,7 +106,7 @@ function aceBonus(arch,c){
   if(arch==='colorBlessing'&&c.passive?.type==='colorBlessing')return 6;
   if(arch==='colorCounter'&&n==='オオスズメバチ（女王）')return 9;
   if(arch==='colorCounter'&&c.effect==='handTempSummon')return 7;
-  if(arch==='colorCounter'&&c.effect==='silkwormGag')return 9;
+  if(arch==='colorCounter'&&n==='ニホンミツバチ'&&Number(c.cost||0)===1)return 3;
   return 0;
 }
 function cardValue(arch,c,p){return baseValue(c)+aceBonus(arch,c)*p.aceWeight;}
@@ -170,6 +170,14 @@ function attackPower(side,unit){
   }
   return p;
 }
+function weaknessMultiplier(attackerColor,defenderColor){
+  return (attackerColor==='red'&&defenderColor==='green')||
+    (attackerColor==='blue'&&defenderColor==='red')||
+    (attackerColor==='green'&&defenderColor==='blue') ? 2 : 1;
+}
+function attackDamageAgainst(side,u,target){
+  return attackPower(side,u)*weaknessMultiplier(cards[u.id]?.color,cards[target.id]?.color);
+}
 function threat(side,u){const c=cards[u.id];return (Number(c.hp||0)-Number(u.damage||0))/300+attackPower(side,u)/180+Number(c.cost||0);}
 function keepScore(side,id,p){
   const c=cards[id],arch=side.arch;
@@ -190,7 +198,7 @@ function keepScore(side,id,p){
     if(c.type==='insect'&&isWasp(c)&&c.name!=='オオスズメバチ（女王）'&&Number(c.cost||0)<=5&&beeBait<2)v-=Number(p.engineBaitPriority||9);
     if(c.name==='オオスズメバチ（女王）')v+=16;
     if(c.effect==='handTempSummon')v+=12;
-    if(c.effect==='silkwormGag')v+=16;
+    if(c.name==='ニホンミツバチ'&&Number(c.cost||0)===1)v+=2;
   }
   if(arch==='sumatra'&&c.type==='insect'){
     const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
@@ -505,24 +513,26 @@ function strike(me,opp,u,p){
         moveOne(opp.bait,incoming);
         const fresh={id:incoming,damage:0,buff:0,temp:false,delay:0,bounceUsed:false,attacked:false};
         opp.field.push(fresh);
-        const dmg=attackPower(me,u);fresh.damage+=dmg;
+        const dmg=attackDamageAgainst(me,u,fresh);fresh.damage+=dmg;
         if(fresh.damage>=Number(cards[fresh.id].hp||0)){opp.discard.push(fresh.id);opp.field.splice(opp.field.indexOf(fresh),1);}
         u.attacked=true;return null;
       }
     }
   }
 
-  const dmg=attackPower(me,u);
-  const killable=legalTargets.filter(t=>dmg>=Number(cards[t.id].hp||0)-t.damage);
+  const killable=legalTargets.filter(t=>attackDamageAgainst(me,u,t)>=Number(cards[t.id].hp||0)-t.damage);
   const pool=killable.length?killable:legalTargets;
   const target=[...pool].sort((a,b)=>{
     if(killable.length){
-      const overA=dmg-(Number(cards[a.id].hp||0)-a.damage);
-      const overB=dmg-(Number(cards[b.id].hp||0)-b.damage);
+      const overA=attackDamageAgainst(me,u,a)-(Number(cards[a.id].hp||0)-a.damage);
+      const overB=attackDamageAgainst(me,u,b)-(Number(cards[b.id].hp||0)-b.damage);
       return (threat(opp,b)*p.removalWeight-overB/700)-(threat(opp,a)*p.removalWeight-overA/700);
     }
-    return threat(opp,b)*p.removalWeight-threat(opp,a)*p.removalWeight;
+    // If neither dies, prefer the target receiving more effective color damage, then threat.
+    const da=attackDamageAgainst(me,u,a),db=attackDamageAgainst(me,u,b);
+    return (db-da)*.01+(threat(opp,b)-threat(opp,a))*p.removalWeight;
   })[0];
+  const dmg=attackDamageAgainst(me,u,target);
   target.damage+=dmg;
   if(target.damage>=Number(cards[target.id].hp||0)){opp.discard.push(target.id);opp.field.splice(opp.field.indexOf(target),1);}
   u.attacked=true;
@@ -537,7 +547,7 @@ function strike(me,opp,u,p){
   if(effects.includes('mantisCombo')&&opp.field.length){
     u.attacked=false;
     const t=[...opp.field].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
-    t.damage+=attackPower(me,u);
+    t.damage+=attackDamageAgainst(me,u,t);
     if(t.damage>=Number(cards[t.id].hp||0)){opp.discard.push(t.id);opp.field.splice(opp.field.indexOf(t),1);}
     u.attacked=true;
   }
@@ -763,12 +773,12 @@ function trainFocusedArch(arch){
   };
 }
 
-// ===== ハチ型＋蚕の口封じ 相性ベンチマーク =====
+// ===== 18虫ハチ・スウォーム 色彩相性ベンチマーク =====
 const TARGET_OPP='colorBlessing';
 
 function colorOpponentVariants(){
   const base=BASE_POLICY[TARGET_OPP];
-  const rng=mulberry32(hash('color-counter-gag-v4-opponents'));
+  const rng=mulberry32(hash('color-counter-swarm-v5-opponents'));
   const out=[{...base}];
   while(out.length<10)out.push(mutate(base,rng,.9));
   return out;
@@ -780,7 +790,7 @@ function benchmarkDeckVsColor(arch,p,rounds=1000){
   for(let v=0;v<COLOR_OPPONENTS.length;v++){
     const op=COLOR_OPPONENTS[v];
     for(let n=0;n<rounds;n++){
-      const seed=hash('color-gag-v4:'+arch+':'+v+':'+n);
+      const seed=hash('color-swarm-v5:'+arch+':'+v+':'+n);
       const r1=runGame(arch,p,TARGET_OPP,op,seed);
       pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
@@ -793,33 +803,44 @@ function benchmarkDeckVsColor(arch,p,rounds=1000){
 }
 
 const beePolicy=withPolicyDefaults('bee',BASE_POLICY.bee);
-const currentCounterPolicy=withPolicyDefaults('colorCounter',BASE_POLICY.colorCounter);
-const beeStyleCounterPolicy=withPolicyDefaults('colorCounter',{
+const swarmBeeStyle=withPolicyDefaults('colorCounter',{
   ...BASE_POLICY.bee,
-  resourceTarget:6,
-  aggression:1.35,
-  directAttackWeight:1.55,
-  preserveWeight:1.25,
-  removalWeight:1.3,
-  aceWeight:1.5,
-  deployThreshold:7,
+  resourceTarget:5,
+  aggression:1.6,
+  directAttackWeight:1.8,
+  preserveWeight:1.15,
+  removalWeight:1.25,
+  aceWeight:1.55,
+  deployThreshold:5.5,
   engineBaitPriority:9
+});
+const swarmFast=withPolicyDefaults('colorCounter',{
+  ...swarmBeeStyle,
+  resourceTarget:4,
+  aggression:1.95,
+  directAttackWeight:2.15,
+  preserveWeight:1.0,
+  removalWeight:1.1,
+  aceWeight:1.7,
+  deployThreshold:4.5,
+  cheapDeployBonus:3.5
 });
 
 const results={
   originalBee:benchmarkDeckVsColor('bee',beePolicy,1000),
-  gagCounterLearned:benchmarkDeckVsColor('colorCounter',currentCounterPolicy,1000),
-  gagCounterBeeStyle:benchmarkDeckVsColor('colorCounter',beeStyleCounterPolicy,1000)
+  swarmBeeStyle:benchmarkDeckVsColor('colorCounter',swarmBeeStyle,1000),
+  swarmFast:benchmarkDeckVsColor('colorCounter',swarmFast,1000)
 };
-console.log('Gag-only Color counter benchmark',results);
+console.log('Bee swarm Color counter benchmark',results);
 
 const payload={
-  version:11,
-  source:'color-counter-gag-benchmark-v4',
+  version:12,
+  source:'color-counter-swarm-benchmark-v5',
   training:{
     seed:20260926,
     targetOpponent:TARGET_OPP,
     approximateSimulator:true,
+    colorWeaknessMode:true,
     games:TOTAL_GAME_COUNT,
     results
   },
@@ -827,4 +848,4 @@ const payload={
 };
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Gag-only benchmark complete',payload.training);
+console.log('Bee swarm benchmark complete',payload.training);

@@ -1,35 +1,36 @@
 (() => {
   window.MUSHI_AI_POLICY = {
-  "version": 11,
-  "source": "color-counter-gag-benchmark-v4",
+  "version": 12,
+  "source": "color-counter-swarm-benchmark-v5",
   "training": {
     "seed": 20260926,
     "targetOpponent": "colorBlessing",
     "approximateSimulator": true,
+    "colorWeaknessMode": true,
     "games": 60000,
     "results": {
       "originalBee": {
-        "score": 2.12633,
-        "winRate": 0.70855,
-        "wins": 14171,
-        "losses": 5815,
-        "draws": 14,
+        "score": 1.8090920000000008,
+        "winRate": 0.60265,
+        "wins": 12053,
+        "losses": 7926,
+        "draws": 21,
         "games": 20000
       },
-      "gagCounterLearned": {
-        "score": 1.625838000000001,
-        "winRate": 0.54145,
-        "wins": 10829,
-        "losses": 9141,
-        "draws": 30,
+      "swarmBeeStyle": {
+        "score": 1.663348000000003,
+        "winRate": 0.55285,
+        "wins": 11057,
+        "losses": 8860,
+        "draws": 83,
         "games": 20000
       },
-      "gagCounterBeeStyle": {
-        "score": 1.3479379999999994,
-        "winRate": 0.44865,
-        "wins": 8973,
-        "losses": 10983,
-        "draws": 44,
+      "swarmFast": {
+        "score": 1.2629840000000003,
+        "winRate": 0.4199,
+        "wins": 8398,
+        "losses": 11538,
+        "draws": 64,
         "games": 20000
       }
     }

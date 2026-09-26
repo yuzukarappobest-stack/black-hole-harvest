@@ -1405,7 +1405,11 @@
       s.hand.push(s.deck.shift()); log(`${side==='player'?'あなた':'CPU'}が1枚ドロー。`);
     } else log('先攻1ターン目なのでドローはありません。');
     render();
-    if(side==='cpu'){state.phase='cpu';render();await sleep(450);await cpuTurn();}
+    if(side==='cpu'){
+      state.phase='cpu';render();
+      if(cpuSearchActive())return;
+      await sleep(450);await cpuTurn();
+    }
     else {
       if(!s.hand.length){
         state.phase='set';
@@ -6286,7 +6290,7 @@
     }
   }
   async function cpuSearchMinOpponent(snapshot,depth,deadline,stats){
-    const base=cpuSearchWithSnapshot(snapshot,cpuSearchEvaluation);
+    const base={score:cpuSearchWithSnapshot(snapshot,cpuSearchEvaluation),leaf:snapshot};
     if(cpuSearchNow()>=deadline||depth<=0||snapshot.over||snapshot.turn!=='player'||snapshot.phase!=='main')return base;
     stats.nodes++;
     const actions=cpuSearchWithSnapshot(snapshot,()=>cpuSearchGenerateActions('player',5));
@@ -6295,17 +6299,46 @@
       if(cpuSearchNow()>=deadline)break;
       const child=await cpuSearchBranch(snapshot,action,'player');if(!child)continue;
       const value=await cpuSearchMinOpponent(child,depth-1,deadline,stats);
-      if(value<worst)worst=value;
-      if(worst<-90000)break;
+      if(value.score<worst.score)worst=value;
+      if(worst.score<-90000)break;
     }
     return worst;
   }
-  async function cpuSearchScoreFirstAction(root,action,deadline,stats,continuationDepth=2){
+  async function cpuSearchAdvanceToCpu(snapshot){
+    const savedState=state,savedUid=uidCounter;
+    cpuSearchSimulationDepth++;
+    state=cpuSearchCloneState(snapshot);
+    try{
+      if(state.over)return cpuSearchCloneState(state);
+      state.busy=false;
+      if(state.turn==='player')await endTurn();
+      if(state.over||state.turn!=='cpu')return cpuSearchCloneState(state);
+      await beginTurn(); // search guard stops before recursively entering cpuTurn()
+      if(state.over)return cpuSearchCloneState(state);
+      if(state.turn==='cpu'){
+        const bait=state.cpu.hand.length?chooseBaitCPUSmart(state.cpu.hand,'veryStrong'):null;
+        if(bait){
+          bait.faceDown=false;bait.discardFaceDown=false;
+          Engine.moveCard(state.cpu,bait,ZONE.HAND,ZONE.BAIT);
+          await resolveGoldenDungBait('cpu',bait);
+        }
+        state.cpu.cost=state.cpu.bait.length;
+        state.phase='main';
+      }
+      return cpuSearchCloneState(state);
+    }catch(error){
+      return cpuSearchCloneState(state);
+    }finally{
+      state=savedState;uidCounter=savedUid;cpuSearchSimulationDepth--;
+    }
+  }
+
+  async function cpuSearchScoreFirstAction(root,action,deadline,stats,continuationDepth=2,sharedTt=null){
     const child=await cpuSearchBranch(root,action,'cpu');
     if(!child)return -Infinity;
     if(child.over)return cpuSearchWithSnapshot(child,cpuSearchEvaluation);
 
-    const tt=new Map();
+    const tt=sharedTt||new Map();
     const continuation=await cpuSearchMaxOwnTurn(child,continuationDepth,deadline,stats,tt);
     if(continuation.leaf.over)return continuation.score;
     if(cpuSearchNow()>=deadline)return continuation.score;
@@ -6314,9 +6347,18 @@
     if(opponentStart.over)return cpuSearchWithSnapshot(opponentStart,cpuSearchEvaluation);
     const oppDepth=cpuSearchWithSnapshot(opponentStart,()=>state.cpu.territory.length<=2?3:2);
     const response=await cpuSearchMinOpponent(opponentStart,oppDepth,deadline,stats);
+    let responseScore=response.score;
+    if(cpuSearchNow()<deadline&&!response.leaf.over){
+      const replyStart=await cpuSearchAdvanceToCpu(response.leaf);
+      if(replyStart.over)responseScore=cpuSearchWithSnapshot(replyStart,cpuSearchEvaluation);
+      else if(replyStart.turn==='cpu'&&replyStart.phase==='main'){
+        const reply=await cpuSearchMaxOwnTurn(replyStart,1,deadline,stats,new Map());
+        responseScore=response.score*.68+reply.score*.32;
+      }
+    }
     // Slightly retain the current-turn score so uncertain hidden-card samples do not
     // make the CPU irrationally defensive.
-    return response*.82+continuation.score*.18;
+    return responseScore*.82+continuation.score*.18;
   }
   async function cpuDeepSearchChooseAction(){
     const realRoot=cpuSearchCloneState(state);
@@ -6337,12 +6379,13 @@
       // Iterative deepening: only a completed pass is trusted. This avoids choosing
       // the first heuristic action merely because the time budget expired mid-loop.
       let completedScores=null;
+      const sharedTt=new Map();
       for(let depth=1;depth<=maxDepth;depth++){
         const pass=[];
         let complete=true;
         for(const action of actions){
           if(cpuSearchNow()>=deadline){complete=false;break;}
-          const score=await cpuSearchScoreFirstAction(root,action,deadline,stats,depth);
+          const score=await cpuSearchScoreFirstAction(root,action,deadline,stats,depth,sharedTt);
           pass.push({action,score});
         }
         if(!complete||pass.length!==actions.length)break;

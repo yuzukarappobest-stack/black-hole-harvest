@@ -4723,11 +4723,11 @@
       if(c.effect==='handTempSummon')b+=5;
       if(c.effect==='worshipGreatSword')b+=visibleDiscard('cpu').some(x=>def(x).type==='enhance')?4:-4;
     }else if(arch==='colorCounter'){
-      // 色彩対策CPU：ハチの高速展開＋口封じ＋1000火力。
-      if(c.name==='オオスズメバチ（女王）')b+=11;
+      // 色彩対策CPU：妨害にコストを使わず、ハチの展開速度で先に縄張りを削り切る。
+      if(c.name==='オオスズメバチ（女王）')b+=12;
       if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
-      if(c.effect==='handTempSummon')b+=8;
-      if(c.effect==='silkwormGag')b+=14;
+      if(c.effect==='handTempSummon')b+=9;
+      if(c.name==='ニホンミツバチ'&&Number(c.cost||0)===1)b+=1.5;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;
@@ -4868,7 +4868,6 @@
     }
     if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
     if(arch==='hercules'&&c.name==='ヘラクレスオオカブト')p+=24;
-    if(arch==='colorCounter'&&c.effect==='silkwormGag')p+=38;
     if(arch==='colorCounter'&&c.effect==='spellDanceCounter'){
       const lock=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type));
       p+=lock?30:8;

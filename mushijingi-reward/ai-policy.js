@@ -1,39 +1,202 @@
 (() => {
   window.MUSHI_AI_POLICY = {
-  "version": 12,
-  "source": "color-counter-swarm-benchmark-v5",
+  "version": 13,
+  "source": "color-counter-deck-search-v6",
   "training": {
     "seed": 20260926,
     "targetOpponent": "colorBlessing",
     "approximateSimulator": true,
     "colorWeaknessMode": true,
-    "games": 60000,
-    "results": {
-      "originalBee": {
-        "score": 1.8090920000000008,
-        "winRate": 0.60265,
-        "wins": 12053,
-        "losses": 7926,
-        "draws": 21,
-        "games": 20000
-      },
-      "swarmBeeStyle": {
-        "score": 1.663348000000003,
-        "winRate": 0.55285,
-        "wins": 11057,
-        "losses": 8860,
-        "draws": 83,
-        "games": 20000
-      },
-      "swarmFast": {
-        "score": 1.2629840000000003,
-        "winRate": 0.4199,
-        "wins": 8398,
-        "losses": 11538,
-        "draws": 64,
+    "games": 746000,
+    "baseBee": {
+      "winRate": 0.547,
+      "score": 1.6429,
+      "record": {
+        "wins": 10940,
+        "losses": 9020,
+        "draws": 40,
         "games": 20000
       }
-    }
+    },
+    "bestDeck": {
+      "ids": [
+        701,
+        701,
+        703,
+        703,
+        8,
+        8,
+        702,
+        702,
+        511,
+        511,
+        212,
+        212,
+        513,
+        513,
+        125,
+        125,
+        253,
+        253,
+        60,
+        824
+      ],
+      "names": [
+        "オオスズメバチ（女王）",
+        "オオスズメバチ（女王）",
+        "オオスズメバチ",
+        "オオスズメバチ",
+        "オオスズメバチ",
+        "オオスズメバチ",
+        "タランチュラホーク",
+        "タランチュラホーク",
+        "モンスズメバチ",
+        "モンスズメバチ",
+        "キアシナガバチ",
+        "キアシナガバチ",
+        "クロスズメバチ",
+        "クロスズメバチ",
+        "玉響の蠢き",
+        "玉響の蠢き",
+        "電気虫の稲妻",
+        "電気虫の稲妻",
+        "ニホンミツバチ",
+        "ヤマトハキリバチ"
+      ],
+      "label": "オオスズメバチ（女王）×2 / オオスズメバチ×2 / オオスズメバチ×2 / タランチュラホーク×2 / モンスズメバチ×2 / キアシナガバチ×2 / クロスズメバチ×2 / 玉響の蠢き×2 / 電気虫の稲妻×2 / ニホンミツバチ / ヤマトハキリバチ",
+      "winRate": 0.6481,
+      "score": 1.9491,
+      "record": {
+        "wins": 12961,
+        "losses": 6933,
+        "draws": 106,
+        "games": 20000
+      }
+    },
+    "stage1Top": [
+      {
+        "replacements": [
+          253,
+          253
+        ],
+        "names": [
+          "電気虫の稲妻",
+          "電気虫の稲妻"
+        ],
+        "winRate": 0.6264,
+        "score": 1.885
+      },
+      {
+        "replacements": [
+          60,
+          253
+        ],
+        "names": [
+          "ニホンミツバチ",
+          "電気虫の稲妻"
+        ],
+        "winRate": 0.6195,
+        "score": 1.8631
+      },
+      {
+        "replacements": [
+          607,
+          253
+        ],
+        "names": [
+          "エゾオナガバチ",
+          "電気虫の稲妻"
+        ],
+        "winRate": 0.6197,
+        "score": 1.863
+      },
+      {
+        "replacements": [
+          253,
+          527
+        ],
+        "names": [
+          "電気虫の稲妻",
+          "ニイニイゼミ"
+        ],
+        "winRate": 0.6167,
+        "score": 1.8544
+      },
+      {
+        "replacements": [
+          830,
+          253
+        ],
+        "names": [
+          "パンダアリバチ",
+          "電気虫の稲妻"
+        ],
+        "winRate": 0.6158,
+        "score": 1.8509
+      }
+    ],
+    "stage2Top": [
+      {
+        "replacements": [
+          60,
+          824
+        ],
+        "names": [
+          "ニホンミツバチ",
+          "ヤマトハキリバチ"
+        ],
+        "winRate": 0.6481,
+        "score": 1.9491
+      },
+      {
+        "replacements": [
+          60,
+          607
+        ],
+        "names": [
+          "ニホンミツバチ",
+          "エゾオナガバチ"
+        ],
+        "winRate": 0.6473,
+        "score": 1.9467
+      },
+      {
+        "replacements": [
+          54,
+          824
+        ],
+        "names": [
+          "キムネクマバチ",
+          "ヤマトハキリバチ"
+        ],
+        "winRate": 0.6459,
+        "score": 1.9425
+      },
+      {
+        "replacements": [
+          53,
+          607
+        ],
+        "names": [
+          "セイヨウミツバチ",
+          "エゾオナガバチ"
+        ],
+        "winRate": 0.6452,
+        "score": 1.9419
+      },
+      {
+        "replacements": [
+          54,
+          54
+        ],
+        "names": [
+          "キムネクマバチ",
+          "キムネクマバチ"
+        ],
+        "winRate": 0.6455,
+        "score": 1.9409
+      }
+    ]
   },
   "archetypes": {
     "aquatic": {

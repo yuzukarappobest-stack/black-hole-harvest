@@ -18,10 +18,10 @@
     "games": 522360,
     "summary": {
       "armyAnt": {
-        "baselineScore": 2.0433,
-        "baselineWinRate": 0.6806,
-        "chosenScore": 2.0433,
-        "chosenWinRate": 0.6806,
+        "baselineScore": 2.035,
+        "baselineWinRate": 0.6778,
+        "chosenScore": 2.035,
+        "chosenWinRate": 0.6778,
         "improved": false,
         "candidates": 240,
         "finalists": 12,
@@ -58,40 +58,40 @@
           },
           {
             "gen": 6,
-            "score": 2.2173,
-            "winRate": 0.7386
+            "score": 2.2002,
+            "winRate": 0.733
           },
           {
             "gen": 7,
-            "score": 2.0455,
-            "winRate": 0.6818
+            "score": 2.0373,
+            "winRate": 0.6761
           },
           {
             "gen": 8,
-            "score": 2.133,
-            "winRate": 0.7102
+            "score": 2.2082,
+            "winRate": 0.733
           },
           {
             "gen": 9,
-            "score": 2.1652,
-            "winRate": 0.7216
+            "score": 2.0795,
+            "winRate": 0.6932
           },
           {
             "gen": 10,
-            "score": 2.0625,
+            "score": 2.0634,
             "winRate": 0.6875
           },
           {
             "gen": 11,
-            "score": 2.1368,
-            "winRate": 0.7102
+            "score": 2.1989,
+            "winRate": 0.733
           }
         ]
       },
       "hercules": {
-        "baselineScore": 0.9321,
+        "baselineScore": 0.9332,
         "baselineWinRate": 0.3111,
-        "chosenScore": 0.9332,
+        "chosenScore": 0.9334,
         "chosenWinRate": 0.3111,
         "improved": true,
         "candidates": 240,
@@ -99,62 +99,62 @@
         "generations": [
           {
             "gen": 0,
-            "score": 1.0456,
+            "score": 1.0497,
             "winRate": 0.3472
           },
           {
             "gen": 1,
-            "score": 0.9353,
+            "score": 0.9391,
             "winRate": 0.3092
           },
           {
             "gen": 2,
-            "score": 1.0374,
+            "score": 1.0344,
             "winRate": 0.3438
           },
           {
             "gen": 3,
-            "score": 1.0824,
-            "winRate": 0.3571
+            "score": 1.1192,
+            "winRate": 0.369
           },
           {
             "gen": 4,
-            "score": 1.1496,
-            "winRate": 0.3807
+            "score": 1.12,
+            "winRate": 0.3693
           },
           {
             "gen": 5,
-            "score": 1.1337,
+            "score": 1.1325,
             "winRate": 0.375
           },
           {
             "gen": 6,
-            "score": 1.1226,
-            "winRate": 0.375
+            "score": 1.0895,
+            "winRate": 0.3636
           },
           {
             "gen": 7,
-            "score": 1.1559,
-            "winRate": 0.3864
+            "score": 1.1227,
+            "winRate": 0.375
           },
           {
             "gen": 8,
-            "score": 1.1929,
-            "winRate": 0.3977
+            "score": 1.1611,
+            "winRate": 0.3864
           },
           {
             "gen": 9,
-            "score": 1.1256,
+            "score": 1.1281,
             "winRate": 0.375
           },
           {
             "gen": 10,
-            "score": 1.1385,
-            "winRate": 0.375
+            "score": 1.0874,
+            "winRate": 0.358
           },
           {
             "gen": 11,
-            "score": 1.148,
+            "score": 1.1449,
             "winRate": 0.3807
           }
         ]
@@ -190,8 +190,8 @@
           },
           {
             "gen": 4,
-            "score": 1.2955,
-            "winRate": 0.4318
+            "score": 1.2784,
+            "winRate": 0.4261
           },
           {
             "gen": 5,
@@ -220,13 +220,13 @@
           },
           {
             "gen": 10,
-            "score": 1.3295,
-            "winRate": 0.4432
+            "score": 1.3102,
+            "winRate": 0.4375
           },
           {
             "gen": 11,
-            "score": 1.2491,
-            "winRate": 0.4148
+            "score": 1.2605,
+            "winRate": 0.4205
           }
         ]
       },
@@ -302,10 +302,10 @@
         ]
       },
       "mimicAggro": {
-        "baselineScore": 0.9912,
-        "baselineWinRate": 0.3306,
-        "chosenScore": 1.0079,
-        "chosenWinRate": 0.3361,
+        "baselineScore": 1.0079,
+        "baselineWinRate": 0.3361,
+        "chosenScore": 1.0579,
+        "chosenWinRate": 0.3528,
         "improved": true,
         "candidates": 240,
         "finalists": 12,
@@ -322,53 +322,53 @@
           },
           {
             "gen": 2,
-            "score": 1.1793,
-            "winRate": 0.3937
+            "score": 1.2235,
+            "winRate": 0.4063
           },
           {
             "gen": 3,
-            "score": 1.2471,
-            "winRate": 0.4167
+            "score": 1.2321,
+            "winRate": 0.4107
           },
           {
             "gen": 4,
-            "score": 1.2998,
-            "winRate": 0.4318
-          },
-          {
-            "gen": 5,
-            "score": 1.2827,
+            "score": 1.287,
             "winRate": 0.4261
           },
           {
-            "gen": 6,
-            "score": 1.1805,
-            "winRate": 0.392
-          },
-          {
-            "gen": 7,
-            "score": 1.3168,
-            "winRate": 0.4375
-          },
-          {
-            "gen": 8,
-            "score": 1.1743,
-            "winRate": 0.392
-          },
-          {
-            "gen": 9,
-            "score": 1.2111,
-            "winRate": 0.4034
-          },
-          {
-            "gen": 10,
+            "gen": 5,
             "score": 1.3339,
             "winRate": 0.4432
           },
           {
+            "gen": 6,
+            "score": 1.2102,
+            "winRate": 0.4034
+          },
+          {
+            "gen": 7,
+            "score": 1.385,
+            "winRate": 0.4602
+          },
+          {
+            "gen": 8,
+            "score": 1.3295,
+            "winRate": 0.4432
+          },
+          {
+            "gen": 9,
+            "score": 1.3466,
+            "winRate": 0.4489
+          },
+          {
+            "gen": 10,
+            "score": 1.3636,
+            "winRate": 0.4545
+          },
+          {
             "gen": 11,
-            "score": 1.1591,
-            "winRate": 0.3864
+            "score": 1.2757,
+            "winRate": 0.4261
           }
         ]
       }
@@ -420,13 +420,13 @@
       "deployThreshold": 4.46
     },
     "hercules": {
-      "comboWeight": 0.652,
+      "comboWeight": 0.6,
       "cheapDeployBonus": 0,
       "finisherResourceTarget": 6,
       "blueBaitFloor": 3,
       "bloodPactWeight": 0.709,
       "rgbBaitPriority": 8.482,
-      "bloodPactTerritoryWeight": 1.226,
+      "bloodPactTerritoryWeight": 1.292,
       "engineBaitPriority": 8.563,
       "aquaticCheapBonus": 0.006,
       "bounceThreatThreshold": 8.814,
@@ -437,7 +437,7 @@
       "tempSummonBaitFloor": 7,
       "tempSummonMinValue": 16.293,
       "preserveWeight": 1.8,
-      "removalWeight": 1.53,
+      "removalWeight": 1.591,
       "aceWeight": 1.63,
       "deployThreshold": 5.538
     },
@@ -486,26 +486,26 @@
       "deployThreshold": 6.539
     },
     "mimicAggro": {
-      "comboWeight": 1.343,
-      "cheapDeployBonus": 0,
+      "comboWeight": 1.747,
+      "cheapDeployBonus": 0.9,
       "finisherResourceTarget": 5,
       "blueBaitFloor": 3,
-      "bloodPactWeight": 0.7,
-      "rgbBaitPriority": 9,
-      "bloodPactTerritoryWeight": 1.15,
-      "engineBaitPriority": 8.001,
-      "aquaticCheapBonus": 0.237,
-      "bounceThreatThreshold": 7.81,
+      "bloodPactWeight": 0.822,
+      "rgbBaitPriority": 8.662,
+      "bloodPactTerritoryWeight": 1.043,
+      "engineBaitPriority": 8.703,
+      "aquaticCheapBonus": 0.164,
+      "bounceThreatThreshold": 8.139,
       "reverseSwapDelta": 3.249,
       "resourceTarget": 4,
-      "aggression": 1.693,
-      "directAttackWeight": 1.66,
+      "aggression": 1.89,
+      "directAttackWeight": 1.595,
       "tempSummonBaitFloor": 5,
-      "tempSummonMinValue": 14.136,
-      "preserveWeight": 1.016,
-      "removalWeight": 0.987,
-      "aceWeight": 1.562,
-      "deployThreshold": 4.783
+      "tempSummonMinValue": 16.123,
+      "preserveWeight": 1.248,
+      "removalWeight": 0.75,
+      "aceWeight": 1.819,
+      "deployThreshold": 7.179
     },
     "colorBlessing": {
       "comboWeight": 1.517,

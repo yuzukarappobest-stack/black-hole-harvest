@@ -6300,19 +6300,20 @@
     }
     return worst;
   }
-  async function cpuSearchScoreFirstAction(root,action,deadline,stats){
+  async function cpuSearchScoreFirstAction(root,action,deadline,stats,continuationDepth=2){
     const child=await cpuSearchBranch(root,action,'cpu');
     if(!child)return -Infinity;
     if(child.over)return cpuSearchWithSnapshot(child,cpuSearchEvaluation);
 
     const tt=new Map();
-    const continuation=await cpuSearchMaxOwnTurn(child,3,deadline,stats,tt);
+    const continuation=await cpuSearchMaxOwnTurn(child,continuationDepth,deadline,stats,tt);
     if(continuation.leaf.over)return continuation.score;
     if(cpuSearchNow()>=deadline)return continuation.score;
 
     const opponentStart=await cpuSearchAdvanceToOpponent(continuation.leaf);
     if(opponentStart.over)return cpuSearchWithSnapshot(opponentStart,cpuSearchEvaluation);
-    const response=await cpuSearchMinOpponent(opponentStart,2,deadline,stats);
+    const oppDepth=cpuSearchWithSnapshot(opponentStart,()=>state.cpu.territory.length<=2?3:2);
+    const response=await cpuSearchMinOpponent(opponentStart,oppDepth,deadline,stats);
     // Slightly retain the current-turn score so uncertain hidden-card samples do not
     // make the CPU irrationally defensive.
     return response*.82+continuation.score*.18;
@@ -6320,18 +6321,39 @@
   async function cpuDeepSearchChooseAction(){
     const realRoot=cpuSearchCloneState(state);
     const start=cpuSearchNow();
-    const budget=cpuSearchDecisionIndex===0?520:300;
+    const budget=cpuSearchDecisionIndex===0?650:360;
     const stats={nodes:0};
-    const samples=2;
+    const samples=3;
     const aggregate=new Map();
+    const endgame=state.player.territory.length<=2;
+    const maxDepth=endgame?4:3;
 
     for(let sample=0;sample<samples;sample++){
       const deadline=start+budget*(sample+1)/samples;
       const root=cpuSearchDeterminizeOpponent(realRoot,sample);
-      const rootActions=cpuSearchWithSnapshot(root,()=>cpuSearchGenerateActions('cpu',7));
-      for(const action of rootActions){
-        if(cpuSearchNow()>=deadline)break;
-        const score=await cpuSearchScoreFirstAction(root,action,deadline,stats);
+      let actions=cpuSearchWithSnapshot(root,()=>cpuSearchGenerateActions('cpu',7));
+      if(!actions.length)continue;
+
+      // Iterative deepening: only a completed pass is trusted. This avoids choosing
+      // the first heuristic action merely because the time budget expired mid-loop.
+      let completedScores=null;
+      for(let depth=1;depth<=maxDepth;depth++){
+        const pass=[];
+        let complete=true;
+        for(const action of actions){
+          if(cpuSearchNow()>=deadline){complete=false;break;}
+          const score=await cpuSearchScoreFirstAction(root,action,deadline,stats,depth);
+          pass.push({action,score});
+        }
+        if(!complete||pass.length!==actions.length)break;
+        completedScores=pass;
+        actions=[...pass].sort((a,b)=>b.score-a.score).slice(0,depth>=2?5:7).map(x=>x.action);
+      }
+      const usableScores=completedScores||actions.map(action=>({
+        action,
+        score:cpuSearchWithSnapshot(root,()=>action.order||0)
+      }));
+      for(const {action,score} of usableScores){
         const key=cpuSearchActionKey(action);
         const rec=aggregate.get(key)||{action,scores:[]};
         rec.scores.push(score);aggregate.set(key,rec);
@@ -6359,7 +6381,7 @@
     cpuSearchDecisionIndex++;
     return best?.action||null;
   }
-  async function cpuSearchSimulateBait(root,baitUid,deadline,stats){
+  async function cpuSearchSimulateBait(root,baitUid,deadline,stats,depth=2){
     const savedState=state,savedUid=uidCounter;
     cpuSearchSimulationDepth++;
     state=cpuSearchCloneState(root);
@@ -6374,7 +6396,7 @@
       state.cpu.cost=state.cpu.bait.length;state.phase='main';state.turn='cpu';
       const staged=cpuSearchCloneState(state);
       const tt=new Map();
-      const res=await cpuSearchMaxOwnTurn(staged,3,deadline,stats,tt);
+      const res=await cpuSearchMaxOwnTurn(staged,depth,deadline,stats,tt);
       return res.score;
     }catch(error){
       return -Infinity;
@@ -6384,21 +6406,43 @@
   }
   async function cpuDeepSearchChooseBait(hand){
     if(!hand.length)return null;
-    const realRoot=cpuSearchCloneState(state),start=cpuSearchNow(),budget=300,stats={nodes:0};
+    const realRoot=cpuSearchCloneState(state),start=cpuSearchNow(),budget=390,stats={nodes:0};
     const candidates=[...hand].map(x=>x.uid);
-    // Skipping bait is legal and is included once the engine has enough resources.
     if(state.cpu.bait.length>=Math.max(2,cpuResourceTarget()-1))candidates.push(null);
     const aggregate=new Map(candidates.map(uid=>[String(uid),{uid,scores:[]}]));
 
-    for(let sample=0;sample<2;sample++){
+    for(let sample=0;sample<3;sample++){
       const root=cpuSearchDeterminizeOpponent(realRoot,sample);
-      const deadline=start+budget*(sample+1)/2;
+      const deadline=start+budget*(sample+1)/3;
+      const shallow=[];
+      let complete=true;
       for(const uid of candidates){
-        if(cpuSearchNow()>=deadline)break;
-        const score=await cpuSearchSimulateBait(root,uid,deadline,stats);
-        aggregate.get(String(uid)).scores.push(score);
+        if(cpuSearchNow()>=deadline){complete=false;break;}
+        shallow.push({uid,score:await cpuSearchSimulateBait(root,uid,deadline,stats,1)});
       }
+      const baseScores=complete?shallow:candidates.map(uid=>({
+        uid,
+        score:uid==null
+          ? cpuSearchWithSnapshot(root,cpuSearchEvaluation)
+          : -cpuSearchWithSnapshot(root,()=>{
+              const inst=state.cpu.hand.find(x=>x.uid===uid);
+              return inst?cpuCardKeepValue(inst):0;
+            })
+      }));
+      let finalScores=baseScores;
+      if(complete&&cpuSearchNow()<deadline){
+        const top=[...shallow].sort((a,b)=>b.score-a.score).slice(0,3);
+        const deep=[];
+        for(const x of top){
+          if(cpuSearchNow()>=deadline)break;
+          deep.push({uid:x.uid,score:await cpuSearchSimulateBait(root,x.uid,deadline,stats,3)});
+        }
+        const deepMap=new Map(deep.map(x=>[String(x.uid),x.score]));
+        finalScores=baseScores.map(x=>deepMap.has(String(x.uid))?{uid:x.uid,score:deepMap.get(String(x.uid))}:x);
+      }
+      for(const x of finalScores)aggregate.get(String(x.uid)).scores.push(x.score);
     }
+
     const ranked=[...aggregate.values()].filter(x=>x.scores.length).map(x=>{
       const avg=x.scores.reduce((a,b)=>a+b,0)/x.scores.length;
       const worst=Math.min(...x.scores);

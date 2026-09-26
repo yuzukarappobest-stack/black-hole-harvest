@@ -48,7 +48,7 @@ const DEFAULTS={
   mimicAggro:{resourceTarget:4,blueBaitFloor:2,aggression:1.6,directAttackWeight:1.8,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:.95,removalWeight:.95,aceWeight:1.05,deployThreshold:5},
   termite:{resourceTarget:3,blueBaitFloor:2,aggression:1.45,directAttackWeight:1.6,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:1.1,removalWeight:1.05,aceWeight:1.25,deployThreshold:5.5},
   colorBlessing:{resourceTarget:5,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.4,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.2,aceWeight:1.25,deployThreshold:7,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
-  colorCounter:{resourceTarget:5,blueBaitFloor:2,aggression:1.55,directAttackWeight:1.75,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.45,aceWeight:1.55,deployThreshold:5.2,engineBaitPriority:9},
+  colorCounter:{resourceTarget:6,blueBaitFloor:2,aggression:1.35,directAttackWeight:1.55,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.25,removalWeight:1.3,aceWeight:1.5,deployThreshold:7,engineBaitPriority:9},
   generic:{resourceTarget:5,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.15,removalWeight:1.15,aceWeight:1.2,deployThreshold:7}
 };
 
@@ -107,7 +107,6 @@ function aceBonus(arch,c){
   if(arch==='colorCounter'&&n==='オオスズメバチ（女王）')return 9;
   if(arch==='colorCounter'&&c.effect==='handTempSummon')return 7;
   if(arch==='colorCounter'&&c.effect==='silkwormGag')return 9;
-  if(arch==='colorCounter'&&c.effect==='burn1000')return 7;
   return 0;
 }
 function cardValue(arch,c,p){return baseValue(c)+aceBonus(arch,c)*p.aceWeight;}
@@ -191,8 +190,7 @@ function keepScore(side,id,p){
     if(c.type==='insect'&&isWasp(c)&&c.name!=='オオスズメバチ（女王）'&&Number(c.cost||0)<=5&&beeBait<2)v-=Number(p.engineBaitPriority||9);
     if(c.name==='オオスズメバチ（女王）')v+=16;
     if(c.effect==='handTempSummon')v+=12;
-    if(c.effect==='silkwormGag')v+=14;
-    if(c.effect==='burn1000')v+=9;
+    if(c.effect==='silkwormGag')v+=16;
   }
   if(arch==='sumatra'&&c.type==='insect'){
     const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
@@ -765,33 +763,28 @@ function trainFocusedArch(arch){
   };
 }
 
-// ===== ハチ型・色彩対策 ピンポイント学習 =====
-const TARGET_ARCH='colorCounter';
+// ===== ハチ型＋蚕の口封じ 相性ベンチマーク =====
 const TARGET_OPP='colorBlessing';
-const TARGET_WIN_RATE=0.90;
-const MIN_TRAINING_GAMES=1500000;
-const MAX_GENERATIONS=170;
-const POPULATION=72;
 
 function colorOpponentVariants(){
   const base=BASE_POLICY[TARGET_OPP];
-  const rng=mulberry32(hash('color-counter-bee-v3-opponents'));
+  const rng=mulberry32(hash('color-counter-gag-v4-opponents'));
   const out=[{...base}];
-  while(out.length<10)out.push(mutate(base,rng,.95));
+  while(out.length<10)out.push(mutate(base,rng,.9));
   return out;
 }
 const COLOR_OPPONENTS=colorOpponentVariants();
 
-function evalVsColor(p,gen,index,rounds=7){
+function benchmarkDeckVsColor(arch,p,rounds=1000){
   let pts=0,games=0,wins=0,losses=0,draws=0;
   for(let v=0;v<COLOR_OPPONENTS.length;v++){
     const op=COLOR_OPPONENTS[v];
     for(let n=0;n<rounds;n++){
-      const seed=hash('color-counter-bee-v3:'+v+':'+gen+':'+index+':'+n);
-      const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed);
+      const seed=hash('color-gag-v4:'+arch+':'+v+':'+n);
+      const r1=runGame(arch,p,TARGET_OPP,op,seed);
       pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
-      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,p,seed^0x9e3779b9);
+      const r2=runGame(TARGET_OPP,op,arch,p,seed^0x9e3779b9);
       pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
       if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
     }
@@ -799,94 +792,39 @@ function evalVsColor(p,gen,index,rounds=7){
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
 
-function stableBench(p,rounds=450){
-  return evalVsColor(p,9999,9999,rounds);
-}
-
-// Start from the already-successful bee policy, then specialize it for gag/burn timing.
-const seedPolicy=withPolicyDefaults(TARGET_ARCH,{
+const beePolicy=withPolicyDefaults('bee',BASE_POLICY.bee);
+const currentCounterPolicy=withPolicyDefaults('colorCounter',BASE_POLICY.colorCounter);
+const beeStyleCounterPolicy=withPolicyDefaults('colorCounter',{
   ...BASE_POLICY.bee,
-  resourceTarget:5,
-  aggression:1.6,
-  directAttackWeight:1.8,
-  removalWeight:1.45,
-  aceWeight:1.6,
-  deployThreshold:5.2,
+  resourceTarget:6,
+  aggression:1.35,
+  directAttackWeight:1.55,
+  preserveWeight:1.25,
+  removalWeight:1.3,
+  aceWeight:1.5,
+  deployThreshold:7,
   engineBaitPriority:9
 });
-const beeBaseline=stableBench(withPolicyDefaults('bee',BASE_POLICY.bee),180);
-const counterSeedBaseline=stableBench(seedPolicy,180);
 
-const rng=mulberry32(hash('color-counter-bee-v3:20260926'));
-let population=[seedPolicy];
-while(population.length<POPULATION)population.push(mutate(seedPolicy,rng,1.15));
-
-let champion={p:seedPolicy,...evalVsColor(seedPolicy,-1,-1,25)};
-const generations=[];
-
-for(let gen=0;gen<MAX_GENERATIONS;gen++){
-  const scored=population.map((p,i)=>({p,...evalVsColor(p,gen,i,7)}))
-    .sort((a,b)=>b.score-a.score);
-  if(scored[0].score>champion.score)champion=scored[0];
-
-  const verify=evalVsColor(champion.p,gen,999,35);
-  generations.push({
-    gen,
-    score:Number(verify.score.toFixed(4)),
-    winRate:Number(verify.winRate.toFixed(4)),
-    games:TOTAL_GAME_COUNT
-  });
-  console.log('Bee-color-counter generation',gen,generations[generations.length-1]);
-
-  if(verify.winRate>=TARGET_WIN_RATE && TOTAL_GAME_COUNT>=MIN_TRAINING_GAMES){
-    champion={p:champion.p,...verify};
-    break;
-  }
-
-  const elite=scored.slice(0,10).map(x=>x.p);
-  population=[champion.p,...elite];
-  while(population.length<POPULATION){
-    const parent=elite[Math.floor(rng()*elite.length)]||champion.p;
-    population.push(mutate(parent,rng,Math.max(.18,1.0-gen*.005)));
-  }
-}
-
-// Dense local refinement.
-const locals=[champion.p];
-while(locals.length<700)locals.push(microMutate(champion.p,rng,.08+rng()*.55));
-const quick=locals.map((p,i)=>({p,...evalVsColor(p,6000,i,3)}))
-  .sort((a,b)=>b.score-a.score);
-const finalists=quick.slice(0,30).map((x,i)=>({p:x.p,...evalVsColor(x.p,7000,i,35)}))
-  .sort((a,b)=>b.score-a.score);
-if(finalists[0]&&finalists[0].score>champion.score)champion=finalists[0];
-
-// Large final validation, both seats, against ten perturbed Color Blessing policies.
-const finalBench=stableBench(champion.p,600);
-const learned={...PREVIOUS_ARCHETYPES};
-learned.colorCounter=Object.fromEntries(Object.entries(champion.p).map(([k,v])=>[k,Number(Number(v).toFixed(3))]));
-learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
+const results={
+  originalBee:benchmarkDeckVsColor('bee',beePolicy,1000),
+  gagCounterLearned:benchmarkDeckVsColor('colorCounter',currentCounterPolicy,1000),
+  gagCounterBeeStyle:benchmarkDeckVsColor('colorCounter',beeStyleCounterPolicy,1000)
+};
+console.log('Gag-only Color counter benchmark',results);
 
 const payload={
-  version:10,
-  source:'color-counter-bee-targeted-v3',
+  version:11,
+  source:'color-counter-gag-benchmark-v4',
   training:{
     seed:20260926,
-    focusedArchetypes:[TARGET_ARCH],
     targetOpponent:TARGET_OPP,
-    targetWinRate:TARGET_WIN_RATE,
-    minimumTrainingGames:MIN_TRAINING_GAMES,
     approximateSimulator:true,
     games:TOTAL_GAME_COUNT,
-    beeBaseline:{winRate:Number(beeBaseline.winRate.toFixed(4)),record:{wins:beeBaseline.wins,losses:beeBaseline.losses,draws:beeBaseline.draws,games:beeBaseline.games}},
-    counterSeedBaseline:{winRate:Number(counterSeedBaseline.winRate.toFixed(4)),record:{wins:counterSeedBaseline.wins,losses:counterSeedBaseline.losses,draws:counterSeedBaseline.draws,games:counterSeedBaseline.games}},
-    finalWinRate:Number(finalBench.winRate.toFixed(4)),
-    finalScore:Number(finalBench.score.toFixed(4)),
-    finalRecord:{wins:finalBench.wins,losses:finalBench.losses,draws:finalBench.draws,games:finalBench.games},
-    generations
+    results
   },
-  archetypes:learned
+  archetypes:{...PREVIOUS_ARCHETYPES}
 };
-
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Bee-based Color counter targeted training complete',payload.training);
+console.log('Gag-only benchmark complete',payload.training);

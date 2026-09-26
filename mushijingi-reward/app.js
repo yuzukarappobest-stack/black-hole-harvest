@@ -4720,15 +4720,16 @@
       if(c.effect==='handTempSummon')b+=5;
       if(c.effect==='worshipGreatSword')b+=visibleDiscard('cpu').some(x=>def(x).type==='enhance')?4:-4;
     }else if(arch==='colorCounter'){
-      // 色彩対策CPU：色彩の加護のコスト軽減を止める盤面を最優先する。
-      if(c.passive?.type==='phaseMutation')b+=14;
-      if(c.passive?.type==='snakeEye')b+=7;
+      // 色彩対策CPU：＜くちなし＞を最優先。色彩の加護・光る等の＜＞技をまとめて止める。
+      if(c.passive?.type==='silenceAll')b+=24;
+      if(c.passive?.type==='phaseMutation')b+=12;
+      if(c.effect==='spellDanceCounter')b+=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type))?12:5;
       if(c.name==='クロテイオウゼミ')b+=6;
-      if(c.passive?.type==='faceDownBaitDiscount')b+=5;
-      if(c.passive?.type==='superClairvoyance')b+=8;
-      if(c.effect==='burn1000')b+=4;
-      // トノサマバッタの軽減用に、序盤の安い緑虫はエサへ回しやすくする。
-      if(c.type==='insect'&&c.color==='green'&&c.passive?.type!=='phaseMutation'&&faceUpColorCount('cpu','green')<2)b-=2.5;
+      if(c.name==='オウサマミツギリゾウムシ')b+=5;
+      if(c.name==='オオミズアオ（幼虫）')b+=4;
+      if(c.name==='ツェツェバエ')b+=3;
+      if(c.effect==='burn1000')b+=5;
+      if(c.effect==='bloodPact')b+=5;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;
@@ -4775,7 +4776,7 @@
         handTempSummon:5,worshipGreatSword:5,destroyOpponent:5,burn1000:4.5,burn600:3.5,
         allAttack300:4,allAttack200:3,recoverInsect:3.2,baitBoost:3,readyAttack:4,
         baitTempSummon:3.5,baitRushTwo:5,eternalCocoon:5,underworldGuide:4.5,
-        nextSpellDiscount:2.5,poisonFollowUp:3.5
+        nextSpellDiscount:2.5,poisonFollowUp:3.5,spellDanceCounter:4.5
       };
       v+=2+(effectValue[c.effect]||1.2);
     }
@@ -4868,6 +4869,10 @@
     }
     if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
     if(arch==='hercules'&&c.name==='ヘラクレスオオカブト')p+=24;
+    if(arch==='colorCounter'&&c.effect==='spellDanceCounter'){
+      const lock=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type));
+      p+=lock?30:8;
+    }
     if(c.effect==='worshipGreatSword'&&fieldActive('cpu').some(fc=>fc.attacked)&&visibleDiscard('cpu').some(x=>def(x).type==='enhance'&&Number(def(x).cost||0)<=3))p+=22;
     if(cpuOpponentHasSingleBlocker()&&cpuReadyAttackCount()>0&&cpuCanRemoveBlockerWith(inst))p+=28;
     return p;

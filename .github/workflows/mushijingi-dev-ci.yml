@@ -1,0 +1,48 @@
+name: Mushijingi Development CPU CI
+
+on:
+  push:
+    paths:
+      - 'mushijingi/**'
+      - '.github/workflows/mushijingi-dev-ci.yml'
+  pull_request:
+    paths:
+      - 'mushijingi/**'
+      - '.github/workflows/mushijingi-dev-ci.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax check
+        run: |
+          node --check mushijingi/app.js
+          node --check mushijingi/engine.js
+          node --check mushijingi/cards.js
+          node --check mushijingi/ai-policy.js
+      - name: Verify exact-state search CPU invariants
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const s=fs.readFileSync('mushijingi/app.js','utf8');
+          const required=[
+            'cpuSearchDeterminizeOpponent',
+            'cpuSearchBranch',
+            'cpuSearchMaxOwnTurn',
+            'cpuSearchMinOpponent',
+            'cpuDeepSearchChooseAction',
+            'cpuDeepSearchChooseBait',
+            'Iterative deepening',
+            'getCpuSearchStats'
+          ];
+          const missing=required.filter(x=>!s.includes(x));
+          if(missing.length)throw new Error('Missing search CPU invariants: '+missing.join(', '));
+          if(!s.includes("if(cpuSearchActive())return;\n      render();await sleep(150);await beginTurn();")){
+            throw new Error('Search-mode endTurn isolation guard is missing');
+          }
+          console.log('Exact-state CPU invariants OK');
+          NODE

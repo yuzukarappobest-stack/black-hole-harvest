@@ -66,6 +66,24 @@
   let builderDeckId = null;
   let builderIds = [];
 
+  // "ちょうつよい" exact-state search.
+  // Search branches run the real card/attack resolution code against cloned game states.
+  let cpuSearchSimulationDepth=0;
+  let cpuSearchForcedChoiceValue=null;
+  let cpuSearchDeterministicCounter=0;
+  let cpuSearchDecisionIndex=0;
+  let cpuSearchLastStats={
+    version:'exact-state-v1',
+    nodes:0,
+    simulations:0,
+    determinizations:0,
+    elapsedMs:0,
+    chosen:null,
+    score:null,
+    fallback:false
+  };
+  const cpuSearchActive=()=>cpuSearchSimulationDepth>0;
+
   const CPU_DIFFICULTY_KEY = 'mushijingiCpuDifficulty';
   const CPU_DIFFICULTIES = new Set(['normal','strong','veryStrong']);
   let cpuDifficulty = (() => {
@@ -99,7 +117,7 @@
       ? 'いままでのCPUです。'
       : mode==='strong'
         ? '盤面・コンボ・エサの価値を考えて行動します。'
-        : '盤面評価に加えて、次の行動まで読んで手を選びます。';
+        : '実ゲーム状態を複製し、コンボ順・攻撃順・相手の応手まで探索して手を選びます。';
   }
 
   const colorJa = {red:'赤', blue:'青', green:'緑', colorless:'無色'};
@@ -283,14 +301,15 @@
     });
   }
   function log(text){
+    if(cpuSearchActive())return;
     state.log.unshift(text);
     state.log=state.log.slice(0,80);
     renderLog();
   }
   function renderLog(){ $('gameLog').innerHTML=state ? state.log.map(x=>`<div>・${escapeHtml(x)}</div>`).join('') : ''; }
-  function message(text){ $('messageBox').textContent=text; }
+  function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=text; }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
-  const sleep = ms => new Promise(r=>setTimeout(r,ms));
+  const sleep = ms => cpuSearchActive()?Promise.resolve():new Promise(r=>setTimeout(r,ms));
 
   function setBuilderNotice(text='', isError=false) {
     const el=$('builderNotice'); if(!el)return;
@@ -501,6 +520,7 @@
   }
 
   async function cpuNotice(text){
+    if(cpuSearchActive())return;
     const popup=$('cpuActionPopup');
     const textEl=$('cpuActionText');
     if(!popup||!textEl)return;
@@ -1055,7 +1075,7 @@
   }
 
   function render(){
-    if(!state)return;
+    if(cpuSearchActive()||!state)return;
     const p=state.player,c=state.cpu;
     $('playerDeckName').textContent=p.deckName;
     $('cpuDeckName').textContent=c.deckName;
@@ -4305,7 +4325,9 @@
     if(side==='player'){
       const opts=ss.territory.map((x,i)=>({value:i,title:`縄張り ${i+1}`,detail:x.faceUpTerritory?def(x).name:'裏向きのカード'}));
       idx=await choose(opts,'縄張りを1枚選んで手札に加えます。','縄張り');if(idx===null)idx=0;
-    }else idx=Math.floor(Math.random()*ss.territory.length);
+    }else idx=cpuSearchActive()
+      ? ((state.turnSeq+state.turnNo+cpuSearchDeterministicCounter++)%ss.territory.length)
+      : Math.floor(Math.random()*ss.territory.length);
 
     const [drawn]=ss.territory.splice(idx,1),c=def(drawn);
     events.emit(EVENT.TERRITORY_DRAWN,{state,side,card:drawn,definition:c});
@@ -4535,7 +4557,9 @@
 
       sideObj(state.turn).cost=0;
       state.turn=other(state.turn);state.turnSeq++;state.turnNo++;state.phase='draw';
-      log('ターン終了。通常ダメージが回復しました。');render();await sleep(150);await beginTurn();
+      log('ターン終了。通常ダメージが回復しました。');
+      if(cpuSearchActive())return;
+      render();await sleep(150);await beginTurn();
     }finally{state.busy=false;render();}
   }
 
@@ -4578,10 +4602,13 @@
   async function cpuTurnSmart(mode){
     if(state.over)return;
     const s=state.cpu;
+    cpuSearchDecisionIndex=0;
     message(cpuAquaticBossActive()?'CPU（水生ボスAI）が考えています…':`CPU（${cpuDifficultyLabel(mode)}）が考えています…`);
 
     if(s.hand.length){
-      const bait=chooseBaitCPUSmart(s.hand,mode);
+      const bait=mode==='veryStrong'
+        ? await cpuDeepSearchChooseBait(s.hand)
+        : chooseBaitCPUSmart(s.hand,mode);
       if(bait){
         bait.faceDown=false;bait.discardFaceDown=false;
         Engine.moveCard(s,bait,ZONE.HAND,ZONE.BAIT);
@@ -4609,6 +4636,15 @@
       }
 
       const usable=s.hand.filter(x=>canUseHandCardCPU(x));
+
+      if(mode==='veryStrong'){
+        const deepAction=await cpuDeepSearchChooseAction();
+        if(deepAction){
+          acted=await cpuExecuteDeepSearchAction(deepAction);
+          if(acted){render();continue;}
+        }
+      }
+
       const handAction=chooseCpuMainActionSmart(usable,mode);
       const attacker=chooseCpuAttackerSmart(mode);
       const attackScore=attacker?cpuBestAttackScore(attacker,mode):-Infinity;
@@ -5896,6 +5932,502 @@
     return best&&cpuPlanSearchFrom(best,usable,4)>=cpuPolicyValue('deployThreshold',6.5)?best:null;
   }
 
+
+  // ---------- Exact-state search for "ちょうつよい" ----------
+  // It deliberately does not inspect the human player's real hidden cards.
+  // Hidden hand/deck/territory cards are replaced by deterministic samples from
+  // the known deck list before each determinization.
+  function cpuSearchNow(){
+    return typeof performance!=='undefined'&&performance.now?performance.now():Date.now();
+  }
+  function cpuSearchCloneValue(value,seen=new Map()){
+    if(value===null||typeof value!=='object')return value;
+    if(seen.has(value))return seen.get(value);
+    if(value instanceof Set){
+      const out=new Set();seen.set(value,out);
+      for(const x of value)out.add(cpuSearchCloneValue(x,seen));
+      return out;
+    }
+    if(value instanceof Map){
+      const out=new Map();seen.set(value,out);
+      for(const [k,v] of value)out.set(cpuSearchCloneValue(k,seen),cpuSearchCloneValue(v,seen));
+      return out;
+    }
+    if(Array.isArray(value)){
+      const out=[];seen.set(value,out);
+      for(const x of value)out.push(cpuSearchCloneValue(x,seen));
+      return out;
+    }
+    const out={};seen.set(value,out);
+    for(const [k,v] of Object.entries(value))out[k]=cpuSearchCloneValue(v,seen);
+    return out;
+  }
+  function cpuSearchCloneState(src=state){
+    if(typeof structuredClone==='function'){
+      try{return structuredClone(src);}catch(error){}
+    }
+    return cpuSearchCloneValue(src);
+  }
+  function cpuSearchHashString(text){
+    let h=2166136261>>>0;
+    for(let i=0;i<text.length;i++){h^=text.charCodeAt(i);h=Math.imul(h,16777619);}
+    return h>>>0;
+  }
+  function cpuSearchRng(seed){
+    let a=seed>>>0;
+    return ()=>{
+      a|=0;a=(a+0x6D2B79F5)|0;
+      let t=Math.imul(a^(a>>>15),1|a);
+      t=(t+Math.imul(t^(t>>>7),61|t))^t;
+      return ((t^(t>>>14))>>>0)/4294967296;
+    };
+  }
+  function cpuSearchPublicFingerprint(st){
+    const unit=u=>[u.inst?.cardId,u.damage,u.attacked?1:0,u.hidden?1:0,(u.attachments||[]).map(a=>a.cardId).join('.')].join(':');
+    const visible=z=>z.filter(x=>!x.faceDown&&!x.discardFaceDown).map(x=>x.cardId).join('.');
+    return [
+      st.turnSeq,st.turnNo,st.turn,st.phase,
+      st.cpu.hand.map(x=>x.cardId).join('.'),
+      st.cpu.field.map(unit).join('|'),st.player.field.map(unit).join('|'),
+      visible(st.cpu.bait),visible(st.player.bait),
+      visible(st.cpu.discard),visible(st.player.discard),
+      st.cpu.territory.length,st.player.territory.length,
+      st.cpu.bait.length,st.player.bait.length,
+      st.player.hand.length,st.player.deck.length
+    ].join('/');
+  }
+  function cpuSearchKnownOpponentCardIds(st){
+    const ids=[];
+    for(const fc of st.player.field)ids.push(fc.inst.cardId);
+    for(const x of st.player.bait)if(!x.faceDown)ids.push(x.cardId);
+    for(const x of st.player.discard)if(!x.discardFaceDown)ids.push(x.cardId);
+    for(const x of st.player.territory)if(x.faceUpTerritory)ids.push(x.cardId);
+    return ids;
+  }
+  function cpuSearchRemoveOneId(list,id){
+    const i=list.indexOf(id);if(i>=0)list.splice(i,1);
+  }
+  function cpuSearchDeterminizeOpponent(base,sampleIndex=0){
+    const st=cpuSearchCloneState(base);
+    const deckDef=resolveDeckDefinition(st.player.deckKey);
+    if(!deckDef||!Array.isArray(deckDef.ids)||!deckDef.ids.length)return st;
+
+    let pool=[...deckDef.ids];
+    if(deckDef.randomCount&&pool.length>Number(deckDef.randomCount||20)){
+      const rng0=cpuSearchRng(cpuSearchHashString(cpuSearchPublicFingerprint(st)+':deck:'+sampleIndex));
+      pool=[...pool].sort(()=>rng0()-.5).slice(0,Number(deckDef.randomCount||20));
+    }
+    for(const id of cpuSearchKnownOpponentCardIds(st))cpuSearchRemoveOneId(pool,id);
+    if(!pool.length)pool=[...deckDef.ids];
+
+    const rng=cpuSearchRng(cpuSearchHashString(cpuSearchPublicFingerprint(st)+':hidden:'+sampleIndex));
+    for(let i=pool.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+
+    const hidden=[
+      ...st.player.hand,
+      ...st.player.territory.filter(x=>!x.faceUpTerritory),
+      ...st.player.deck,
+      ...st.player.bait.filter(x=>x.faceDown),
+      ...st.player.discard.filter(x=>x.discardFaceDown)
+    ];
+    const fallback=[...deckDef.ids];
+    for(let i=0;i<hidden.length;i++){
+      const id=pool[i%pool.length]??fallback[i%fallback.length];
+      if(id!=null)hidden[i].cardId=id;
+    }
+    return st;
+  }
+  function cpuSearchWithSnapshot(snapshot,fn){
+    const savedState=state;
+    state=snapshot;
+    try{return fn();}finally{state=savedState;}
+  }
+  async function cpuSearchBranch(snapshot,action,side='cpu'){
+    const savedState=state,savedUid=uidCounter,savedForced=cpuSearchForcedChoiceValue;
+    cpuSearchSimulationDepth++;
+    cpuSearchLastStats.simulations++;
+    state=cpuSearchCloneState(snapshot);
+    cpuSearchForcedChoiceValue=action?.targetUid??null;
+    try{
+      state.busy=false;
+      let ok=false;
+      if(action.kind==='hand'){
+        const inst=sideObj(side).hand.find(x=>x.uid===action.uid);
+        if(inst&&canUseHandCard(side,inst))ok=await playCardFromHand(side,inst);
+      }else if(action.kind==='attack'){
+        const fc=sideObj(side).field.find(x=>x.inst.uid===action.uid);
+        const attack=fc?fieldDef(fc).attacks?.[action.attackIndex]:null;
+        if(fc&&attack&&canAttackSide(side,fc)&&usableAttack(side,fc,attack))ok=await performAttack(side,fc,attack);
+      }
+      if(!ok)return null;
+      return cpuSearchCloneState(state);
+    }catch(error){
+      return null;
+    }finally{
+      state=savedState;uidCounter=savedUid;cpuSearchForcedChoiceValue=savedForced;cpuSearchSimulationDepth--;
+    }
+  }
+  function cpuSearchProjectedCost(side,inst){
+    const c=def(inst);if(!c)return 99;
+    let cost=Number(c.cost||0);
+    if(c.type==='insect'){
+      const p=c.passive;
+      const bait=sideObj(side).bait.filter(x=>!x.faceDown&&def(x).type==='insect');
+      if(p?.type==='aquaticCost'||p?.type==='sapCost')cost-=Math.floor(bait.filter(x=>def(x).color==='blue').length/2);
+      if(p?.type==='colorBlessing')cost-=new Set(bait.map(x=>def(x).color).filter(Boolean)).size;
+      if(p?.type==='phaseMutation')cost-=Math.floor(bait.filter(x=>def(x).color==='green').length/2);
+    }
+    return Math.max(0,cost);
+  }
+  function cpuSearchGenericCardThreat(side,inst){
+    const c=def(inst);if(!c)return 0;
+    const nextBudget=sideObj(side).bait.length+(state.turn===side?0:1);
+    const cost=cpuSearchProjectedCost(side,inst);
+    let v=0;
+    if(c.type==='insect'){
+      const atk=Math.max(0,...(c.attacks||[]).map(a=>Number(a.power||0)));
+      v=Number(c.hp||0)/260+atk/150+Number(c.cost||0)*.8;
+      if(c.passive)v+=2;
+      v+=(c.attacks||[]).filter(a=>a.effect).length*1.4;
+      if(cost<=nextBudget)v+=6+(nextBudget-cost)*.7;
+      if(c.passive?.type==='colorBlessing')v+=5;
+      if(c.passive?.type==='militaryLink')v+=4;
+    }else if(c.type==='enhance'){
+      const m=attachmentModifier(inst);v=4+(Math.max(0,m.attack)+Math.max(0,m.hp))/220;
+      if(cost<=nextBudget)v+=3;
+    }else{
+      const high=new Set(['destroyOpponent','bloodPact','eternalCocoon','burn1000','lightningStorm','halfDeathCompanion']);
+      const medium=new Set(['burn600','blastStorm','handTempSummon','baitTempSummon','sameNameBurn','intercept800','singleAttack500']);
+      v=high.has(c.effect)?15:medium.has(c.effect)?9:5;
+      if(cost<=nextBudget)v+=4;
+    }
+    return v;
+  }
+  function cpuSearchOpponentHandRisk(){
+    const vals=state.player.hand.map(x=>cpuSearchGenericCardThreat('player',x)).sort((a,b)=>b-a);
+    return (vals[0]||0)*.55+(vals[1]||0)*.24+(vals[2]||0)*.1;
+  }
+  function cpuSearchFutureCpuHandValue(){
+    const vals=state.cpu.hand.map(x=>cpuCardKeepValue(x)).sort((a,b)=>b-a);
+    return (vals[0]||0)*.18+(vals[1]||0)*.08;
+  }
+  function cpuSearchEvaluation(){
+    if(state.over){
+      if(state.winner==='cpu')return 100000-(state.player.territory.length*50);
+      if(state.winner==='player')return -100000+(state.cpu.territory.length*50);
+      return 0;
+    }
+    const cpuField=fieldActive('cpu').reduce((n,fc)=>n+cpuFieldThreat(fc,'cpu'),0);
+    const oppField=fieldActive('player').reduce((n,fc)=>n+cpuFieldThreat(fc,'player'),0);
+    const territory=(state.cpu.territory.length-state.player.territory.length)*27;
+    const resources=(state.cpu.bait.length-state.player.bait.length)*1.6;
+    const hand=state.cpu.hand.reduce((n,x)=>n+cpuCardKeepValue(x),0)*.12-state.player.hand.length*1.1;
+    const cpuReady=fieldActive('cpu').filter(fc=>canAttackSide('cpu',fc)).length;
+    const oppReady=fieldActive('player').filter(fc=>canAttackSide('player',fc)).length;
+    let pressure=(cpuReady-oppReady)*3.2;
+    if(fieldActive('player').length===0)pressure+=cpuReady*(6+Math.max(0,3-state.player.territory.length)*3);
+    if(fieldActive('cpu').length===0)pressure-=oppReady*(7+Math.max(0,3-state.cpu.territory.length)*3);
+
+    let protection=0;
+    const taunt=fieldActive('cpu').some(fc=>passiveOfField(fc)?.type==='spellTaunt');
+    if(taunt){
+      const protectedAce=fieldActive('cpu').filter(fc=>passiveOfField(fc)?.type!=='spellTaunt')
+        .reduce((m,fc)=>Math.max(m,cpuFieldThreat(fc,'cpu')),0);
+      protection+=Math.min(12,protectedAce*.7);
+    }
+
+    const target=cpuResourceTarget();
+    const baitGap=Math.max(0,target-state.cpu.bait.length);
+    const resourceNeed=baitGap?-(baitGap*2.3):Math.min(4,state.cpu.bait.length-target)*.35;
+
+    return (cpuField-oppField)*2.7+territory+resources+hand+pressure+protection+resourceNeed+
+      cpuSearchFutureCpuHandValue()-cpuSearchOpponentHandRisk()*.52;
+  }
+  function cpuSearchActionKey(a){
+    return [a.kind,a.uid??'',a.attackIndex??'',a.targetUid??''].join(':');
+  }
+  function cpuSearchTargetedSpell(effect){
+    return new Set([
+      'destroyOpponent','bloodPact','eternalCocoon','burn600','burn1000','intercept400','intercept800',
+      'sameNameBurn','lightningStorm','blastStorm','breathRelease','sealedGrudge','offeringSeal',
+      'fiveColorRelease','sparkStorm','boundarySend','ghostSwap'
+    ]).has(effect);
+  }
+  function cpuSearchAttackOrderScore(side,fc,attack,target=null){
+    const base=attackPower(side,fc,attack);
+    let score=base/120;
+    if(!target){
+      score+=24+Math.max(0,4-sideObj(other(side)).territory.length)*6;
+    }else{
+      const noWeak=hasAttachment(target,'noWeakness')||(passiveOfField(target)?.type==='whiteShell'&&target.whiteShellTurn===state.turnSeq);
+      const dmg=base*(noWeak?1:weaknessMultiplier(effectiveColor(fc),effectiveColor(target)));
+      const remain=maxHp(target)-target.damage;
+      if(dmg>=remain)score+=18+(side==='cpu'?cpuFieldThreat(target,'player'):cpuFieldThreat(target,'cpu'));
+      else score+=Math.min(dmg,remain)/180;
+    }
+    if(['bounceOnce','flip','mantisCombo','queenOviposition','multiTwo','materialGather'].includes(attack.effect))score+=7;
+    return score;
+  }
+  function cpuSearchGenerateActions(side='cpu',limit=7){
+    const actions=[];
+    const hand=sideObj(side).hand;
+    const usable=hand.filter(x=>side==='cpu'?canUseHandCardCPU(x):canUseHandCard(side,x));
+    for(const inst of usable){
+      const c=def(inst);
+      let order=side==='cpu'
+        ? cpuMainActionScore(inst)+cpuComboPriority(inst)*cpuPolicyValue('comboWeight',1)
+        : cpuSearchGenericCardThreat(side,inst)*1.5;
+      let targets=[null];
+      if(c.type==='enhance'&&fieldActive(side).length){
+        targets=[...fieldActive(side)]
+          .sort((a,b)=>(side==='cpu'?cpuFieldThreat(b,'cpu')-cpuFieldThreat(a,'cpu'):cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player')))
+          .slice(0,2).map(fc=>fc.inst.uid);
+      }else if(c.type==='spell'&&cpuSearchTargetedSpell(c.effect)&&fieldActive(other(side)).length){
+        targets=[...fieldActive(other(side))]
+          .sort((a,b)=>(side==='cpu'?cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'):cpuFieldThreat(b,'cpu')-cpuFieldThreat(a,'cpu')))
+          .slice(0,2).map(fc=>fc.inst.uid);
+      }
+      for(const targetUid of targets)actions.push({kind:'hand',uid:inst.uid,targetUid,order});
+    }
+
+    for(const fc of fieldActive(side).filter(x=>canAttackSide(side,x))){
+      const attacks=availableAttacks(side,fc).filter(a=>!(oncePerEntryEffect(a.effect)&&fc.usedAttacks.has(a.name))&&usableAttack(side,fc,a));
+      for(const attack of attacks){
+        const attackIndex=fieldDef(fc).attacks.indexOf(attack);
+        let targets=attackTargetsForTechnique(side,attack);
+        if(attack.effect==='blindAttack')targets=[];
+        if(targets.length){
+          const ranked=[...targets].sort((a,b)=>
+            cpuSearchAttackOrderScore(side,fc,attack,b)-cpuSearchAttackOrderScore(side,fc,attack,a)
+          ).slice(0,2);
+          for(const t of ranked)actions.push({kind:'attack',uid:fc.inst.uid,attackIndex,targetUid:t.inst.uid,order:cpuSearchAttackOrderScore(side,fc,attack,t)});
+        }else{
+          actions.push({kind:'attack',uid:fc.inst.uid,attackIndex,targetUid:null,order:cpuSearchAttackOrderScore(side,fc,attack,null)});
+        }
+      }
+    }
+    const dedup=new Map();
+    for(const a of actions){
+      const k=cpuSearchActionKey(a);
+      if(!dedup.has(k)||a.order>dedup.get(k).order)dedup.set(k,a);
+    }
+    return [...dedup.values()].sort((a,b)=>b.order-a.order).slice(0,limit);
+  }
+  function cpuSearchStateKey(snapshot,side,depth){
+    return cpuSearchWithSnapshot(snapshot,()=>{
+      const fieldKey=s=>sideObj(s).field.map(fc=>[
+        fc.inst.cardId,fc.damage,fc.attacked?1:0,fc.hidden?1:0,(fc.attachments||[]).map(a=>a.cardId).join('.')
+      ].join(':')).join('|');
+      return [
+        side,depth,state.turn,state.phase,state.cpu.cost,state.player.cost,
+        state.cpu.hand.map(x=>x.cardId).join('.'),state.player.hand.map(x=>x.cardId).join('.'),
+        fieldKey('cpu'),fieldKey('player'),
+        state.cpu.bait.map(x=>x.cardId+(x.faceDown?'d':'u')).join('.'),
+        state.player.bait.map(x=>x.cardId+(x.faceDown?'d':'u')).join('.'),
+        state.cpu.territory.length,state.player.territory.length
+      ].join('/');
+    });
+  }
+  async function cpuSearchMaxOwnTurn(snapshot,depth,deadline,stats,tt){
+    if(cpuSearchNow()>=deadline)return {score:cpuSearchWithSnapshot(snapshot,cpuSearchEvaluation),leaf:snapshot};
+    const base=cpuSearchWithSnapshot(snapshot,cpuSearchEvaluation);
+    if(depth<=0||snapshot.over||snapshot.turn!=='cpu'||snapshot.phase!=='main')return {score:base,leaf:snapshot};
+    const key=cpuSearchStateKey(snapshot,'cpu',depth);
+    const cached=tt.get(key);if(cached)return cached;
+    stats.nodes++;
+    const actions=cpuSearchWithSnapshot(snapshot,()=>cpuSearchGenerateActions('cpu',depth>=3?6:5));
+    let best={score:base,leaf:snapshot};
+    for(const action of actions){
+      if(cpuSearchNow()>=deadline)break;
+      const child=await cpuSearchBranch(snapshot,action,'cpu');if(!child)continue;
+      const res=await cpuSearchMaxOwnTurn(child,depth-1,deadline,stats,tt);
+      if(res.score>best.score)best={score:res.score,leaf:res.leaf};
+      if(best.score>90000)break;
+    }
+    tt.set(key,best);return best;
+  }
+  function cpuSearchOpponentBaitChoice(){
+    const hand=state.player.hand;if(!hand.length)return null;
+    const ranked=[...hand].sort((a,b)=>cpuSearchGenericCardThreat('player',a)-cpuSearchGenericCardThreat('player',b));
+    return ranked[0]||null;
+  }
+  async function cpuSearchAdvanceToOpponent(snapshot){
+    const savedState=state,savedUid=uidCounter;
+    cpuSearchSimulationDepth++;
+    state=cpuSearchCloneState(snapshot);
+    try{
+      if(state.over)return cpuSearchCloneState(state);
+      state.busy=false;
+      if(state.turn==='cpu')await endTurn();
+      if(state.over||state.turn!=='player')return cpuSearchCloneState(state);
+
+      // beginTurn is safe here: in search mode it cannot open UI, and the human side
+      // stops at set phase rather than recursively invoking CPU logic.
+      await beginTurn();
+      if(state.over)return cpuSearchCloneState(state);
+      if(state.turn==='player'&&state.phase==='set'){
+        const bait=cpuSearchOpponentBaitChoice();
+        if(bait){
+          bait.faceDown=false;bait.discardFaceDown=false;
+          Engine.moveCard(state.player,bait,ZONE.HAND,ZONE.BAIT);
+          state.player.setDone=true;
+          await resolveGoldenDungBait('player',bait);
+        }
+        state.player.cost=state.player.bait.length;
+        state.phase='main';
+      }else if(state.turn==='player'&&state.phase!=='main'){
+        state.player.cost=state.player.bait.length;state.phase='main';
+      }
+      return cpuSearchCloneState(state);
+    }catch(error){
+      return cpuSearchCloneState(state);
+    }finally{
+      state=savedState;uidCounter=savedUid;cpuSearchSimulationDepth--;
+    }
+  }
+  async function cpuSearchMinOpponent(snapshot,depth,deadline,stats){
+    const base=cpuSearchWithSnapshot(snapshot,cpuSearchEvaluation);
+    if(cpuSearchNow()>=deadline||depth<=0||snapshot.over||snapshot.turn!=='player'||snapshot.phase!=='main')return base;
+    stats.nodes++;
+    const actions=cpuSearchWithSnapshot(snapshot,()=>cpuSearchGenerateActions('player',5));
+    let worst=base;
+    for(const action of actions){
+      if(cpuSearchNow()>=deadline)break;
+      const child=await cpuSearchBranch(snapshot,action,'player');if(!child)continue;
+      const value=await cpuSearchMinOpponent(child,depth-1,deadline,stats);
+      if(value<worst)worst=value;
+      if(worst<-90000)break;
+    }
+    return worst;
+  }
+  async function cpuSearchScoreFirstAction(root,action,deadline,stats){
+    const child=await cpuSearchBranch(root,action,'cpu');
+    if(!child)return -Infinity;
+    if(child.over)return cpuSearchWithSnapshot(child,cpuSearchEvaluation);
+
+    const tt=new Map();
+    const continuation=await cpuSearchMaxOwnTurn(child,3,deadline,stats,tt);
+    if(continuation.leaf.over)return continuation.score;
+    if(cpuSearchNow()>=deadline)return continuation.score;
+
+    const opponentStart=await cpuSearchAdvanceToOpponent(continuation.leaf);
+    if(opponentStart.over)return cpuSearchWithSnapshot(opponentStart,cpuSearchEvaluation);
+    const response=await cpuSearchMinOpponent(opponentStart,2,deadline,stats);
+    // Slightly retain the current-turn score so uncertain hidden-card samples do not
+    // make the CPU irrationally defensive.
+    return response*.82+continuation.score*.18;
+  }
+  async function cpuDeepSearchChooseAction(){
+    const realRoot=cpuSearchCloneState(state);
+    const start=cpuSearchNow();
+    const budget=cpuSearchDecisionIndex===0?520:300;
+    const stats={nodes:0};
+    const samples=2;
+    const aggregate=new Map();
+
+    for(let sample=0;sample<samples;sample++){
+      const deadline=start+budget*(sample+1)/samples;
+      const root=cpuSearchDeterminizeOpponent(realRoot,sample);
+      const rootActions=cpuSearchWithSnapshot(root,()=>cpuSearchGenerateActions('cpu',7));
+      for(const action of rootActions){
+        if(cpuSearchNow()>=deadline)break;
+        const score=await cpuSearchScoreFirstAction(root,action,deadline,stats);
+        const key=cpuSearchActionKey(action);
+        const rec=aggregate.get(key)||{action,scores:[]};
+        rec.scores.push(score);aggregate.set(key,rec);
+      }
+    }
+
+    const ranked=[...aggregate.values()].filter(x=>x.scores.length).map(rec=>{
+      const avg=rec.scores.reduce((a,b)=>a+b,0)/rec.scores.length;
+      const worst=Math.min(...rec.scores);
+      return {...rec,score:avg*.76+worst*.24};
+    }).sort((a,b)=>b.score-a.score);
+
+    const elapsed=cpuSearchNow()-start;
+    const best=ranked[0]||null;
+    cpuSearchLastStats={
+      version:'exact-state-v1',
+      nodes:stats.nodes,
+      simulations:cpuSearchLastStats.simulations,
+      determinizations:samples,
+      elapsedMs:Number(elapsed.toFixed(1)),
+      chosen:best?cpuSearchActionKey(best.action):null,
+      score:best?Number(best.score.toFixed(2)):null,
+      fallback:!best
+    };
+    cpuSearchDecisionIndex++;
+    return best?.action||null;
+  }
+  async function cpuSearchSimulateBait(root,baitUid,deadline,stats){
+    const savedState=state,savedUid=uidCounter;
+    cpuSearchSimulationDepth++;
+    state=cpuSearchCloneState(root);
+    try{
+      state.busy=false;
+      if(baitUid!=null){
+        const bait=state.cpu.hand.find(x=>x.uid===baitUid);if(!bait)return -Infinity;
+        bait.faceDown=false;bait.discardFaceDown=false;
+        Engine.moveCard(state.cpu,bait,ZONE.HAND,ZONE.BAIT);
+        await resolveGoldenDungBait('cpu',bait);
+      }
+      state.cpu.cost=state.cpu.bait.length;state.phase='main';state.turn='cpu';
+      const staged=cpuSearchCloneState(state);
+      const tt=new Map();
+      const res=await cpuSearchMaxOwnTurn(staged,3,deadline,stats,tt);
+      return res.score;
+    }catch(error){
+      return -Infinity;
+    }finally{
+      state=savedState;uidCounter=savedUid;cpuSearchSimulationDepth--;
+    }
+  }
+  async function cpuDeepSearchChooseBait(hand){
+    if(!hand.length)return null;
+    const realRoot=cpuSearchCloneState(state),start=cpuSearchNow(),budget=300,stats={nodes:0};
+    const candidates=[...hand].map(x=>x.uid);
+    // Skipping bait is legal and is included once the engine has enough resources.
+    if(state.cpu.bait.length>=Math.max(2,cpuResourceTarget()-1))candidates.push(null);
+    const aggregate=new Map(candidates.map(uid=>[String(uid),{uid,scores:[]}]));
+
+    for(let sample=0;sample<2;sample++){
+      const root=cpuSearchDeterminizeOpponent(realRoot,sample);
+      const deadline=start+budget*(sample+1)/2;
+      for(const uid of candidates){
+        if(cpuSearchNow()>=deadline)break;
+        const score=await cpuSearchSimulateBait(root,uid,deadline,stats);
+        aggregate.get(String(uid)).scores.push(score);
+      }
+    }
+    const ranked=[...aggregate.values()].filter(x=>x.scores.length).map(x=>{
+      const avg=x.scores.reduce((a,b)=>a+b,0)/x.scores.length;
+      const worst=Math.min(...x.scores);
+      return {...x,score:avg*.8+worst*.2};
+    }).sort((a,b)=>b.score-a.score);
+    const best=ranked[0];
+    if(!best)return chooseBaitCPUSmart(hand,'veryStrong');
+    if(best.uid==null)return null;
+    return hand.find(x=>x.uid===best.uid)||chooseBaitCPUSmart(hand,'veryStrong');
+  }
+  async function cpuExecuteDeepSearchAction(action){
+    if(!action)return false;
+    cpuSearchForcedChoiceValue=action.targetUid??null;
+    try{
+      if(action.kind==='hand'){
+        const inst=state.cpu.hand.find(x=>x.uid===action.uid);
+        return inst?await playCardFromHand('cpu',inst):false;
+      }
+      if(action.kind==='attack'){
+        const fc=state.cpu.field.find(x=>x.inst.uid===action.uid);
+        const attack=fc?fieldDef(fc).attacks?.[action.attackIndex]:null;
+        return fc&&attack?await performAttack('cpu',fc,attack):false;
+      }
+      return false;
+    }finally{
+      cpuSearchForcedChoiceValue=null;
+    }
+  }
+
   function cpuAttackOptionScore(fc,attack,mode){
     const targets=attackableTargets('cpu');
     const base=attackPower('cpu',fc,attack);
@@ -5975,6 +6507,10 @@
   }
   function chooseMantisSecondAttackCPU(fc){return fieldDef(fc).attacks.find(a=>a.effect==='mantisCombo')||null;}
   function chooseAttackTargetCPU(fc,attack,targets){
+    if(cpuSearchForcedChoiceValue!==null&&cpuSearchForcedChoiceValue!==undefined){
+      const forced=targets.find(t=>t.inst?.uid===cpuSearchForcedChoiceValue);
+      if(forced){cpuSearchForcedChoiceValue=null;return forced;}
+    }
     const mode=currentCpuDifficulty();
     const base=attackPower('cpu',fc,attack);
     if(cpuAquaticBossActive()&&attack.effect==='reverseSwap'){
@@ -6035,6 +6571,10 @@
     return [...targets].sort((a,b)=>targetScore(b)-targetScore(a))[0];
   }
   function chooseEnhanceTargetCPU(c,targets){
+    if(cpuSearchForcedChoiceValue!==null&&cpuSearchForcedChoiceValue!==undefined){
+      const forced=targets.find(t=>t.inst?.uid===cpuSearchForcedChoiceValue);
+      if(forced){cpuSearchForcedChoiceValue=null;return forced;}
+    }
     if(currentCpuDifficulty()==='normal')return [...targets].sort((a,b)=>def(b.inst).cost-def(a.inst).cost)[0];
     const score=fc=>{
       let v=cpuFieldThreat(fc,'cpu');
@@ -6049,6 +6589,10 @@
   }
   function chooseBurnTargetCPU(targets){
     if(!targets.length)return null;
+    if(cpuSearchForcedChoiceValue!==null&&cpuSearchForcedChoiceValue!==undefined){
+      const forced=targets.find(t=>t.inst?.uid===cpuSearchForcedChoiceValue);
+      if(forced){cpuSearchForcedChoiceValue=null;return forced;}
+    }
     if(cpuAquaticBossActive())return [...targets].sort((a,b)=>cpuFieldThreat(b,'player')-cpuFieldThreat(a,'player'))[0];
     if(currentCpuDifficulty()==='normal')return [...targets].sort((a,b)=>((600>=maxHp(b)-b.damage)?1000:0)+def(b.inst).cost*50-(((600>=maxHp(a)-a.damage)?1000:0)+def(a.inst).cost*50))[0];
     const damage=targets.some(t=>600>=maxHp(t)-t.damage)?600:1000;
@@ -6093,10 +6637,22 @@
   }
   function finishGame(winner,text){
     state.over=true;state.winner=winner;state.chain=null;state.phase='';
+    if(cpuSearchActive())return;
     message(text);log(text);render();showResultPopup(winner,text);
   }
 
   function choose(options,text,title='選択',previewRenderer=null){
+    if(cpuSearchActive()){
+      if(cpuSearchForcedChoiceValue!==null&&cpuSearchForcedChoiceValue!==undefined){
+        const forced=options.find(o=>o.value===cpuSearchForcedChoiceValue);
+        if(forced){
+          cpuSearchForcedChoiceValue=null;
+          return Promise.resolve(forced.value);
+        }
+      }
+      const pick=options.find(o=>o.value!==null&&o.value!==undefined)||options[0];
+      return Promise.resolve(pick?pick.value:null);
+    }
     return new Promise(resolve=>{
       modalResolver=resolve;
       $('modalTitle').textContent=title;
@@ -6183,6 +6739,7 @@
     engineVersion:Engine.version,
     events,
     getState:()=>state,
+    getCpuSearchStats:()=>({...cpuSearchLastStats}),
     fieldDef,
     getCustomDecks:()=>customDecks.map(deck=>({...deck,ids:[...deck.ids]})),
     getCpuDifficulty:()=>currentCpuDifficulty(),

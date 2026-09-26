@@ -4720,10 +4720,11 @@
       if(c.effect==='handTempSummon')b+=5;
       if(c.effect==='worshipGreatSword')b+=visibleDiscard('cpu').some(x=>def(x).type==='enhance')?4:-4;
     }else if(arch==='colorCounter'){
-      // 色彩対策CPU：妨害にコストを使わず、ハチの展開速度で先に縄張りを削り切る。
+      // 色彩対策CPU：ハチの高速展開を維持し、1000火力で色彩の主力だけをテンポ良く除去する。
       if(c.name==='オオスズメバチ（女王）')b+=12;
       if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
       if(c.effect==='handTempSummon')b+=9;
+      if(c.effect==='burn1000')b+=10;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;
@@ -4864,6 +4865,7 @@
     }
     if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
     if(arch==='hercules'&&c.name==='ヘラクレスオオカブト')p+=24;
+    if(arch==='colorCounter'&&c.effect==='burn1000'&&fieldActive('player').length)p+=20;
     if(arch==='colorCounter'&&c.effect==='spellDanceCounter'){
       const lock=fieldActive('cpu').some(fc=>['silenceAll','phaseMutation'].includes(rawFieldPassive(fc)?.type));
       p+=lock?30:8;

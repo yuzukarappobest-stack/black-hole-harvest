@@ -46,7 +46,7 @@ const DEFAULTS={
   bee:{resourceTarget:6,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:6,tempSummonMinValue:12,preserveWeight:1.3,removalWeight:1.25,aceWeight:1.45,deployThreshold:8,engineBaitPriority:8},
   mimicAggro:{resourceTarget:4,blueBaitFloor:2,aggression:1.6,directAttackWeight:1.8,tempSummonBaitFloor:4,tempSummonMinValue:10,preserveWeight:.95,removalWeight:.95,aceWeight:1.05,deployThreshold:5},
   colorBlessing:{resourceTarget:5,blueBaitFloor:2,aggression:1.25,directAttackWeight:1.4,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.2,removalWeight:1.2,aceWeight:1.25,deployThreshold:7,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
-  colorCounter:{resourceTarget:5,blueBaitFloor:2,aggression:1.45,directAttackWeight:1.7,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.25,removalWeight:1.4,aceWeight:1.55,deployThreshold:5.5,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
+  colorCounter:{resourceTarget:4,blueBaitFloor:2,aggression:1.65,directAttackWeight:1.9,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.25,removalWeight:1.5,aceWeight:1.7,deployThreshold:4.8,rgbBaitPriority:9,bloodPactTerritoryWeight:1.15},
   generic:{resourceTarget:5,blueBaitFloor:2,aggression:1.2,directAttackWeight:1.35,tempSummonBaitFloor:5,tempSummonMinValue:11,preserveWeight:1.15,removalWeight:1.15,aceWeight:1.2,deployThreshold:7}
 };
 
@@ -102,10 +102,12 @@ function aceBonus(arch,c){
   if(arch==='sumatra'&&n==='スマトラオオヒラタクワガタ')return 8;
   if(arch==='bee'&&n==='オオスズメバチ（女王）')return 8;
   if(arch==='colorBlessing'&&c.passive?.type==='colorBlessing')return 6;
-  if(arch==='colorCounter'&&c.passive?.type==='phaseMutation')return 12;
-  if(arch==='colorCounter'&&c.passive?.type==='superClairvoyance')return 7;
-  if(arch==='colorCounter'&&c.passive?.type==='faceDownBaitDiscount')return 5;
-  if(arch==='colorCounter'&&c.passive?.type==='snakeEye')return 4;
+  if(arch==='colorCounter'&&c.passive?.type==='silenceAll')return 18;
+  if(arch==='colorCounter'&&c.passive?.type==='phaseMutation')return 11;
+  if(arch==='colorCounter'&&c.effect==='spellDanceCounter')return 8;
+  if(arch==='colorCounter'&&c.name==='オウサマミツギリゾウムシ')return 6;
+  if(arch==='colorCounter'&&c.name==='オオミズアオ（幼虫）')return 5;
+  if(arch==='colorCounter'&&c.name==='クロテイオウゼミ')return 5;
   return 0;
 }
 function cardValue(arch,c,p){return baseValue(c)+aceBonus(arch,c)*p.aceWeight;}
@@ -117,11 +119,15 @@ function setup(arch,rng){
 }
 function draw(side){if(side.deck.length)side.hand.push(side.deck.shift());}
 function blueBait(side){return side.bait.filter(id=>cards[id]?.type==='insect'&&cards[id]?.color==='blue').length;}
-function phaseMutationOn(side){
+function silenceOn(side,opp=null){
+  return [side,opp].filter(Boolean).some(s=>s?.field?.some(u=>cards[u.id]?.passive?.type==='silenceAll'));
+}
+function phaseMutationOn(side,opp=null){
+  if(silenceOn(side,opp))return false;
   return !!side?.field?.some(u=>cards[u.id]?.passive?.type==='phaseMutation');
 }
 function rgbBait(side,opp=null){
-  if(phaseMutationOn(side)||phaseMutationOn(opp))return false;
+  if(phaseMutationOn(side,opp)||phaseMutationOn(opp,side))return false;
   const s=new Set(side.bait.map(id=>cards[id]?.color));
   return s.has('red')&&s.has('blue')&&s.has('green');
 }
@@ -129,10 +135,12 @@ function effectiveCost(side,id,opp=null){
   const c=cards[id];let cost=Number(c.cost||0);
   if(c.passive?.type==='aquaticCost')cost=Math.max(0,cost-Math.floor(blueBait(side)/2));
   if(c.passive?.type==='colorBlessing'){
-    const colors=(phaseMutationOn(side)||phaseMutationOn(opp))
-      ? new Set(side.bait.some(x=>cards[x]?.type==='insect')?['colorless']:[])
-      : new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color).filter(Boolean));
-    cost=Math.max(0,cost-colors.size);
+    if(!silenceOn(side,opp)){
+      const colors=(phaseMutationOn(side,opp)||phaseMutationOn(opp,side))
+        ? new Set(side.bait.some(x=>cards[x]?.type==='insect')?['colorless']:[])
+        : new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color).filter(Boolean));
+      cost=Math.max(0,cost-colors.size);
+    }
   }
   if(c.effect==='eternalCocoon'){
     const colors=new Set(side.bait.map(x=>cards[x]?.color).filter(Boolean));
@@ -179,13 +187,13 @@ function keepScore(side,id,p){
   }
   if(arch==='colorBlessing'&&c.effect==='bloodPact')v+=8;
   if(arch==='colorCounter'){
-    const greenBait=side.bait.filter(x=>cards[x]?.type==='insect'&&cards[x]?.color==='green').length;
-    if(c.passive?.type==='phaseMutation')v+=18;
-    if(c.passive?.type==='superClairvoyance')v+=9;
-    if(c.passive?.type==='snakeEye')v+=5;
+    if(c.passive?.type==='silenceAll')v+=26;
+    if(c.passive?.type==='phaseMutation')v+=14;
+    if(c.effect==='spellDanceCounter')v+=silenceOn(side)||phaseMutationOn(side)?12:5;
+    if(c.name==='オウサマミツギリゾウムシ')v+=7;
+    if(c.name==='オオミズアオ（幼虫）')v+=6;
     if(c.name==='クロテイオウゼミ')v+=5;
-    if(c.passive?.type==='faceDownBaitDiscount')v+=4;
-    if(c.type==='insect'&&c.color==='green'&&c.passive?.type!=='phaseMutation'&&greenBait<2)v-=8;
+    if(c.effect==='burn1000'||c.effect==='bloodPact')v+=5;
   }
   if(arch==='sumatra'&&c.type==='insect'){
     const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
@@ -277,14 +285,15 @@ function actionCandidates(me,opp,p){
         score+=rgbBait(me,opp)?14:1;
         if(rgbBait(me,opp)&&cost<=2)score+=7;
       }
-      if(me.arch==='colorCounter'&&c.passive?.type==='phaseMutation'){
-        const counterLockBonus=opp.arch==='colorBlessing'&&!phaseMutationOn(me)?34:12;
-        score+=counterLockBonus;
+      if(me.arch==='colorCounter'&&c.passive?.type==='silenceAll'){
+        score+=opp.arch==='colorBlessing'&&!silenceOn(me,opp)?48:18;
       }
-      if(me.arch==='colorCounter'&&c.passive?.type==='superClairvoyance'&&phaseMutationOn(me))score+=12;
+      if(me.arch==='colorCounter'&&c.passive?.type==='phaseMutation'&&!silenceOn(me,opp)){
+        score+=opp.arch==='colorBlessing'&&!phaseMutationOn(me,opp)?30:10;
+      }
       if(me.arch==='bee'&&c.name==='オオスズメバチ（女王）')score+=me.bait.filter(x=>isWasp(cards[x])&&Number(cards[x].cost||0)<=5).length*4;
       const colorCounterTactical=me.arch==='colorCounter'
-        ? (c.passive?.type==='snakeEye'?7:c.name==='クロテイオウゼミ'?5:c.passive?.type==='faceDownBaitDiscount'?4:0)
+        ? (c.name==='クロテイオウゼミ'?7:c.name==='オウサマミツギリゾウムシ'?8:c.name==='オオミズアオ（幼虫）'?6:c.name==='チリクワガタ'?5:0)
         : 0;
       score+=colorCounterTactical;
       out.push({kind:'insect',id,cost,score});
@@ -300,6 +309,9 @@ function actionCandidates(me,opp,p){
       }else if(c.effect==='recoverInsect'&&me.discard.some(x=>cards[x]?.type==='insect')){
         const best=bestInsect(me.discard,me.arch,p);
         out.push({kind:'recover',id,target:best,cost,score:best!=null?cardValue(me.arch,cards[best],p)*.55:0});
+      }else if(c.effect==='spellDanceCounter'&&cost<=me.bait.length&&!opp.spellCounter){
+        const lock=silenceOn(me,opp)||phaseMutationOn(me,opp);
+        out.push({kind:'spellGuard',id,cost,score:(lock?28:10)+p.preserveWeight*2});
       }else if(c.effect==='bloodPact'&&opp.field.length&&(cost<=me.bait.length||me.territory.length>=2)){
         const t=[...opp.field].sort((a,b)=>threat(opp,b)-threat(opp,a))[0];
         const ready=me.field.filter(u=>!u.attacked&&u.delay<=0).length;
@@ -410,16 +422,22 @@ function playBestActions(me,opp,p){
       me.field.push({id:a.target,damage:0,buff:0,temp:true,delay:0,bounceUsed:false,attacked:false});
     }else if(a.kind==='recover'){
       budget-=a.cost;me.discard.push(a.id);moveOne(me.discard,a.target);me.hand.push(a.target);
+    }else if(a.kind==='spellGuard'){
+      budget-=a.cost;me.discard.push(a.id);opp.spellCounter=true;
     }else if(a.kind==='bloodPact'){
       if(a.payTerritory||a.cost>budget)me.territory.splice(0,Math.min(2,me.territory.length));
       else budget-=a.cost;
       me.discard.push(a.id);
-      const counteredBySuperClairvoyance=opp.field.find(u=>cards[u.id]?.passive?.type==='superClairvoyance');
-      if(counteredBySuperClairvoyance){
-        opp.discard.push(counteredBySuperClairvoyance.id);
-        opp.field.splice(opp.field.indexOf(counteredBySuperClairvoyance),1);
+      if(me.spellCounter){
+        me.spellCounter=false;
       }else{
-        const i=opp.field.indexOf(a.target);if(i>=0){opp.discard.push(opp.field[i].id);opp.field.splice(i,1);}
+        const counteredBySuperClairvoyance=!silenceOn(me,opp)&&opp.field.find(u=>cards[u.id]?.passive?.type==='superClairvoyance');
+        if(counteredBySuperClairvoyance){
+          opp.discard.push(counteredBySuperClairvoyance.id);
+          opp.field.splice(opp.field.indexOf(counteredBySuperClairvoyance),1);
+        }else{
+          const i=opp.field.indexOf(a.target);if(i>=0){opp.discard.push(opp.field[i].id);opp.field.splice(i,1);}
+        }
       }
     }else if(a.kind==='cocoon'){
       budget-=a.cost;me.discard.push(a.id);
@@ -536,6 +554,7 @@ function runGame(archA,pA,archB,pB,seed){
     if(attackPhase(me,opp,p)==='win')return {winner:idx,margin:6-opp.territory.length};
     for(const u of opp.field)u.mimicShield=false;
     cleanup(me);
+    me.spellCounter=false; // expires at the end of the protected player's turn if unused
   }
   const scoreA=sides[0].territory.length+sides[0].field.length*.3;
   const scoreB=sides[1].territory.length+sides[1].field.length*.3;
@@ -757,7 +776,7 @@ function colorCounterEval(p,gen,index,rounds=8){
   for(let v=0;v<COLOR_OPPONENTS.length;v++){
     const op=COLOR_OPPONENTS[v];
     for(let n=0;n<rounds;n++){
-      const seed=hash('color-counter-v1:'+v+':'+gen+':'+index+':'+n);
+      const seed=hash('color-counter-silence-v2:'+v+':'+gen+':'+index+':'+n);
       const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed);
       pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
@@ -770,8 +789,8 @@ function colorCounterEval(p,gen,index,rounds=8){
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
 
-const previous=withPolicyDefaults(TARGET_ARCH,BASE_POLICY[TARGET_ARCH]);
-const rng=mulberry32(hash('color-counter-train-v1:20260926'));
+const previous=withPolicyDefaults(TARGET_ARCH,DEFAULTS[TARGET_ARCH]);
+const rng=mulberry32(hash('color-counter-silence-v2:20260926'));
 let population=[previous];
 while(population.length<POPULATION)population.push(mutate(previous,rng,1.2));
 let champion={p:previous,...colorCounterEval(previous,-1,-1,40)};
@@ -818,8 +837,8 @@ learned.colorCounter=Object.fromEntries(Object.entries(champion.p).map(([k,v])=>
 learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
 
 const payload={
-  version:7,
-  source:'color-counter-targeted-selfplay-v1',
+  version:8,
+  source:'color-counter-silence-selfplay-v2',
   training:{
     seed:20260926,
     focusedArchetypes:[TARGET_ARCH],

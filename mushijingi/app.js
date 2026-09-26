@@ -4727,7 +4727,6 @@
       if(c.name==='オオスズメバチ（女王）')b+=12;
       if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
       if(c.effect==='handTempSummon')b+=9;
-      if(c.name==='ニホンミツバチ'&&Number(c.cost||0)===1)b+=1.5;
     }else if(arch==='colorBlessing'){
       if(c.passive?.type==='colorBlessing')b+=5;
       if(c.type==='insect'&&!baitHasRGB('cpu'))b+=0.8;

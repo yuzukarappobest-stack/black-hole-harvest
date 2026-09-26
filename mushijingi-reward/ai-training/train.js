@@ -111,6 +111,7 @@ function aceBonus(arch,c){
   if(arch==='colorCounter'&&n==='オオスズメバチ（女王）')return 9;
   if(arch==='colorCounter'&&c.effect==='handTempSummon')return 7;
   if(arch==='colorCounter'&&c.effect==='burn1000')return 8;
+  if(arch==='colorCounter'&&c.passive?.type==='spellTaunt')return 7;
   return 0;
 }
 function cardValue(arch,c,p){return baseValue(c)+aceBonus(arch,c)*p.aceWeight;}
@@ -204,6 +205,10 @@ function keepScore(side,id,p){
     if(c.name==='オオスズメバチ（女王）')v+=16;
     if(c.effect==='handTempSummon')v+=12;
     if(c.effect==='burn1000')v+=10;
+    if(c.passive?.type==='spellTaunt'){
+      const hasProtectedAce=side.field.some(u=>['オオスズメバチ（女王）','オオスズメバチ','タランチュラホーク'].includes(cards[u.id]?.name));
+      v+=hasProtectedAce?14:6;
+    }
   }
   if(arch==='sumatra'&&c.type==='insect'){
     const have=new Set(side.bait.filter(x=>cards[x]?.type==='insect').map(x=>cards[x]?.color));
@@ -838,131 +843,114 @@ function trainFocusedArch(arch){
   };
 }
 
-// ===== 色彩対策 構成ランダム探索 v8 =====
+// ===== 色彩対策 最終CPU学習 v9 =====
 const TARGET_ARCH='colorCounter';
 const TARGET_OPP='colorBlessing';
+const TARGET_WIN_RATE=0.95;
+const MIN_TRAINING_GAMES=2500000;
+const MAX_GENERATIONS=240;
+const POPULATION=80;
 
 function colorOpponentVariants(){
   const base=BASE_POLICY[TARGET_OPP];
-  const rng=mulberry32(hash('color-counter-search-v8-opponents'));
+  const rng=mulberry32(hash('color-counter-final-v9-opponents'));
   const out=[{...base}];
-  while(out.length<10)out.push(mutate(base,rng,.95));
+  while(out.length<12)out.push(mutate(base,rng,1.0));
   return out;
 }
 const COLOR_OPPONENTS=colorOpponentVariants();
 
-const SEARCH_POLICY=withPolicyDefaults(TARGET_ARCH,BASE_POLICY.colorCounter);
-
-function validDeck(ids){
-  if(!Array.isArray(ids)||ids.length!==20)return false;
-  const counts=new Map();
-  for(const id of ids){
-    if(!cards[id])return false;
-    counts.set(id,(counts.get(id)||0)+1);
-    if(counts.get(id)>2)return false;
-  }
-  return true;
-}
-function deckKey(ids){return [...ids].sort((a,b)=>a-b).join(',');}
-function deckCounts(ids){
-  const m=new Map();for(const id of ids)m.set(id,(m.get(id)||0)+1);return m;
-}
-function benchmarkDeck(ids,rounds=20,tag='d'){
+function evalVsColor(p,gen,index,rounds=6){
   let pts=0,games=0,wins=0,losses=0,draws=0;
   for(let v=0;v<COLOR_OPPONENTS.length;v++){
     const op=COLOR_OPPONENTS[v];
     for(let n=0;n<rounds;n++){
-      const seed=hash('search-v8:'+tag+':'+v+':'+n);
-      const r1=runGame(TARGET_ARCH,SEARCH_POLICY,TARGET_OPP,op,seed,ids,null);
+      const seed=hash('color-counter-final-v9:'+v+':'+gen+':'+index+':'+n);
+      const r1=runGame(TARGET_ARCH,p,TARGET_OPP,op,seed);
       pts+=scoreGame(r1,0);games++;TOTAL_GAME_COUNT++;
       if(r1.winner===0)wins++;else if(r1.winner===1)losses++;else draws++;
-      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,SEARCH_POLICY,seed^0x9e3779b9,null,ids);
+      const r2=runGame(TARGET_OPP,op,TARGET_ARCH,p,seed^0x9e3779b9);
       pts+=scoreGame(r2,1);games++;TOTAL_GAME_COUNT++;
       if(r2.winner===1)wins++;else if(r2.winner===0)losses++;else draws++;
     }
   }
   return {score:pts/games,winRate:wins/games,wins,losses,draws,games};
 }
+function finalBench(p,rounds=1000){return evalVsColor(p,9999,9999,rounds);}
 
-const BASE_DECK=[...decks.metaColorCounter.ids];
-const POOL=[
-  701,703,8,702,511,212,513,125,253,60,824,
-  117,124,350,463,558,559,661,662,
-  123,118,426,53,54,607,830,520,
-  240,527,230,345,405
-];
-const rng=mulberry32(hash('color-counter-random-decks-v8:20260926'));
-const candidates=[];
-const seen=new Set([deckKey(BASE_DECK)]);
-candidates.push(BASE_DECK);
+const previous=withPolicyDefaults(TARGET_ARCH,BASE_POLICY.colorCounter);
+const baseline=evalVsColor(previous,-2,-2,300);
+const rng=mulberry32(hash('color-counter-final-v9:20260926'));
 
-while(candidates.length<2600){
-  const d=[...BASE_DECK];
-  const changes=1+Math.floor(rng()*7);
-  for(let k=0;k<changes;k++){
-    const i=Math.floor(rng()*d.length);
-    const counts=deckCounts(d);
-    let replacement=null;
-    for(let guard=0;guard<30;guard++){
-      const x=POOL[Math.floor(rng()*POOL.length)];
-      if((counts.get(x)||0)<2 || x===d[i]){replacement=x;break;}
-    }
-    if(replacement!=null)d[i]=replacement;
+let population=[previous];
+while(population.length<POPULATION)population.push(mutate(previous,rng,1.0));
+let champion={p:previous,...evalVsColor(previous,-1,-1,40)};
+const generations=[];
+
+for(let gen=0;gen<MAX_GENERATIONS;gen++){
+  const scored=population.map((p,i)=>({p,...evalVsColor(p,gen,i,6)}))
+    .sort((a,b)=>b.score-a.score);
+  if(scored[0].score>champion.score)champion=scored[0];
+
+  const verify=evalVsColor(champion.p,gen,999,45);
+  generations.push({
+    gen,
+    score:Number(verify.score.toFixed(4)),
+    winRate:Number(verify.winRate.toFixed(4)),
+    games:TOTAL_GAME_COUNT
+  });
+  console.log('Color-counter final v9 generation',gen,generations[generations.length-1]);
+
+  if(verify.winRate>=TARGET_WIN_RATE && TOTAL_GAME_COUNT>=MIN_TRAINING_GAMES){
+    champion={p:champion.p,...verify};
+    break;
   }
-  if(!validDeck(d))continue;
-  const key=deckKey(d);
-  if(seen.has(key))continue;
-  seen.add(key);candidates.push(d);
+
+  const elite=scored.slice(0,12).map(x=>x.p);
+  population=[champion.p,...elite];
+  while(population.length<POPULATION){
+    const parent=elite[Math.floor(rng()*elite.length)]||champion.p;
+    population.push(mutate(parent,rng,Math.max(.14,.9-gen*.003)));
+  }
 }
 
-// Wide screen.
-const wide=candidates.map((ids,i)=>({ids,...benchmarkDeck(ids,12,'wide-'+i)}))
+// Dense local optimization around the best generation.
+const locals=[champion.p];
+while(locals.length<900)locals.push(microMutate(champion.p,rng,.06+rng()*.48));
+const quick=locals.map((p,i)=>({p,...evalVsColor(p,6000,i,3)}))
   .sort((a,b)=>b.score-a.score);
-console.log('v8 wide top',wide.slice(0,15).map((x,i)=>({rank:i+1,winRate:x.winRate,score:x.score,ids:x.ids})));
+const finalists=quick.slice(0,36).map((x,i)=>({p:x.p,...evalVsColor(x.p,7000,i,45)}))
+  .sort((a,b)=>b.score-a.score);
+if(finalists[0]&&finalists[0].score>champion.score)champion=finalists[0];
 
-// Medium confirmation.
-const medium=wide.slice(0,45).map((x,i)=>({ids:x.ids,...benchmarkDeck(x.ids,140,'mid-'+i)}))
-  .sort((a,b)=>b.score-a.score);
-console.log('v8 medium top',medium.slice(0,12).map((x,i)=>({rank:i+1,winRate:x.winRate,score:x.score,ids:x.ids})));
-
-// Large confirmation.
-const large=medium.slice(0,12).map((x,i)=>({ids:x.ids,...benchmarkDeck(x.ids,700,'large-'+i)}))
-  .sort((a,b)=>b.score-a.score);
-const base=benchmarkDeck(BASE_DECK,700,'base');
-const best=large[0];
-console.log('v8 final',{base,best});
+const final=finalBench(champion.p,1200);
+const learned={...PREVIOUS_ARCHETYPES};
+learned.colorCounter=Object.fromEntries(Object.entries(champion.p).map(([k,v])=>[k,Number(Number(v).toFixed(3))]));
+learned.generic={...(PREVIOUS_ARCHETYPES.generic||DEFAULTS.generic)};
 
 const payload={
-  version:15,
-  source:'color-counter-random-deck-search-v8',
+  version:16,
+  source:'color-counter-final-policy-v9',
   training:{
     seed:20260926,
+    focusedArchetypes:[TARGET_ARCH],
     targetOpponent:TARGET_OPP,
+    targetWinRate:TARGET_WIN_RATE,
+    minimumTrainingGames:MIN_TRAINING_GAMES,
     approximateSimulator:true,
     colorWeaknessMode:true,
+    spellTauntMode:true,
     games:TOTAL_GAME_COUNT,
-    candidates:candidates.length,
-    base:{
-      winRate:Number(base.winRate.toFixed(4)),
-      score:Number(base.score.toFixed(4)),
-      record:{wins:base.wins,losses:base.losses,draws:base.draws,games:base.games}
-    },
-    bestDeck:{
-      ids:best.ids,
-      names:best.ids.map(id=>cards[id]?.name||String(id)),
-      winRate:Number(best.winRate.toFixed(4)),
-      score:Number(best.score.toFixed(4)),
-      record:{wins:best.wins,losses:best.losses,draws:best.draws,games:best.games}
-    },
-    top:large.slice(0,8).map(x=>({
-      ids:x.ids,
-      names:x.ids.map(id=>cards[id]?.name||String(id)),
-      winRate:Number(x.winRate.toFixed(4)),
-      score:Number(x.score.toFixed(4))
-    }))
+    baselineWinRate:Number(baseline.winRate.toFixed(4)),
+    baselineRecord:{wins:baseline.wins,losses:baseline.losses,draws:baseline.draws,games:baseline.games},
+    finalWinRate:Number(final.winRate.toFixed(4)),
+    finalScore:Number(final.score.toFixed(4)),
+    finalRecord:{wins:final.wins,losses:final.losses,draws:final.draws,games:final.games},
+    bestGeneration:generations.reduce((best,row)=>!best||row.winRate>best.winRate?row:best,null),
+    generations
   },
-  archetypes:{...PREVIOUS_ARCHETYPES}
+  archetypes:learned
 };
 const output='(() => {\n  window.MUSHI_AI_POLICY = '+JSON.stringify(payload,null,2)+';\n})();\n';
 fs.writeFileSync(path.join(__dirname,'..','ai-policy.js'),output,'utf8');
-console.log('Color counter v8 deck search complete',payload.training);
+console.log('Color counter final v9 training complete',payload.training);

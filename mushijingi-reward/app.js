@@ -385,6 +385,30 @@
     }
   }
   function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=toHiraganaKids(text); if(KIDS_MODE)updateKidsGuide(); }
+  let kidsTextObserver=null;
+  function startKidsTextObserver(){
+    if(!KIDS_MODE||kidsTextObserver)return;
+    sanitizeKidsVisibleText(document);
+    kidsTextObserver=new MutationObserver(records=>{
+      for(const record of records){
+        if(record.type==='characterData'){
+          const node=record.target;
+          const before=node.nodeValue||'';
+          if(/[一-龯々〆ヵヶァ-ヶ]/.test(before))node.nodeValue=toHiraganaKids(before);
+        }else{
+          for(const node of record.addedNodes){
+            if(node.nodeType===Node.TEXT_NODE){
+              const before=node.nodeValue||'';
+              if(/[一-龯々〆ヵヶァ-ヶ]/.test(before))node.nodeValue=toHiraganaKids(before);
+            }else if(node.nodeType===Node.ELEMENT_NODE){
+              sanitizeKidsVisibleText(node);
+            }
+          }
+        }
+      }
+    });
+    kidsTextObserver.observe(document.body,{subtree:true,childList:true,characterData:true});
+  }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   const sleep = ms => cpuSearchActive()?Promise.resolve():new Promise(r=>setTimeout(r,ms));
 
@@ -7060,7 +7084,7 @@
 
   renderCustomDeckChoices();
   refreshBattleGate();
-  if(KIDS_MODE)sanitizeKidsVisibleText(document);
+  if(KIDS_MODE){sanitizeKidsVisibleText(document);startKidsTextObserver();}
   const params=new URLSearchParams(window.location.search);
   if(params.get('mode')==='builder')openDeckBuilder();
 })();

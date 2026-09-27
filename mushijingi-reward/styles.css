@@ -242,9 +242,6 @@ body.kids-mode .card-effect,
 body.kids-mode .attack-line{font-size:8px}
 body.kids-mode .log-box{display:none}
 body.kids-mode .cpu-difficulty-panel{display:none}
-body.kids-mode .deck-section-title,
-body.kids-mode .deck-flow-note,
-body.kids-mode .meta-deck-choices,
 body.kids-mode #customDeckChoices,
 body.kids-mode #noCustomDecks{display:none}
 body.kids-mode .deck-choices{max-width:650px;margin-left:auto;margin-right:auto}
@@ -283,3 +280,18 @@ body.kids-mode .mini-stats span:nth-child(2)::before{content:"てふだ ";font-s
 body.kids-mode .mini-stats span:nth-child(3)::before{content:"すて ";font-size:10px}
 body.kids-mode .mini-stats span:nth-child(4)::before{content:"えさ ";font-size:10px}
 body.kids-mode .mini-stats b{font-size:10px}
+
+body.kids-mode .deck-section-title{font-size:0}
+body.kids-mode .deck-section-title::after{content:"でっきを えらぶ";font-size:18px}
+body.kids-mode .deck-flow-note{font-size:0}
+body.kids-mode .deck-flow-note::after{content:"すきな でっきを えらんでね";font-size:12px}
+body.kids-mode .meta-deck-choices .deck-choice strong,
+body.kids-mode .meta-deck-choices .deck-choice small{font-size:0}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaAquatic"] strong::after{content:"すいせいこんちゅう";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaColorBlessing"] strong::after{content:"しきさいの かご";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaMimicAggro"] strong::after{content:"ぎたい あぐろ";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaArmyAnt"] strong::after{content:"ぐんたいあり";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaHercules"] strong::after{content:"へらくれす あおたん";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaSumatra3Color"] strong::after{content:"すまとら さんしょく";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaBee"] strong::after{content:"はち でっき";font-size:16px}
+body.kids-mode .meta-deck-choices .deck-choice small::after{content:"この でっきで たたかう";font-size:11px}

@@ -333,22 +333,43 @@
       setKidsGuide('できることが なければ たーんえんどしてね');
     }
   }
+  const kidsExactReadings = new Map([
+    ['ランダム（第1弾）','らんだむ（だいいちだん）'],['ランダム（第2弾）','らんだむ（だいにだん）'],['ランダム（第3弾）','らんだむ（だいさんだん）'],
+    ['ランダム（第4弾）','らんだむ（だいよんだん）'],['ランダム（第5弾）','らんだむ（だいごだん）'],['ランダム（第6弾）','らんだむ（だいろくだん）'],
+    ['ランダム（第7弾）','らんだむ（だいななだん）'],['ランダム（第8弾）','らんだむ（だいはちだん）'],
+    ['環境：水生昆虫','かんきょう：すいせいこんちゅう'],['環境：色彩の加護','かんきょう：しきさいの かご'],
+    ['環境：擬態アグロ','かんきょう：ぎたい あぐろ'],['環境：軍隊アリ','かんきょう：ぐんたいあり'],
+    ['環境：ヘラクレス青単','かんきょう：へらくれす あおたん'],['環境：スマトラ3色','かんきょう：すまとら さんしょく'],
+    ['環境：蜂','かんきょう：はち'],['環境：色彩対策','かんきょう：しきさいたいさく'],['環境：白アリ','かんきょう：しろあり'],
+    ['固定20枚','こてい20まい'],['保存した自作デッキ・20枚','ほぞんした じさくでっき・20まい']
+  ]);
   const kidsReplaceMap = [
+    ['ヘラクレス','へらくれす'],['スマトラ','すまとら'],['アグロ','あぐろ'],['ランダム','らんだむ'],['デッキ','でっき'],
     ['エサ','えさ'],['手札','てふだ'],['現在','いま'],['選んで','えらんで'],['選ぶ','えらぶ'],['置く','おく'],['置かない','おかない'],
-    ['メインフェイズ','こうどう'],['ターン','たーん'],['終了','おわり'],['相手','あいて'],['自分','じぶん'],['虫','むし'],
+    ['メインフェイズ','こうどう'],['フェイズ','ふぇいず'],['ターン','たーん'],['終了','おわり'],['相手','あいて'],['自分','じぶん'],['虫','むし'],
     ['攻撃','こうげき'],['強化','きょうか'],['術','じゅつ'],['裏向き','うらむき'],['表向き','おもてむき'],['縄張り','なわばり'],
     ['山札','やまふだ'],['捨て札','すてふだ'],['場','ば'],['カード','かーど'],['コスト','こすと'],['CPU','あいて'],
     ['枚','まい'],['体','たい'],['先攻','せんこう'],['後攻','こうこう'],['対戦','たいせん'],['開始','かいし'],['勝ち','かち'],
-    ['負け','まけ'],['引き分け','ひきわけ'],['色','いろ'],['赤','あか'],['青','あお'],['緑','みどり'],['無色','むしょく'],
+    ['負け','まけ'],['引き分け','ひきわけ'],['色彩','しきさい'],['色','いろ'],['赤','あか'],['青','あお'],['緑','みどり'],['無色','むしょく'],
     ['選択','えらぶ'],['戻す','もどす'],['破壊','はかい'],['使う','つかう'],['使える','つかえる'],['技','わざ'],
-    ['回復','かいふく'],['効果','こうか'],['追加','ついか'],['1度','いちど'],['一度','いちど']
+    ['回復','かいふく'],['効果','こうか'],['追加','ついか'],['環境','かんきょう'],['水生','すいせい'],['昆虫','こんちゅう'],
+    ['加護','かご'],['擬態','ぎたい'],['軍隊','ぐんたい'],['蜂','はち'],['対策','たいさく'],['白','しろ'],['自作','じさく'],
+    ['保存','ほぞん'],['固定','こてい'],['種類','しゅるい'],['種','しゅ'],['弾','だん'],['第','だい'],
+    ['同じ','おなじ'],['名前','なまえ'],['別','べつ'],['進む','すすむ'],['確認','かくにん'],['決めて','きめて'],['選び','えらび'],
+    ['加える','くわえる'],['戻る','もどる'],['使用','しよう'],['発生','はっせい'],['必要','ひつよう'],['可能','かのう'],['不可','ふか'],
+    ['対象','たいしょう'],['神','かみ'],['連撃','れんげき'],['共食い','ともぐい'],['毒','どく'],['吸血','きゅうけつ'],
+    ['蜘蛛','くも'],['黄金','おうごん'],['奈落','ならく'],['復活','ふっかつ'],['女王','じょおう'],['産卵','さんらん'],
+    ['光沢','こうたく'],['決死','けっし'],['一撃','いちげき'],['体力','たいりょく'],['増やす','ふやす'],['減らす','へらす'],
+    ['回','かい'],['次','つぎ'],['1度','いちど'],['一度','いちど']
   ];
   function toHiraganaKids(text){
     if(!KIDS_MODE)return String(text??'');
     let t=String(text??'');
+    if(kidsExactReadings.has(t)) t=kidsExactReadings.get(t);
     for(const [a,b] of kidsReplaceMap)t=t.split(a).join(b);
     t=t.replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
-    return t;
+    t=t.replace(/[一-龯々〆ヵヶ]/g,'');
+    return t.replace(/\s{2,}/g,' ').trim();
   }
   function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=toHiraganaKids(text); if(KIDS_MODE)updateKidsGuide(); }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
@@ -1120,8 +1141,8 @@
   function render(){
     if(cpuSearchActive()||!state)return;
     const p=state.player,c=state.cpu;
-    $('playerDeckName').textContent=p.deckName;
-    $('cpuDeckName').textContent=c.deckName;
+    $('playerDeckName').textContent=toHiraganaKids(p.deckName);
+    $('cpuDeckName').textContent=toHiraganaKids(c.deckName);
     $('playerDeckCount').textContent=p.deck.length;
     $('cpuDeckCount').textContent=c.deck.length;
     $('playerHandCount').textContent=p.hand.length;
@@ -1136,9 +1157,9 @@
     renderField('player'); renderField('cpu');
     renderAuxZones();
     renderHand();
-    $('turnLabel').textContent = state.over ? '対戦終了' : `${state.turn==='player'?'あなた':'CPU'}のターン`;
-    $('phaseLabel').textContent = state.over ? '' : phaseName(state.phase);
-    $('costLabel').textContent = state.phase==='main' ? `残りコスト ${sideObj(state.turn).cost}` : '';
+    $('turnLabel').textContent = toHiraganaKids(state.over ? '対戦終了' : `${state.turn==='player'?'あなた':'CPU'}のターン`);
+    $('phaseLabel').textContent = state.over ? '' : toHiraganaKids(phaseName(state.phase));
+    $('costLabel').textContent = state.phase==='main' ? toHiraganaKids(`残りコスト ${sideObj(state.turn).cost}`) : '';
     renderActions(); renderLog(); if(KIDS_MODE)updateKidsGuide();
   }
   function phaseName(p){return ({draw:'ドロー',set:'セット',main:'メイン',cpu:'CPU思考中'})[p]||'';}
@@ -1224,7 +1245,7 @@
       if(fc.poisonBubbleTurn===state.turnSeq)status+='毒の泡 ';
       if(isAttackBlocked(opt.side||findFieldSide(fc),fc))status+='攻撃不可 ';
     }
-    const attaches=fc?.attachments.length?`<div class="attach-line">強化: ${fc.attachments.map(a=>escapeHtml(def(a).name)).join(' / ')}</div>`:'';
+    const attaches=fc?.attachments.length?`<div class="attach-line">${toHiraganaKids('強化')}: ${fc.attachments.map(a=>escapeHtml(toHiraganaKids(def(a).name))).join(' / ')}</div>`:'';
     if(c.image)el.classList.add('has-art');
     const shownName=toHiraganaKids(c.name);
     if(KIDS_MODE){

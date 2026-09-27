@@ -46,6 +46,7 @@
     }
     battleAccessAvailable = !IS_REWARD_BUILD || sessionStorage.getItem(BATTLE_ACCESS_KEY) === "1";
     refreshBattleGate();
+    if(KIDS_MODE)sanitizeKidsVisibleText(document);
     // Safari may restore the search field value after initial rendering.
     // Re-render once pageshow fires so the restored Japanese query is applied.
     if(deckBuilderScreen && !deckBuilderScreen.classList.contains('hidden')) renderCardCatalog();
@@ -371,6 +372,18 @@
     t=t.replace(/[一-龯々〆ヵヶ]/g,'');
     return t.replace(/\s{2,}/g,' ').trim();
   }
+  function sanitizeKidsVisibleText(root=document){
+    if(!KIDS_MODE||!root)return;
+    const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+    const nodes=[];
+    while(walker.nextNode())nodes.push(walker.currentNode);
+    for(const node of nodes){
+      const p=node.parentElement;
+      if(!p||['SCRIPT','STYLE'].includes(p.tagName))continue;
+      const before=node.nodeValue||'';
+      if(/[一-龯々〆ヵヶァ-ヶ]/.test(before))node.nodeValue=toHiraganaKids(before);
+    }
+  }
   function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=toHiraganaKids(text); if(KIDS_MODE)updateKidsGuide(); }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   const sleep = ms => cpuSearchActive()?Promise.resolve():new Promise(r=>setTimeout(r,ms));
@@ -580,7 +593,7 @@
   }
   function closeDeckBuilder(){
     deckBuilderScreen.classList.add('hidden');gameScreen.classList.add('hidden');startScreen.classList.remove('hidden');
-    renderCustomDeckChoices();refreshBattleGate();
+    renderCustomDeckChoices();refreshBattleGate();if(KIDS_MODE)sanitizeKidsVisibleText(startScreen);
   }
 
   async function cpuNotice(text){
@@ -1160,7 +1173,7 @@
     $('turnLabel').textContent = toHiraganaKids(state.over ? '対戦終了' : `${state.turn==='player'?'あなた':'CPU'}のターン`);
     $('phaseLabel').textContent = state.over ? '' : toHiraganaKids(phaseName(state.phase));
     $('costLabel').textContent = state.phase==='main' ? toHiraganaKids(`残りコスト ${sideObj(state.turn).cost}`) : '';
-    renderActions(); renderLog(); if(KIDS_MODE)updateKidsGuide();
+    renderActions(); renderLog(); if(KIDS_MODE){updateKidsGuide();sanitizeKidsVisibleText(gameScreen);}
   }
   function phaseName(p){return ({draw:'ドロー',set:'セット',main:'メイン',cpu:'CPU思考中'})[p]||'';}
   function renderTerritory(side){
@@ -6963,6 +6976,7 @@
       const wrap=$('modalOptions');wrap.innerHTML='';
       options.forEach(o=>{const b=document.createElement('button');b.className=`modal-option ${o.value===null?'cancel':''}`;b.innerHTML=`<b>${escapeHtml(toHiraganaKids(o.title))}</b>${o.detail?`<small>${escapeHtml(toHiraganaKids(o.detail))}</small>`:''}`;b.onclick=()=>closeModal(o.value);wrap.appendChild(b);});
       modal.classList.remove('hidden');
+      if(KIDS_MODE)sanitizeKidsVisibleText(modal);
     });
   }
   function closeModal(value){
@@ -7046,6 +7060,7 @@
 
   renderCustomDeckChoices();
   refreshBattleGate();
+  if(KIDS_MODE)sanitizeKidsVisibleText(document);
   const params=new URLSearchParams(window.location.search);
   if(params.get('mode')==='builder')openDeckBuilder();
 })();

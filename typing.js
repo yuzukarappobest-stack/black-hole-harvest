@@ -48,8 +48,21 @@
   let streak = 0;
   let solved = false;
 
+  const REQUIRED_CORRECT = 10;
+  const REWARD_TOKEN_KEY = "miniGameRewardToken";
+
   function normalize(value){
-    return value.trim().toLowerCase().replace(/\s+/g,'');
+    return value
+      .normalize("NFKC")
+      .trim()
+      .replace(/[\\u30a1-\\u30f6]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0x60))
+      .replace(/\\s+/g, "");
+  }
+
+  function completeLesson(){
+    const token = String(Date.now()) + "-" + String(Math.random());
+    sessionStorage.setItem(REWARD_TOKEN_KEY, token);
+    window.location.replace("game-menu.html");
   }
 
   function pickQuestion(){
@@ -70,10 +83,6 @@
     inputEl.focus();
   }
 
-  function isPrefix(value){
-    return current.answers.some(answer => answer.startsWith(value));
-  }
-
   function check(){
     if(solved) return;
     const value = normalize(inputEl.value);
@@ -84,7 +93,8 @@
       return;
     }
 
-    if(current.answers.includes(value)){
+    const answer = normalize(current.ja);
+    if(value === answer){
       solved = true;
       score += 1;
       streak += 1;
@@ -94,13 +104,13 @@
       inputEl.classList.add('correct');
       inputEl.disabled = true;
       feedbackEl.className = 'feedback ok';
-      feedbackEl.textContent = 'せいかい！ 🎉';
-      hintEl.textContent = current.answers[0];
-      setTimeout(pickQuestion, 700);
+      feedbackEl.textContent = score >= REQUIRED_CORRECT ? '10もん せいかい！ ごほうび！ 🎉' : 'せいかい！ 🎉';
+      hintEl.textContent = '';
+      setTimeout(score >= REQUIRED_CORRECT ? completeLesson : pickQuestion, 700);
       return;
     }
 
-    if(isPrefix(value)){
+    if(answer.startsWith(value)){
       inputEl.classList.remove('wrong');
       feedbackEl.className = 'feedback';
       feedbackEl.textContent = 'そのちょうし！';

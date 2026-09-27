@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#fff6d8">
+  <title>タイピング</title>
+  <link rel="stylesheet" href="typing.css?v=1">
+</head>
+<body>
+  <main class="typing-app">
+    <header class="topbar">
+      <a href="learn.html" class="back-link">← がくしゅう</a>
+      <h1>タイピング</h1>
+      <button id="tableToggle" class="table-toggle" type="button" aria-expanded="false">表をオン</button>
+    </header>
+
+    <section id="romajiTable" class="romaji-table hidden" aria-label="ローマ字と日本語の変換表">
+      <h2>ローマ字と日本語の変換表</h2>
+      <div class="table-grid">
+        <div><b>あ</b><span>a</span></div><div><b>い</b><span>i</span></div><div><b>う</b><span>u</span></div><div><b>え</b><span>e</span></div><div><b>お</b><span>o</span></div>
+        <div><b>か</b><span>ka</span></div><div><b>き</b><span>ki</span></div><div><b>く</b><span>ku</span></div><div><b>け</b><span>ke</span></div><div><b>こ</b><span>ko</span></div>
+        <div><b>さ</b><span>sa</span></div><div><b>し</b><span>shi / si</span></div><div><b>す</b><span>su</span></div><div><b>せ</b><span>se</span></div><div><b>そ</b><span>so</span></div>
+        <div><b>た</b><span>ta</span></div><div><b>ち</b><span>chi / ti</span></div><div><b>つ</b><span>tsu / tu</span></div><div><b>て</b><span>te</span></div><div><b>と</b><span>to</span></div>
+        <div><b>な</b><span>na</span></div><div><b>に</b><span>ni</span></div><div><b>ぬ</b><span>nu</span></div><div><b>ね</b><span>ne</span></div><div><b>の</b><span>no</span></div>
+        <div><b>は</b><span>ha</span></div><div><b>ひ</b><span>hi</span></div><div><b>ふ</b><span>fu / hu</span></div><div><b>へ</b><span>he</span></div><div><b>ほ</b><span>ho</span></div>
+        <div><b>ま</b><span>ma</span></div><div><b>み</b><span>mi</span></div><div><b>む</b><span>mu</span></div><div><b>め</b><span>me</span></div><div><b>も</b><span>mo</span></div>
+        <div><b>や</b><span>ya</span></div><div><b>ゆ</b><span>yu</span></div><div><b>よ</b><span>yo</span></div>
+        <div><b>ら</b><span>ra</span></div><div><b>り</b><span>ri</span></div><div><b>る</b><span>ru</span></div><div><b>れ</b><span>re</span></div><div><b>ろ</b><span>ro</span></div>
+        <div><b>わ</b><span>wa</span></div><div><b>を</b><span>wo</span></div><div><b>ん</b><span>n / nn</span></div>
+        <div><b>が</b><span>ga</span></div><div><b>ぎ</b><span>gi</span></div><div><b>ぐ</b><span>gu</span></div><div><b>げ</b><span>ge</span></div><div><b>ご</b><span>go</span></div>
+        <div><b>ざ</b><span>za</span></div><div><b>じ</b><span>ji / zi</span></div><div><b>ず</b><span>zu</span></div><div><b>ぜ</b><span>ze</span></div><div><b>ぞ</b><span>zo</span></div>
+        <div><b>だ</b><span>da</span></div><div><b>ぢ</b><span>ji / di</span></div><div><b>づ</b><span>zu / du</span></div><div><b>で</b><span>de</span></div><div><b>ど</b><span>do</span></div>
+        <div><b>ば</b><span>ba</span></div><div><b>び</b><span>bi</span></div><div><b>ぶ</b><span>bu</span></div><div><b>べ</b><span>be</span></div><div><b>ぼ</b><span>bo</span></div>
+        <div><b>ぱ</b><span>pa</span></div><div><b>ぴ</b><span>pi</span></div><div><b>ぷ</b><span>pu</span></div><div><b>ぺ</b><span>pe</span></div><div><b>ぽ</b><span>po</span></div>
+        <div><b>きゃ</b><span>kya</span></div><div><b>きゅ</b><span>kyu</span></div><div><b>きょ</b><span>kyo</span></div>
+        <div><b>しゃ</b><span>sha / sya</span></div><div><b>しゅ</b><span>shu / syu</span></div><div><b>しょ</b><span>sho / syo</span></div>
+        <div><b>ちゃ</b><span>cha / tya</span></div><div><b>ちゅ</b><span>chu / tyu</span></div><div><b>ちょ</b><span>cho / tyo</span></div>
+        <div><b>にゃ</b><span>nya</span></div><div><b>にゅ</b><span>nyu</span></div><div><b>にょ</b><span>nyo</span></div>
+        <div><b>ひゃ</b><span>hya</span></div><div><b>ひゅ</b><span>hyu</span></div><div><b>ひょ</b><span>hyo</span></div>
+        <div><b>みゃ</b><span>mya</span></div><div><b>みゅ</b><span>myu</span></div><div><b>みょ</b><span>myo</span></div>
+        <div><b>りゃ</b><span>rya</span></div><div><b>りゅ</b><span>ryu</span></div><div><b>りょ</b><span>ryo</span></div>
+      </div>
+      <p class="table-note">「っ」は次の子音を2回打ちます。例：きって → kitte</p>
+    </section>
+
+    <section class="game-card">
+      <div class="score-row">
+        <span>せいかい <b id="score">0</b></span>
+        <span>れんぞく <b id="streak">0</b></span>
+      </div>
+      <p class="instruction">したの日本語をローマ字で入力しよう</p>
+      <div id="prompt" class="prompt" aria-live="polite"></div>
+      <div id="hint" class="hint" aria-live="polite"></div>
+      <input id="typingInput" class="typing-input" type="text" inputmode="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" aria-label="ローマ字を入力">
+      <p id="feedback" class="feedback" aria-live="polite">キーボードで入力してね</p>
+      <button id="nextBtn" class="next-btn" type="button">つぎのもんだい</button>
+    </section>
+  </main>
+  <script src="typing.js?v=1"></script>
+</body>
+</html>

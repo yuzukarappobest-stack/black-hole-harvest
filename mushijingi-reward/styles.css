@@ -214,3 +214,72 @@ button{font:inherit}.hidden{display:none!important}
 @media(max-width:700px){
   .card-search-box{grid-column:1/-1}
 }
+
+
+/* ===== ひらがな / こどもモード ===== */
+body.kids-mode .topbar h1{font-size:0}
+body.kids-mode .topbar h1::after{content:"むしじんぎ";font-size:24px}
+body.kids-mode .topbar p{font-size:0}
+body.kids-mode .topbar p::after{content:"ひらがなで あそべる かんたんたいせん";font-size:12px}
+body.kids-mode .kids-guide{display:block;position:sticky;top:0;z-index:35;margin:4px auto 8px;width:min(760px,96%);padding:12px 16px;border:3px solid #73b8ff;border-radius:16px;background:#eaf6ff;color:#17324a;font-size:clamp(18px,4vw,28px);font-weight:1000;text-align:center;box-shadow:0 5px 18px #0004}
+body.kids-mode .kids-guide.hidden{display:none}
+body.kids-mode .playable{outline:4px solid #55b8ff!important;outline-offset:1px;box-shadow:0 0 0 3px #d9f2ff,0 0 18px #55b8ff!important}
+body.kids-mode .game-card:not(.playable).kids-dim{opacity:.48;filter:saturate(.65)}
+body.kids-mode .lane-title,
+body.kids-mode .mini-stats,
+body.kids-mode .turn-strip,
+body.kids-mode .message-box,
+body.kids-mode .action-btn,
+body.kids-mode .modal-card,
+body.kids-mode .field-empty,
+body.kids-mode .empty-zone{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif}
+body.kids-mode .message-box{font-size:16px;line-height:1.55;background:#18381f;border:2px solid #74c98c}
+body.kids-mode .action-btn{font-size:17px;min-height:48px;padding:10px 16px}
+body.kids-mode .modal-option b{font-size:17px}
+body.kids-mode .modal-option small{font-size:12px;line-height:1.45}
+body.kids-mode .card-name{font-size:11px}
+body.kids-mode .card-effect,
+body.kids-mode .attack-line{font-size:8px}
+body.kids-mode .log-box{display:none}
+body.kids-mode .cpu-difficulty-panel{display:none}
+body.kids-mode .deck-section-title,
+body.kids-mode .deck-flow-note,
+body.kids-mode .meta-deck-choices,
+body.kids-mode #customDeckChoices,
+body.kids-mode #noCustomDecks{display:none}
+body.kids-mode .deck-choices{max-width:650px;margin-left:auto;margin-right:auto}
+body.kids-mode .deck-choice{min-height:118px}
+body.kids-mode #startScreen>p{font-size:0}
+body.kids-mode #startScreen>p::after{content:"でっきを えらんだら たいせんできるよ。あおく ひかった かーどを えらんでね。";font-size:15px}
+body.kids-mode .start-actions{display:none}
+body.kids-mode .battle-gate strong,
+body.kids-mode .battle-gate span{font-size:0}
+body.kids-mode .battle-gate.unlocked strong::after{content:"たいせん できるよ！";font-size:15px}
+body.kids-mode .battle-gate.unlocked span::after{content:"でっきを えらんでね";font-size:13px}
+body.kids-mode .deck-choice strong,
+body.kids-mode .deck-choice small{font-size:0}
+body.kids-mode .deck-choice[data-deck="kabuto"] strong::after{content:"かぶとむし でっき";font-size:17px}
+body.kids-mode .deck-choice[data-deck="kabuto"] small::after{content:"かぶとむしで たたかう";font-size:12px}
+body.kids-mode .deck-choice[data-deck="mantis"] strong::after{content:"おおかまきり でっき";font-size:17px}
+body.kids-mode .deck-choice[data-deck="mantis"] small::after{content:"かまきりで たたかう";font-size:12px}
+body.kids-mode .deck-choice[data-deck^="random"]{display:none}
+body.kids-mode .rules-note{display:none}
+body.kids-mode #newGameBtn{font-size:0}
+body.kids-mode #newGameBtn::after{content:"がくしゅうへ";font-size:13px}
+body.kids-mode .lane-title{font-size:0}
+body.kids-mode .cpu-hand-lane .lane-title::after{content:"あいての てふだ";font-size:12px}
+body.kids-mode .opponent-zone .bait-lane .lane-title::after{content:"あいての えさ";font-size:12px}
+body.kids-mode .opponent-zone .territory-lane .lane-title::after{content:"あいての なわばり";font-size:12px}
+body.kids-mode .opponent-zone .field-lane .lane-title::after{content:"あいての むし";font-size:12px}
+body.kids-mode .self-zone .field-lane .lane-title::after{content:"じぶんの むし";font-size:12px}
+body.kids-mode .self-zone .territory-lane .lane-title::after{content:"じぶんの なわばり";font-size:12px}
+body.kids-mode .self-zone .bait-lane .lane-title::after{content:"じぶんの えさ";font-size:12px}
+body.kids-mode .player-hand-lane .lane-title::after{content:"てふだ";font-size:13px}
+body.kids-mode .pile-zone .lane-title::after{content:"やまふだ";font-size:11px}
+body.kids-mode .resource-lane .pile-zone:last-child .lane-title::after{content:"すてふだ";font-size:11px}
+body.kids-mode .mini-stats span{font-size:0}
+body.kids-mode .mini-stats span:nth-child(1)::before{content:"やま ";font-size:10px}
+body.kids-mode .mini-stats span:nth-child(2)::before{content:"てふだ ";font-size:10px}
+body.kids-mode .mini-stats span:nth-child(3)::before{content:"すて ";font-size:10px}
+body.kids-mode .mini-stats span:nth-child(4)::before{content:"えさ ";font-size:10px}
+body.kids-mode .mini-stats b{font-size:10px}

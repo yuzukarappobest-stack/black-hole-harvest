@@ -333,7 +333,24 @@
       setKidsGuide('できることが なければ たーんえんどしてね');
     }
   }
-  function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=text; if(KIDS_MODE)updateKidsGuide(); }
+  const kidsReplaceMap = [
+    ['エサ','えさ'],['手札','てふだ'],['現在','いま'],['選んで','えらんで'],['選ぶ','えらぶ'],['置く','おく'],['置かない','おかない'],
+    ['メインフェイズ','こうどう'],['ターン','たーん'],['終了','おわり'],['相手','あいて'],['自分','じぶん'],['虫','むし'],
+    ['攻撃','こうげき'],['強化','きょうか'],['術','じゅつ'],['裏向き','うらむき'],['表向き','おもてむき'],['縄張り','なわばり'],
+    ['山札','やまふだ'],['捨て札','すてふだ'],['場','ば'],['カード','かーど'],['コスト','こすと'],['CPU','あいて'],
+    ['枚','まい'],['体','たい'],['先攻','せんこう'],['後攻','こうこう'],['対戦','たいせん'],['開始','かいし'],['勝ち','かち'],
+    ['負け','まけ'],['引き分け','ひきわけ'],['色','いろ'],['赤','あか'],['青','あお'],['緑','みどり'],['無色','むしょく'],
+    ['選択','えらぶ'],['戻す','もどす'],['破壊','はかい'],['使う','つかう'],['使える','つかえる'],['技','わざ'],
+    ['回復','かいふく'],['効果','こうか'],['追加','ついか'],['1度','いちど'],['一度','いちど']
+  ];
+  function toHiraganaKids(text){
+    if(!KIDS_MODE)return String(text??'');
+    let t=String(text??'');
+    for(const [a,b] of kidsReplaceMap)t=t.split(a).join(b);
+    t=t.replace(/[ァ-ヶ]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60));
+    return t;
+  }
+  function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=toHiraganaKids(text); if(KIDS_MODE)updateKidsGuide(); }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   const sleep = ms => cpuSearchActive()?Promise.resolve():new Promise(r=>setTimeout(r,ms));
 
@@ -1191,7 +1208,7 @@
     const el=document.createElement('div');
     el.className=`game-card ${c.type==='insect'?c.color:'special'} ${opt.playable?'playable':''} ${fc?.attacked?'used':''} ${fc?.hidden?'hidden-insect':''} ${opt.mini?'mini-card':''}`;
     if(fc?.hidden){ el.innerHTML='<div class="card-name">裏向きの虫</div><div class="card-effect">ターン終了まで「場にいない」扱い</div>'; return el; }
-    const meta=c.type==='insect' ? `<span>${colorJa[fc?effectiveColor(fc):c.color]}</span><span>HP ${fc?Math.max(0,maxHp(fc)-fc.damage):c.hp}/${fc?maxHp(fc):c.hp}</span>` : `<span>${cardTypeLabel(c)}</span>`;
+    const meta=c.type==='insect' ? `<span>${toHiraganaKids(colorJa[fc?effectiveColor(fc):c.color])}</span><span>HP ${fc?Math.max(0,maxHp(fc)-fc.damage):c.hp}/${fc?maxHp(fc):c.hp}</span>` : `<span>${toHiraganaKids(cardTypeLabel(c))}</span>`;
     const cropClass=c.imageCrop?` crop-${escapeHtml(c.imageCrop)}`:'';
     const artHtml=c.image?`<div class="card-art${cropClass}"><img src="${escapeHtml(c.image)}" alt="${escapeHtml(c.name)}" referrerpolicy="no-referrer" loading="lazy"></div>`:'';
     let body='';
@@ -1209,7 +1226,15 @@
     }
     const attaches=fc?.attachments.length?`<div class="attach-line">強化: ${fc.attachments.map(a=>escapeHtml(def(a).name)).join(' / ')}</div>`:'';
     if(c.image)el.classList.add('has-art');
-    el.innerHTML=`<div class="card-top"><div class="card-name">${escapeHtml(c.name)}</div><div class="card-cost">${c.cost}</div></div>${artHtml}<div class="card-meta">${meta}</div>${body}${status?`<div class="status-line">${status}</div>`:''}${attaches}`;
+    const shownName=toHiraganaKids(c.name);
+    if(KIDS_MODE){
+      if(c.type==='insect'){
+        body=c.attacks.map(a=>`<div class="attack-line"><b>${escapeHtml(toHiraganaKids(a.name))} ${fc?attackPower(opt.side||findFieldSide(fc),fc,a):(a.dynamic?'X':Math.max(0,Number(a.power||0)))}</b>${a.text?`<div>${escapeHtml(toHiraganaKids(a.text))}</div>`:''}</div>`).join('');
+        if(c.passive) body+=`<div class="card-effect">${escapeHtml(toHiraganaKids(c.passive.text))}</div>`;
+      } else body=`<div class="card-effect">${escapeHtml(toHiraganaKids(c.effectText))}</div>`;
+      status=toHiraganaKids(status);
+    }
+    el.innerHTML=`<div class="card-top"><div class="card-name">${escapeHtml(shownName)}</div><div class="card-cost">${c.cost}</div></div>${artHtml}<div class="card-meta">${meta}</div>${body}${status?`<div class="status-line">${status}</div>`:''}${attaches}`;
     if(fc && opt.side==='player' && state.turn==='player' && state.phase==='main' && !state.over && !fc.hidden){
       if(canAttack(fc)) el.classList.add('playable');
       el.addEventListener('click',()=>onFieldCard(fc.inst.uid));
@@ -1372,7 +1397,7 @@
   async function chooseTurnOrder(playerDeckRef){
     if(!hasBattleAccess()){refreshBattleGate();return;}
     const playerDeck=resolveDeckDefinition(playerDeckRef);if(!deckIsBattleReady(playerDeck))return;
-    const cpuOptions=battleDeckOptions().map(item=>({value:item.ref,title:item.name,detail:item.detail}));
+    const cpuOptions=battleDeckOptions().map(item=>({value:item.ref,title:toHiraganaKids(item.name),detail:toHiraganaKids(item.detail)}));
     cpuOptions.push({value:null,title:'やめる',detail:''});
     const cpuDeckRef=await choose(cpuOptions,`あなた：${playerDeck.name}\nCPUが使うデッキを選んでください。`,'CPUのデッキ');
     if(!cpuDeckRef)return;
@@ -1396,7 +1421,7 @@
     container.classList.add('set-hand-preview');
     const label=document.createElement('div');
     label.className='set-hand-preview-label';
-    label.textContent=`現在の手札 ${state.player.hand.length}枚`;
+    label.textContent=KIDS_MODE?`いまの てふだ ${state.player.hand.length}まい`:`現在の手札 ${state.player.hand.length}枚`;
     container.appendChild(label);
 
     const grid=document.createElement('div');
@@ -6906,8 +6931,8 @@
     }
     return new Promise(resolve=>{
       modalResolver=resolve;
-      $('modalTitle').textContent=title;
-      $('modalText').textContent=text;
+      $('modalTitle').textContent=toHiraganaKids(title);
+      $('modalText').textContent=toHiraganaKids(text);
       const preview=$('modalPreview');
       if(preview){
         preview.innerHTML='';
@@ -6915,7 +6940,7 @@
         if(typeof previewRenderer==='function')previewRenderer(preview);
       }
       const wrap=$('modalOptions');wrap.innerHTML='';
-      options.forEach(o=>{const b=document.createElement('button');b.className=`modal-option ${o.value===null?'cancel':''}`;b.innerHTML=`<b>${escapeHtml(o.title)}</b>${o.detail?`<small>${escapeHtml(o.detail)}</small>`:''}`;b.onclick=()=>closeModal(o.value);wrap.appendChild(b);});
+      options.forEach(o=>{const b=document.createElement('button');b.className=`modal-option ${o.value===null?'cancel':''}`;b.innerHTML=`<b>${escapeHtml(toHiraganaKids(o.title))}</b>${o.detail?`<small>${escapeHtml(toHiraganaKids(o.detail))}</small>`:''}`;b.onclick=()=>closeModal(o.value);wrap.appendChild(b);});
       modal.classList.remove('hidden');
     });
   }

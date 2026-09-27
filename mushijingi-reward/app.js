@@ -3,7 +3,9 @@
 
   const IS_REWARD_BUILD = /\/mushijingi-reward(?:\/|$)/.test(window.location.pathname);
   const MINI_GAME_ACCESS_PREFIX = "miniGameAccess:";
-  const GAME_ID = IS_REWARD_BUILD ? "mushijingi-reward" : "mushijingi";
+  const KIDS_MODE = new URLSearchParams(window.location.search).get("kids") === "1";
+  const GAME_ID = IS_REWARD_BUILD ? (KIDS_MODE ? "mushijingi-kids" : "mushijingi-reward") : "mushijingi";
+  if(KIDS_MODE) document.body.classList.add("kids-mode");
   const CUSTOM_DECKS_KEY = "mushijingiCustomDecks:v1";
   const CUSTOM_DECK_SIZE = 20;
   const CUSTOM_DECK_MAX_COPIES = 2;
@@ -308,7 +310,30 @@
     renderLog();
   }
   function renderLog(){ $('gameLog').innerHTML=state ? state.log.map(x=>`<div>・${escapeHtml(x)}</div>`).join('') : ''; }
-  function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=text; }
+  function setKidsGuide(text){
+    if(!KIDS_MODE)return;
+    const el=$('kidsGuide');
+    if(!el)return;
+    el.textContent=text;
+    el.classList.remove('hidden');
+  }
+  function updateKidsGuide(){
+    if(!KIDS_MODE||!state||state.over)return;
+    if(state.turn!=='player'){setKidsGuide('あいての たーんだよ。ちょっと まってね');return;}
+    if(state.phase==='draw'){setKidsGuide('どろーした！');return;}
+    if(state.phase==='set-choice'){setKidsGuide('えさを おく？');return;}
+    if(state.phase==='set'){setKidsGuide('えさにする かーどを えらんでね');return;}
+    if(state.phase==='main'){
+      const canHand=state.player.hand.some(inst=>canUseHandCard('player',inst));
+      const canAtk=fieldActive('player').some(fc=>canAttack(fc));
+      if(state.chain?.side==='player'){setKidsGuide('もういちど こうげきする？');return;}
+      if(canHand&&canAtk){setKidsGuide('あおく ひかった かーどを つかうか、むしで こうげきしてね');return;}
+      if(canHand){setKidsGuide('つかえる かーどが あおく ひかっているよ');return;}
+      if(canAtk){setKidsGuide('こうげきできる むしが あおく ひかっているよ');return;}
+      setKidsGuide('できることが なければ たーんえんどしてね');
+    }
+  }
+  function message(text){ if(cpuSearchActive())return; $('messageBox').textContent=text; if(KIDS_MODE)updateKidsGuide(); }
   function escapeHtml(s){ return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c])); }
   const sleep = ms => cpuSearchActive()?Promise.resolve():new Promise(r=>setTimeout(r,ms));
 
@@ -1097,7 +1122,7 @@
     $('turnLabel').textContent = state.over ? '対戦終了' : `${state.turn==='player'?'あなた':'CPU'}のターン`;
     $('phaseLabel').textContent = state.over ? '' : phaseName(state.phase);
     $('costLabel').textContent = state.phase==='main' ? `残りコスト ${sideObj(state.turn).cost}` : '';
-    renderActions(); renderLog();
+    renderActions(); renderLog(); if(KIDS_MODE)updateKidsGuide();
   }
   function phaseName(p){return ({draw:'ドロー',set:'セット',main:'メイン',cpu:'CPU思考中'})[p]||'';}
   function renderTerritory(side){
@@ -1156,6 +1181,7 @@
     state.player.hand.forEach(inst=>{
       const playable=canUseHandCard('player',inst);
       const node=cardElement(inst,{hand:true,playable});
+      if(KIDS_MODE && !playable) node.classList.add("kids-dim");
       if(playable && !state.over) node.addEventListener('click',()=>onHandCard(inst.uid));
       el.appendChild(node);
     });
@@ -1197,17 +1223,17 @@
     }
     if(state.turn!=='player')return;
     if(state.phase==='set'){
-      bar.appendChild(btn('やっぱり置かない','action-btn secondary',()=>{
+      bar.appendChild(btn(KIDS_MODE?'えさを おかない':'やっぱり置かない','action-btn secondary',()=>{
         log('あなたはエサを置かずにメインフェイズへ進みます。');
         finishSetPhase();
       }));
       return;
     }
     if(state.phase==='main'){
-      if(state.chain?.side==='player') bar.appendChild(btn('連撃をやめる','action-btn secondary',()=>{state.chain=null;message('連撃を終了しました。');render();}));
+      if(state.chain?.side==='player') bar.appendChild(btn(KIDS_MODE?'れんげきを やめる':'連撃をやめる','action-btn secondary',()=>{state.chain=null;message('連撃を終了しました。');render();}));
       else{
         if(canAbyssRevive('player'))bar.appendChild(btn('奈落復活','action-btn secondary',()=>useAbyssRevival('player')));
-        bar.appendChild(btn('ターン終了','action-btn',()=>endTurn()));
+        bar.appendChild(btn(KIDS_MODE?'たーんえんどする':'ターン終了','action-btn',()=>endTurn()));
       }
     }
   }
@@ -1426,13 +1452,13 @@
       const setChoice=await choose([
         {value:'place',title:'エサを置く',detail:'手札から1枚を選んでエサにする'},
         {value:'skip',title:'置かない',detail:'そのままメインフェイズへ進む'}
-      ],'手札を確認して、このターンにエサを置くか決めてください。','エサを置く？',renderSetDecisionHandPreview);
+      ],KIDS_MODE?'てふだを みて、えさを おくか きめてね。':'手札を確認して、このターンにエサを置くか決めてください。',KIDS_MODE?'えさを おく？':'エサを置く？',renderSetDecisionHandPreview);
 
       if(!state||state.over||state.turn!=='player')return;
 
       if(setChoice==='place'){
         state.phase='set';
-        message('セットフェイズ：エサにする手札を1枚選んでください。');
+        message(KIDS_MODE?'えさにする かーどを 1まい えらんでね。':'セットフェイズ：エサにする手札を1枚選んでください。');
         render();
       }else{
         state.phase='set';
@@ -1487,7 +1513,7 @@
   function finishSetPhase(){
     if(state.turn!=='player'||state.phase!=='set')return;
     const s=state.player; s.setDone=true; s.cost=s.bait.length; state.phase='main';
-    message('メインフェイズ：手札のカードを使う、場の虫で攻撃する、またはターン終了。'); render();
+    message(KIDS_MODE?'つかう かーどを えらぶか、むしで こうげきしてね。できたら たーんえんど。':'メインフェイズ：手札のカードを使う、場の虫で攻撃する、またはターン終了。'); render();
   }
   function emitCost(side,inst,c,cost=c.cost){
     events.emit(EVENT.COST_PAID,{state,side,card:inst,definition:c,cost});
@@ -3410,7 +3436,7 @@
     if(state.chain?.side==='player'&&state.chain.uid===fc.inst.uid&&state.chain.kind==='mantisOrchidDance')attacks=attacks.filter(a=>a.effect==='mantisOrchidDance'&&fc.attachments.length>0);
     const options=attacks.map((a,i)=>({value:i,title:`${a.name} ${attackPower('player',fc,a)}`,detail:a.text||'攻撃'}));
     options.push({value:null,title:'やめる',detail:''});
-    const idx=await choose(options,'使う技を選んでください。','虫の攻撃');if(idx===null)return;
+    const idx=await choose(options,KIDS_MODE?'つかう わざを えらんでね。':'使う技を選んでください。',KIDS_MODE?'むしの こうげき':'虫の攻撃');if(idx===null)return;
     await performAttack('player',fc,attacks[idx]);
   }
 

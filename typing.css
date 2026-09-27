@@ -8,13 +8,13 @@ body{margin:0;min-height:100vh;background:linear-gradient(#fff9e8,#ffefbd)}
 .table-toggle{justify-self:end;border:0;border-radius:999px;background:#5e7748;color:#fff;padding:10px 14px;font-weight:900;font-size:14px}
 .table-toggle.on{background:#c7683b}
 .hidden{display:none!important}
-.romaji-table{background:#fffdf7;border:3px solid #e5c979;border-radius:20px;padding:16px;margin-bottom:18px;box-shadow:0 8px 22px #8a6d2a18}
-.romaji-table h2{text-align:center;margin:0 0 12px;font-size:20px}
-.table-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
-.table-grid div{background:#fff3c9;border:1px solid #e5d49a;border-radius:10px;padding:7px 5px;text-align:center}
-.table-grid b{display:block;font-size:18px}
-.table-grid span{display:block;font-size:11px;color:#765d3f;margin-top:2px}
-.table-note{margin:12px 0 0;text-align:center;font-size:13px;font-weight:700}
+.romaji-table{background:#fffdf7;border:3px solid #e5c979;border-radius:20px;padding:12px;margin:0 auto 18px;box-shadow:0 8px 22px #8a6d2a18;max-width:760px}
+.romaji-table h2{text-align:center;margin:0 0 10px;font-size:18px}
+.table-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
+.table-grid div{background:#fff3c9;border:1px solid #e5d49a;border-radius:8px;padding:5px 3px;text-align:center;min-width:0}
+.table-grid b{display:block;font-size:15px;line-height:1.1}
+.table-grid span{display:block;font-size:9px;line-height:1.1;color:#765d3f;margin-top:2px;white-space:nowrap}
+.table-note{margin:8px 0 0;text-align:center;font-size:11px;font-weight:700}
 .game-card{background:#fffdf8;border:3px solid #e0c06c;border-radius:24px;padding:clamp(18px,4vw,34px);box-shadow:0 10px 30px #8a6d2a22;text-align:center}
 .score-row{display:flex;justify-content:center;gap:26px;font-size:14px;margin-bottom:8px}
 .score-row b{font-size:20px;color:#be603a}
@@ -34,6 +34,11 @@ body{margin:0;min-height:100vh;background:linear-gradient(#fff9e8,#ffefbd)}
   .topbar h1{font-size:25px}
   .back-link{font-size:13px}
   .table-toggle{font-size:12px;padding:9px 11px}
-  .table-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .romaji-table{padding:12px}
+  .romaji-table{width:52%;min-width:330px;max-width:420px;padding:8px}
+  .romaji-table h2{font-size:14px;margin-bottom:7px}
+  .table-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
+  .table-grid div{padding:4px 2px;border-radius:7px}
+  .table-grid b{font-size:13px}
+  .table-grid span{font-size:8px}
+  .table-note{font-size:9px;margin-top:6px}
 }

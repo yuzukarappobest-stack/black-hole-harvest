@@ -223,7 +223,7 @@ body.kids-mode .topbar p{font-size:0}
 body.kids-mode .topbar p::after{content:"ひらがなで あそべる かんたんたいせん";font-size:12px}
 body.kids-mode .kids-guide{display:block;position:sticky;top:0;z-index:35;margin:4px auto 8px;width:min(760px,96%);padding:12px 16px;border:3px solid #73b8ff;border-radius:16px;background:#eaf6ff;color:#17324a;font-size:clamp(18px,4vw,28px);font-weight:1000;text-align:center;box-shadow:0 5px 18px #0004}
 body.kids-mode .kids-guide.hidden{display:none}
-body.kids-mode .playable{outline:4px solid #55b8ff!important;outline-offset:1px;box-shadow:0 0 0 3px #d9f2ff,0 0 18px #55b8ff!important}
+.game-card.playable{outline:4px solid #55b8ff!important;outline-offset:1px;box-shadow:0 0 0 3px #d9f2ff,0 0 18px #55b8ff!important}
 body.kids-mode .game-card:not(.playable).kids-dim{opacity:.48;filter:saturate(.65)}
 body.kids-mode .lane-title,
 body.kids-mode .mini-stats,
@@ -249,8 +249,9 @@ body.kids-mode .cpu-difficulty-option input[value="normal"]+span small::after{co
 body.kids-mode .cpu-difficulty-option input[value="strong"]+span small::after{content:"よく かんがえる";font-size:11px}
 body.kids-mode .cpu-difficulty-option input[value="veryStrong"]+span small::after{content:"つぎの てまで よむ";font-size:11px}
 body.kids-mode .cpu-difficulty-help{font-size:12px}
-body.kids-mode #customDeckChoices,
-body.kids-mode #noCustomDecks{display:none}
+body.kids-mode #customDeckChoices{display:grid}
+body.kids-mode #noCustomDecks.hidden{display:none}
+body.kids-mode #noCustomDecks:not(.hidden){display:block}
 body.kids-mode .deck-choices{max-width:650px;margin-left:auto;margin-right:auto}
 body.kids-mode .deck-choice{min-height:118px}
 body.kids-mode #startScreen>p{font-size:0}
@@ -302,3 +303,8 @@ body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaHercules"] strong:
 body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaSumatra3Color"] strong::after{content:"すまとら さんしょく";font-size:16px}
 body.kids-mode .meta-deck-choices .deck-choice[data-deck="metaBee"] strong::after{content:"はち でっき";font-size:16px}
 body.kids-mode .meta-deck-choices .deck-choice small::after{content:"この でっきで たたかう";font-size:11px}
+
+body.kids-mode #customDeckChoices .custom-deck-choice strong,
+body.kids-mode #customDeckChoices .custom-deck-choice small{font-size:0}
+body.kids-mode #customDeckChoices .custom-deck-choice strong::after{content:attr(data-kids-name);font-size:16px}
+body.kids-mode #customDeckChoices .custom-deck-choice small::after{content:"じさくでっき・20まい";font-size:11px}

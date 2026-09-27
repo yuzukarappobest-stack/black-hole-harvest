@@ -595,6 +595,7 @@
       const button=document.createElement('button');
       button.type='button';button.className='deck-choice custom-deck-choice';
       button.dataset.deck=customDeckRef(deck.id);
+      if(KIDS_MODE)button.dataset.kidsName=toHiraganaKids(deck.name)||"じさくでっき";
       button.innerHTML=`<span class="deck-icon">🃏</span><strong>${escapeHtml(deck.name)}</strong><small>自作デッキ・20枚</small>`;
       button.disabled=!hasBattleAccess();
       button.addEventListener('click',()=>chooseTurnOrder(button.dataset.deck));

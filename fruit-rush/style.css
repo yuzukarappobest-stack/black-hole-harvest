@@ -30,3 +30,12 @@ small { display:block; margin-top: 16px; color:#6480a8; font-weight:800; }
 .magnet-button { position:fixed; z-index:3; right:14px; bottom:max(18px,env(safe-area-inset-bottom)); width:auto; min-width:126px; min-height:55px; padding:8px 14px; border:2px solid rgba(255,255,255,.92); border-radius:999px; background:linear-gradient(135deg,#8064ff,#dc5ce8); box-shadow:0 7px 0 #5943cc,0 11px 20px rgba(56,36,141,.24); font-size:1rem; }
 .magnet-button small { display:inline; margin:0 0 0 4px; color:#fff4a6; font-size:1.2em; }.magnet-button:disabled { opacity:.45; box-shadow:0 5px 0 #5943cc; }.magnet-button.active { background:linear-gradient(135deg,#ff4ed2,#7f58ff); animation:magnetPulse .7s infinite alternate; }.magnet-button:active { transform:translateY(4px); }
 @keyframes magnetPulse { to { filter:brightness(1.2); transform:scale(1.04); } }
+
+.stage-select{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0}
+.stage-card{min-height:74px;padding:9px 8px;border:3px solid transparent;border-radius:12px;background:linear-gradient(145deg,#f0f6ff,#dcecff);box-shadow:0 5px 0 #b8cce5;color:#29476d;font-size:1rem}
+.stage-card b{display:block;font-size:1.45rem;line-height:1}.stage-card span{display:block;margin-top:4px;font-size:.9rem}
+.stage-card:nth-child(2){background:linear-gradient(145deg,#26295b,#4d4f9b);color:#fff;box-shadow:0 5px 0 #171a45}
+.stage-card:nth-child(3){background:linear-gradient(145deg,#e8f0df,#b8cea6);color:#35502f;box-shadow:0 5px 0 #8ca27d}
+.stage-card:nth-child(4){background:linear-gradient(145deg,#d9f7ff,#77d0e8);color:#12516b;box-shadow:0 5px 0 #4ca7c0}
+.stage-card.selected{border-color:#ff6b83;outline:3px solid #ffd9df}
+.stage-card:active{transform:translateY(3px)}

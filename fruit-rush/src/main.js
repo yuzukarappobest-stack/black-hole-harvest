@@ -1,4 +1,4 @@
-import { Game } from "./Game.js?v=19";
+import { Game } from "./Game.js?v=20";
 
 const GAME_ID = "fruit-rush";
 const ACCESS_KEY = `miniGameAccess:${GAME_ID}`;
@@ -13,10 +13,17 @@ if (!consumeAccess()) {
   window.location.replace(learningUrl());
 } else {
   const game = new Game(document.querySelector("#gameRoot"));
+  let selectedStage = 1;
+  document.querySelectorAll("[data-stage]").forEach((button) => {
+    button.addEventListener("click", () => {
+      selectedStage = Number(button.dataset.stage) || 1;
+      document.querySelectorAll("[data-stage]").forEach((item) => item.classList.toggle("selected", item === button));
+    });
+  });
   document.querySelector("#startButton").addEventListener("click", async () => {
     const audioReady = game.unlockAudio();
     await game.enableTilt();
-    game.start(audioReady);
+    game.start(selectedStage, audioReady);
   });
   document.querySelector("#returnButton").addEventListener("click", () => window.location.replace(learningUrl()));
   document.querySelector("#magnetButton").addEventListener("click", () => game.activateMagnet());

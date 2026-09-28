@@ -1,7 +1,11 @@
-import { CONFIG } from "./config.js?v=5";
+import { CONFIG, courseWidthAtDistance } from "./config.js?v=12";
 
-function traveledDistance(z) {
+export function traveledDistance(z) {
   return Math.max(0, Math.min(CONFIG.courseLength, CONFIG.courseStartZ - z));
+}
+
+export function courseWidthAtZ(z) {
+  return courseWidthAtDistance(traveledDistance(z));
 }
 
 export function courseCenterX(z) {

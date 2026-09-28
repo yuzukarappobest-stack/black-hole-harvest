@@ -1,9 +1,9 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=11";
+import { CONFIG, FRUIT_LEVELS, setStage, ACTIVE_STAGE } from "./config.js?v=12";
 import { Fruit, fruitData } from "./Fruit.js?v=5";
-import { Player } from "./Player.js?v=8";
-import { Course } from "./Course.js?v=4";
-import { courseCenterX } from "./coursePath.js?v=1";
+import { Player } from "./Player.js?v=9";
+import { Course } from "./Course.js?v=5";
+import { courseCenterX, courseWidthAtZ } from "./coursePath.js?v=2";
 import { InputManager } from "./InputManager.js?v=2";
 import { UI } from "./UI.js?v=3";
 import { AudioManager } from "./Audio.js?v=5";
@@ -11,6 +11,7 @@ import { AudioManager } from "./Audio.js?v=5";
 export class Game {
   constructor(root) {
     this.root = root;
+    this.stageId = 1;
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x70cfff);
     this.scene.fog = new THREE.Fog(0x70cfff, 28, 86);
@@ -24,7 +25,7 @@ export class Game {
     this.input = new InputManager(this.renderer.domElement);
     this.ui = new UI(); this.audio = new AudioManager(); this.clock = new THREE.Clock(false);
     this.state = "ready"; this.score = 0; this.fruits = []; this.particles = []; this.gates = []; this.rainbowShards = []; this.rainbowShardCount = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.perfectRun = true; this.respawnTimer = 0; this.respawnZ = CONFIG.courseStartZ;
-    this.addLights(); this.course = new Course(this.scene); this.player = new Player(); this.scene.add(this.player.mesh);
+    this.addLights(); this.course = null; this.player = null;
     window.addEventListener("resize", () => this.resize()); this.resize();
     this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
   }
@@ -35,7 +36,13 @@ export class Game {
   resize() { this.camera.aspect = window.innerWidth / window.innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(window.innerWidth, window.innerHeight); }
   enableTilt() { return this.input.enableTilt(); }
   unlockAudio() { return this.audio.unlock(); }
-  start(audioReady = this.unlockAudio()) {
+  start(stageId = 1, audioReady = this.unlockAudio()) {
+    this.stageId = Number(stageId) || 1;
+    setStage(this.stageId);
+    this.course?.group?.removeFromParent();
+    this.player?.mesh?.removeFromParent();
+    this.course = new Course(this.scene);
+    this.player = new Player(); this.scene.add(this.player.mesh);
     this.clearFruits(); this.clearParticles(); this.clearGates(); this.clearRainbowShards(); this.player.reset(); this.score = 0; this.rainbowShardCount = 0; this.combo = 0; this.comboTimer = 0; this.magnetCharges = 1; this.magneticTime = 0; this.slowTime = 0; this.perfectRun = true; this.respawnTimer = 0; this.state = "running";
     this.spawnFruits(); this.addGates(); this.spawnRainbowShards(); this.clock.start(); this.ui.showGame(); this.updateUI();
     audioReady.then((ready) => { if (ready && this.state === "running") this.audio.startBgm(); });
@@ -45,7 +52,7 @@ export class Game {
     guaranteed.forEach((level, index) => this.addFruit(level, index % 2 ? -1.35 : 1.35, -20 - index * 14.3));
     for (let index = 0; index < CONFIG.spawnCount; index += 1) {
       const z = -12 - index * 7.4 - Math.random() * 4;
-      const x = (Math.random() - .5) * (CONFIG.courseWidth - 1.7);
+      const x = (Math.random() - .5) * Math.max(2.2, courseWidthAtZ(z) - 1.7);
       const progress = Math.min(1, -z / CONFIG.courseLength);
       const maxLevel = Math.min(FRUIT_LEVELS.length - 2, 1 + Math.floor(progress * (FRUIT_LEVELS.length - 1)));
       const level = 1 + Math.floor(Math.random() * maxLevel);
@@ -84,7 +91,7 @@ export class Game {
     this.camera.lookAt(p.x * .2, .6, p.z - 8);
     this.comboTimer=Math.max(0,this.comboTimer-delta); if(this.comboTimer===0)this.combo=0;
     this.magneticTime=Math.max(0,this.magneticTime-delta); this.checkGates(); this.applyMagnet(delta); this.checkCollisions(); this.updateRainbowShards(delta); this.checkRainbowShards(); this.updateParticles(delta);
-    if (Math.abs(p.x - courseCenterX(p.z)) > CONFIG.courseWidth / 2 + this.player.radius + .25) this.startRecovery();
+    if (Math.abs(p.x - courseCenterX(p.z)) > courseWidthAtZ(p.z) / 2 + this.player.radius + .25) this.startRecovery();
     if (p.z <= -CONFIG.courseLength + CONFIG.finishPadding) this.end("finish");
     this.updateUI();
   }

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
     <meta name="theme-color" content="#64c9ff">
     <title>Fruit Rush</title>
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
   </head>
   <body>
     <main id="gameRoot">
@@ -23,6 +23,12 @@
           <p class="eyebrow">3D FRUIT RUNNER</p>
           <h1>FRUIT RUSH</h1>
           <p>かたむき / スワイプで よこに うごかそう</p>
+          <div class="stage-select" aria-label="ステージをえらぶ">
+            <button class="stage-card selected" type="button" data-stage="1"><b>1</b><span>みどりの こうえん</span></button>
+            <button class="stage-card" type="button" data-stage="2"><b>2</b><span>うちゅう</span></button>
+            <button class="stage-card" type="button" data-stage="3"><b>3</b><span>やまの うえ</span></button>
+            <button class="stage-card" type="button" data-stage="4"><b>4</b><span>うみ</span></button>
+          </div>
           <button id="startButton" type="button">START</button>
           <small>PC: ← → / A D</small>
         </div>
@@ -37,6 +43,6 @@
         </div>
       </section>
     </main>
-    <script type="module" src="src/main.js?v=22"></script>
+    <script type="module" src="src/main.js?v=23"></script>
   </body>
 </html>

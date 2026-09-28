@@ -1,6 +1,6 @@
 import { Fruit, fruitData } from "./Fruit.js?v=5";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=9";
-import { courseCenterX } from "./coursePath.js?v=1";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=12";
+import { courseCenterX, courseWidthAtZ } from "./coursePath.js?v=2";
 
 export class Player extends Fruit {
   constructor() { super(1, courseCenterX(CONFIG.courseStartZ), CONFIG.courseStartZ, true); this.targetX = 0; this.lastX = 0; }
@@ -8,7 +8,7 @@ export class Player extends Fruit {
   respawn(z) { this.targetX = 0; this.lastX = 0; this.mesh.position.set(courseCenterX(z), this.radius, z); this.mesh.rotation.set(0, 0, 0); }
   move(delta, input, speedScale = 1) {
     this.targetX += input * CONFIG.lateralSpeed * delta;
-    const boundary = CONFIG.courseWidth / 2 + this.radius + .9;
+    const boundary = courseWidthAtZ(this.mesh.position.z) / 2 + this.radius + .9;
     this.targetX = Math.max(-boundary, Math.min(boundary, this.targetX));
     this.mesh.position.z -= CONFIG.forwardSpeed * speedScale * delta;
     const oldX = this.mesh.position.x;

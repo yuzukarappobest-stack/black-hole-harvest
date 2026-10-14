@@ -2,8 +2,9 @@
 export const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
 export function stepKart(state, {dt,steer,brake,offroad}) {
   const seconds=clamp(dt,0,.05);
-  const targetSpeed=offroad?11:brake?14:42;
-  const response=brake?3.7:offroad?3.2:.9;
+  // Grass should slow you gently, not glue you to a crawl.
+  const targetSpeed=brake?14:offroad?29:42;
+  const response=brake?3.7:offroad?1.15:.9;
   state.speed+=(targetSpeed-state.speed)*(1-Math.exp(-response*seconds));
   state.speed=clamp(state.speed,5,44);
 

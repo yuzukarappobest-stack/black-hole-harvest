@@ -23,6 +23,8 @@ export function sampleAt(distance) {
   const behind = points[wrap(i+1)].clone().sub(points[wrap(i-1)]).normalize();
   const tangent = behind.lerp(ahead,t).normalize();
   const right = new THREE.Vector3(-tangent.z,0,tangent.x);
+  // yaw denotes compass-like motion (+yaw drives toward +X).
+  // A Three.js mesh whose nose points toward local -Z must render at -yaw.
   return {position:p,tangent,right,yaw:Math.atan2(tangent.x,-tangent.z)};
 }
 
@@ -86,7 +88,7 @@ export function buildCircuit(scene) {
   const helper=new THREE.Object3D();
   for(let i=0;i<stripeCount;i++) {
     const p=sampleAt(i*13+5);
-    helper.position.set(p.position.x,.065,p.position.z);helper.rotation.set(0,p.yaw,0);helper.updateMatrix();
+    helper.position.set(p.position.x,.065,p.position.z);helper.rotation.set(0,-p.yaw,0);helper.updateMatrix();
     stripes.setMatrixAt(i,helper.matrix);
   }
   stripes.instanceMatrix.needsUpdate=true;scene.add(stripes);
@@ -100,7 +102,7 @@ export function buildCircuit(scene) {
     lineGroup.add(mesh);
   }
   const start=sampleAt(0);
-  lineGroup.position.copy(start.position);lineGroup.rotation.y=start.yaw;scene.add(lineGroup);
+  lineGroup.position.copy(start.position);lineGroup.rotation.y=-start.yaw;scene.add(lineGroup);
 
   const trunkGeo=new THREE.CylinderGeometry(.48,.62,4,5);
   const crownGeo=new THREE.ConeGeometry(2.7,7,7);
@@ -132,6 +134,6 @@ export function buildCircuit(scene) {
   }
   const bar=new THREE.Mesh(new THREE.BoxGeometry(ROAD_WIDTH+2.5,1,.75),new THREE.MeshStandardMaterial({color:0xffc84c}));
   bar.position.y=6;arch.add(bar);
-  arch.position.copy(start.position);arch.rotation.y=start.yaw;scene.add(arch);
+  arch.position.copy(start.position);arch.rotation.y=-start.yaw;scene.add(arch);
   return {points:points.map(p=>p.clone()),length:CIRCUIT_LENGTH};
 }

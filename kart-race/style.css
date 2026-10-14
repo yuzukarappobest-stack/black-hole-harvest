@@ -12,8 +12,14 @@ button{font:inherit;font-weight:950;cursor:pointer;touch-action:none}
 .hud-item strong{display:block;font-size:clamp(19px,5vw,31px);line-height:1.28;font-variant-numeric:tabular-nums}
 .hud-item strong em{font-style:normal}.hud-item small{font-size:9px;margin-left:3px}
 .minimap{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:max(20px,env(safe-area-inset-bottom));z-index:2;width:clamp(115px,33vw,155px);height:auto;background:#f2f8f5d9;border:2px solid #fff;border-radius:15px;box-shadow:0 6px 14px #0c315538;pointer-events:none}
-.brake-button{position:fixed;z-index:3;right:max(18px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:clamp(115px,32vw,164px);height:clamp(92px,27vw,138px);border:5px solid #fff;border-radius:50%;background:linear-gradient(145deg,#ff7285,#c82339);box-shadow:0 9px 0 #811b2e,0 16px 24px #35232b70;color:#fff;font-size:clamp(19px,5vw,26px);text-shadow:0 2px #8e2333}
-.brake-button.pressed{transform:translateY(7px);box-shadow:0 2px 0 #811b2e,0 5px 12px #35232b70;background:#b91d35}
+.dash-button{position:fixed;z-index:3;right:max(18px,env(safe-area-inset-right));bottom:max(22px,env(safe-area-inset-bottom));width:clamp(115px,32vw,164px);height:clamp(102px,30vw,144px);border:5px solid #fff;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;background:linear-gradient(145deg,#6187a2,#40546d);box-shadow:0 8px 0 #263c51,0 14px 22px #182d4366;color:#fff;font-size:clamp(18px,5vw,25px);text-shadow:0 2px #283b58;line-height:1.1}
+.dash-button .dash-icon{font-size:clamp(24px,8vw,39px);line-height:1.15}
+.dash-button small{font-size:clamp(15px,4vw,21px);line-height:1.1;margin-top:2px;color:#fff4a4}
+.dash-button:disabled{opacity:.66;cursor:default}
+.dash-button.charged{background:linear-gradient(145deg,#55e7fa,#3777ec);box-shadow:0 8px 0 #1948a5,0 13px 27px #047bcf6e;opacity:1;animation:chargedGlow .9s ease-in-out infinite alternate}
+.dash-button.charged:active{transform:translateY(6px) scale(.98);box-shadow:0 2px 0 #1948a5,0 6px 12px #047bcf6e}
+.dash-button.boosting{background:linear-gradient(145deg,#ffcd5b,#f17b25);box-shadow:0 6px 0 #c15d27;opacity:1}
+@keyframes chargedGlow{to{filter:brightness(1.16)}}
 .pause-button,.recenter-button{position:fixed;z-index:3;border:2px solid #fff;border-radius:13px;background:#153a60cf;color:#fff;padding:7px 11px;box-shadow:0 5px 13px #12335030}
 .pause-button{top:calc(max(10px,env(safe-area-inset-top)) + 72px);right:max(11px,env(safe-area-inset-right));min-height:37px;min-width:39px}
 .recenter-button{font-size:12px;line-height:1.16;top:calc(max(10px,env(safe-area-inset-top)) + 116px);right:max(10px,env(safe-area-inset-right))}

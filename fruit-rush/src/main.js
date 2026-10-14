@@ -1,4 +1,4 @@
-import { Game } from "./Game.js?v=20";
+import { Game } from "./Game.js?v=21";
 
 const GAME_ID = "fruit-rush";
 const ACCESS_KEY = `miniGameAccess:${GAME_ID}`;

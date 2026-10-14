@@ -1,6 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=2";
-import {stepKart} from "./driving.js?v=1";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=3";
+import {stepKart} from "./driving.js?v=2";
 import {Controls} from "./controls.js?v=2";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -145,9 +145,10 @@ class KartRace {
     this.yaw=this.vehicle.yaw;this.player.rotation.set(0,-this.yaw,0);
     const near=projectOnCircuit(this.player.position);
     this.trackIndex=near.index;this.trackS=near.s;
+    const startingLanes=[-6,-3,0,3,6];
     this.rivals.forEach((r,i)=>{
       r.progress=-6-i*4.4;r.speed=23+i*.35;r.finished=false;
-      r.lane=i%2===0?-2.2:2.2;r.targetLane=r.lane;
+      r.lane=startingLanes[i];r.targetLane=r.lane;r.homeLane=r.lane;r.lastContactAt=-Infinity;
       const p=sampleAt(r.progress);
       r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);r.mesh.rotation.y=-p.yaw;
     });
@@ -238,13 +239,13 @@ class KartRace {
     const turn=Math.acos(clamp(here.tangent.dot(ahead.tangent),-1,1));
     let desired=rivalStyles[r.index].speed;
     desired*=1-.15*clamp(turn/.65,0,1);
-    const close=this.rivals.find((other)=>other!==r&&other.progress>r.progress&&other.progress-r.progress<17&&Math.abs(other.lane-r.lane)<2);
-    const playerAhead=this.progress>r.progress&&this.progress-r.progress<13&&Math.abs(this.lane-r.lane)<2;
+    const close=this.rivals.find((other)=>other!==r&&other.progress>r.progress&&other.progress-r.progress<17&&Math.abs(other.lane-r.lane)<2.8);
+    const playerAhead=this.progress>r.progress&&this.progress-r.progress<13&&Math.abs(this.lane-r.lane)<2.8;
     if(close||playerAhead){
       const leaderLane=close?close.lane:this.lane;
-      r.targetLane=leaderLane>=0?-2.6:2.6;
+      r.targetLane=leaderLane>=0?Math.max(-6.5,leaderLane-3.5):Math.min(6.5,leaderLane+3.5);
       if(close && Math.abs(close.lane-r.lane)<1)desired=Math.min(desired,close.speed+1.5);
-    }else if(Math.abs(r.targetLane)>3||Math.sin(this.elapsed*.19+r.index*1.6)>.85)r.targetLane=r.index%2===0?-2.2:2.2;
+    }else if(Math.abs(r.targetLane)>6.5||Math.sin(this.elapsed*.19+r.index*1.6)>.85)r.targetLane=r.homeLane;
     r.speed+=(desired-r.speed)*(1-Math.exp(-1.7*dt));
     r.lane+=(r.targetLane-r.lane)*(1-Math.exp(-2.7*dt));
     r.progress=Math.min(raceDistance,r.progress+r.speed*dt);
@@ -261,12 +262,16 @@ class KartRace {
       const dx=this.vehicle.x-rival.mesh.position.x,dz=this.vehicle.z-rival.mesh.position.z;
       const dist=Math.hypot(dx,dz);
       if(dist<2.65&&dist>.02){
-        const push=(2.65-dist)*.3;
+        const push=(2.65-dist)*.42;
         this.vehicle.x+=dx/dist*push;this.vehicle.z+=dz/dist*push;
         this.player.position.x=this.vehicle.x;this.player.position.z=this.vehicle.z;
-        this.vehicle.speed=Math.max(10,this.vehicle.speed-1.4);
-        this.speed=this.vehicle.speed;
-        rival.speed=Math.max(14,rival.speed-1);
+        // Once per contact cooldown; never deduct speed every rendered frame.
+        if(this.elapsed-rival.lastContactAt>.7){
+          this.vehicle.speed=Math.max(15,this.vehicle.speed-.65);
+          this.speed=this.vehicle.speed;
+          rival.speed=Math.max(15,rival.speed-.25);
+          rival.lastContactAt=this.elapsed;
+        }
       }
     }
   }

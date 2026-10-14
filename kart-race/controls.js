@@ -6,6 +6,10 @@ export class Controls {
     this.tiltActive=false;this.rawTilt=null;this.tiltBaseline=null;this.tilt=0;
     this.permission="pending";
     this.onOrientation=this.onOrientation.bind(this);
+    const resetOnRotate=()=>{
+      this.rawTilt=null;this.tiltBaseline=null;this.tilt=0;this.tiltActive=false;
+    };
+    window.addEventListener("orientationchange",resetOnRotate);
     window.addEventListener("keydown",(e)=>{
       if(["ArrowLeft","ArrowRight"," ","a","d","A","D"].includes(e.key))e.preventDefault();
       if(e.key==="ArrowLeft"||e.key.toLowerCase()==="a")this.left=true;
@@ -31,20 +35,19 @@ export class Controls {
     canvas.addEventListener("pointercancel",release);
   }
   onOrientation(event) {
-    const angle=window.screen?.orientation?.angle ?? window.orientation ?? 0;
-    const landscape=Math.abs(angle)===90;
-    // In landscape the device's beta axis points toward the driver's left/right.
-    const raw=landscape ? (angle===90?-event.beta:event.beta) : event.gamma;
+    // Use the same axis as the working Fruit Rush controls on iPhone and iPad.
+    // An iPad may report a landscape screen angle even while the device is
+    // held differently; switching to beta makes steering turn the wrong way.
+    const raw=event.gamma;
     if(!Number.isFinite(raw))return;
     this.rawTilt=raw;
     if(this.tiltBaseline===null)this.tiltBaseline=raw;
-    // A physical dead zone prevents sensor noise or a slight resting tilt from
-    // causing a continuous slow rotation while the player isn't steering.
+
     const offset=raw-this.tiltBaseline;
-    const deadZone=4;
+    const deadZone=3; // Suppress hand tremor without dulling iPad steering.
     const active=Math.sign(offset)*Math.max(0,Math.abs(offset)-deadZone);
-    const target=clamp(active/17,-1,1);
-    this.tilt+=(target-this.tilt)*.24;
+    const target=clamp(active/16,-1,1);
+    this.tilt+=(target-this.tilt)*.2;
     this.tiltActive=true;
   }
   recenter() {
@@ -59,9 +62,12 @@ export class Controls {
         const result=await DeviceOrientation.requestPermission();
         if(result!=="granted"){this.permission="denied";return false;}
       }
+      // The first fresh gyro event establishes the neutral angle; a stale
+      // sample from before the permission prompt must not be reused.
+      this.rawTilt=null;this.tiltBaseline=null;this.tilt=0;this.tiltActive=false;
       window.removeEventListener("deviceorientation",this.onOrientation);
       window.addEventListener("deviceorientation",this.onOrientation,{passive:true});
-      this.permission="granted";this.recenter();
+      this.permission="granted";
       return true;
     }catch {this.permission="denied";return false;}
   }

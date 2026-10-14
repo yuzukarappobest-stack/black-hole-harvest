@@ -1,15 +1,15 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,modulus} from "./track.js?v=1";
+import {buildCircuit,sampleAt,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=1";
 import {Controls} from "./controls.js?v=1";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
 const rivalStyles=[
-  {color:0xf9c94f,name:"レモン",speed:32.5},
-  {color:0x648cfa,name:"ソラ",speed:34.5},
-  {color:0x69cf91,name:"ミント",speed:35.5},
-  {color:0xe988c7,name:"ピーチ",speed:36.0},
-  {color:0x9e77e9,name:"グレープ",speed:37.0},
+  {color:0xf9c94f,name:"レモン",speed:35.8},
+  {color:0x648cfa,name:"ソラ",speed:37.3},
+  {color:0x69cf91,name:"ミント",speed:38.4},
+  {color:0xe988c7,name:"ピーチ",speed:39.6},
+  {color:0x9e77e9,name:"グレープ",speed:40.8},
 ];
 function createKart(color,isPlayer=false) {
   const root=new THREE.Group();
@@ -101,7 +101,7 @@ class KartRace {
     };
     this.mapCtx=this.ui.minimap.getContext("2d");
     this.state="ready";this.lastFrame=0;this.elapsed=0;this.speed=0;this.yaw=0;
-    this.progress=-32;this.trackS=modulus(this.progress,CIRCUIT_LENGTH);this.trackIndex=null;
+    this.progress=-32;this.lane=.75;this.laneVelocity=0;
     this.offroadTime=0;this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.bestTime=Number(localStorage.getItem("kartRaceBestTime")||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
@@ -130,9 +130,9 @@ class KartRace {
   }
   placeCars(){
     // Every kart starts behind the same finish line: no teleporting or disconnected tracks.
-    this.progress=-32;this.trackIndex=null;this.trackS=modulus(this.progress,CIRCUIT_LENGTH);
+    this.progress=-32;this.lane=.75;this.laneVelocity=0;
     const start=sampleAt(this.progress);
-    this.player.position.copy(start.position).addScaledVector(start.right,.75);
+    this.player.position.copy(start.position).addScaledVector(start.right,this.lane);
     this.yaw=start.yaw;this.player.rotation.y=this.yaw;
     this.speed=17;
     this.rivals.forEach((r,i)=>{
@@ -141,8 +141,6 @@ class KartRace {
       const p=sampleAt(r.progress);
       r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);r.mesh.rotation.y=p.yaw;
     });
-    const projection=projectOnCircuit(this.player.position);
-    this.trackIndex=projection.index;this.trackS=projection.s;
   }
   async begin(){
     if(this.state!=="ready")return;
@@ -171,34 +169,56 @@ class KartRace {
   clearBanner(){this.ui.banner.classList.add("hidden");}
   update(dt){
     this.elapsed+=dt;
-    const steer=this.input.steer;
+    const steer=clamp(this.input.steer,-1,1);
     const braking=this.input.brake;
-    // Automatic throttle, with a meaningful reduction in turning radius while braking.
-    const projectionBefore=projectOnCircuit(this.player.position,this.trackIndex);
-    const edge=Math.abs(projectionBefore.lateral);
-    const offroad=edge>ROAD_WIDTH/2-.5;
-    const desired=offroad?Math.min(braking?15:42,17):braking?16:42;
-    this.speed+=(desired-this.speed)*(1-Math.exp(-(braking?3.1:offroad?2.4:.73)*dt));
+    const here=sampleAt(this.progress),ahead=sampleAt(this.progress+18);
+    // Signed curvature: positive = right hand bend, negative = left hand bend.
+    const cross=here.tangent.x*ahead.tangent.z-here.tangent.z*ahead.tangent.x;
+    const dot=clamp(here.tangent.dot(ahead.tangent),-1,1);
+    const curvature=Math.atan2(cross,dot)/18;
+    const offroad=Math.abs(this.lane)>ROAD_WIDTH/2-.45;
+
+    // Arcade path-following assistance keeps the kart aligned with the race circuit.
+    // Tilt adjusts its line within the road; the track itself provides the basic turn.
+    // Brake remains useful because turning at high speed introduces outward sliding.
+    const desiredSpeed=offroad?17:braking?16:42;
+    const accel=offroad?2.7:braking?3.7:.82;
+    this.speed+=(desiredSpeed-this.speed)*(1-Math.exp(-accel*dt));
     this.speed=clamp(this.speed,8,44);
-    const turnRate=(1.72-this.speed*.015)*(offroad?.82:1);
-    this.yaw+=steer*turnRate*dt;
-    const fwd=new THREE.Vector3(Math.sin(this.yaw),0,-Math.cos(this.yaw));
-    const movement=this.speed*dt;
-    this.player.position.addScaledVector(fwd,movement);
-    this.player.rotation.y=this.yaw;
-    const projected=projectOnCircuit(this.player.position,this.trackIndex);
-    let advance=projected.s-this.trackS;
-    if(advance>CIRCUIT_LENGTH/2)advance-=CIRCUIT_LENGTH;
-    if(advance<-CIRCUIT_LENGTH/2)advance+=CIRCUIT_LENGTH;
-    // Localized track projection and forward-progress cap prevent lap-skipping.
-    if(projected.squared<=(ROAD_WIDTH/2+5)**2){
-      this.progress=clamp(this.progress+clamp(advance,-this.speed*dt-1,this.speed*dt+1),-55,raceDistance);
+
+    const lateralTarget=steer*(braking?9.6:11.0);
+    this.laneVelocity+=(lateralTarget-this.laneVelocity)*(1-Math.exp(-(braking?8:6)*dt));
+    const cornerLoad=Math.max(0,Math.abs(curvature)*this.speed-.44);
+    const outward=-Math.sign(curvature)*cornerLoad*(braking?1.1:3.0);
+    this.lane+=(this.laneVelocity+outward)*dt;
+    // Mild centering gives younger players time to recover after a sharp curve.
+    if(Math.abs(steer)<.28 && Math.abs(this.lane)>3){
+      this.lane-=Math.sign(this.lane)*(Math.abs(this.lane)-3)*.55*dt;
     }
-    this.trackS=projected.s;this.trackIndex=projected.index;
-    if(Math.abs(projected.lateral)>ROAD_WIDTH/2+7){
+    if(Math.abs(this.lane)>ROAD_WIDTH/2-.45){
+      this.lane-=Math.sign(this.lane)*1.35*dt;
+    }
+    this.lane=clamp(this.lane,-ROAD_WIDTH/2-4.2,ROAD_WIDTH/2+4.2);
+    if(Math.abs(this.lane)>ROAD_WIDTH/2+2.9){
       this.offroadTime+=dt;
-      if(this.offroadTime>3.2)this.rescue();
+      if(this.offroadTime>1.5)this.rescue();
     }else this.offroadTime=0;
+
+    // Arc length is the sole source of race progress: no skipped laps when roads
+    // converge, the car briefly leaves the road, or the camera changes angle.
+    this.progress=Math.min(raceDistance,this.progress+this.speed*dt*(offroad?.74:1));
+    const p=sampleAt(this.progress);
+    this.player.position.copy(p.position).addScaledVector(p.right,this.lane);
+    this.player.position.y=.02+Math.sin(this.elapsed*13)*.018;
+    const travel=p.tangent.clone().multiplyScalar(this.speed)
+      .addScaledVector(p.right,this.laneVelocity+outward);
+    const heading=Math.atan2(travel.x,-travel.z);
+    let difference=heading-this.yaw;
+    while(difference>Math.PI)difference-=2*Math.PI;
+    while(difference<-Math.PI)difference+=2*Math.PI;
+    this.yaw+=difference*(1-Math.exp(-12*dt));
+    this.player.rotation.set(0,this.yaw,-clamp(this.laneVelocity*.017,-.11,.11));
+
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
     this.rank=1+this.rivals.filter((r)=>r.finished||r.progress>this.progress+.05).length;
@@ -211,10 +231,9 @@ class KartRace {
   }
   rescue(){
     const at=sampleAt(this.progress);
+    this.lane=0;this.laneVelocity=0;
     this.player.position.copy(at.position);this.yaw=at.yaw;
-    this.player.rotation.y=this.yaw;this.speed=13;this.offroadTime=0;
-    const projected=projectOnCircuit(this.player.position);
-    this.trackIndex=projected.index;this.trackS=projected.s;
+    this.player.rotation.set(0,this.yaw,0);this.speed=13;this.offroadTime=0;
     this.elapsed+=2.5;this.notify("コースに もどったよ！ +2.5びょう");
   }
   advanceRival(r,dt){
@@ -222,11 +241,11 @@ class KartRace {
     const here=sampleAt(r.progress),ahead=sampleAt(r.progress+27);
     const turn=Math.acos(clamp(here.tangent.dot(ahead.tangent),-1,1));
     let desired=rivalStyles[r.index].speed;
-    desired*=1-.3*clamp(turn/.65,0,1);
+    desired*=1-.15*clamp(turn/.65,0,1);
     const close=this.rivals.find((other)=>other!==r&&other.progress>r.progress&&other.progress-r.progress<17&&Math.abs(other.lane-r.lane)<2);
-    const playerAhead=this.progress>r.progress&&this.progress-r.progress<13&&Math.abs(projectOnCircuit(this.player.position,this.trackIndex).lateral-r.lane)<2;
+    const playerAhead=this.progress>r.progress&&this.progress-r.progress<13&&Math.abs(this.lane-r.lane)<2;
     if(close||playerAhead){
-      const leaderLane=close?close.lane:projectOnCircuit(this.player.position,this.trackIndex).lateral;
+      const leaderLane=close?close.lane:this.lane;
       r.targetLane=leaderLane>=0?-2.6:2.6;
       if(close && Math.abs(close.lane-r.lane)<1)desired=Math.min(desired,close.speed+1.5);
     }else if(Math.abs(r.targetLane)>3||Math.sin(this.elapsed*.19+r.index*1.6)>.85)r.targetLane=r.index%2===0?-2.2:2.2;
@@ -247,20 +266,25 @@ class KartRace {
       const dist=Math.hypot(dx,dz);
       if(dist<2.65&&dist>.02){
         const impact=(2.65-dist);
-        p.x+=dx/dist*impact*.22;p.z+=dz/dist*impact*.22;
-        this.speed=Math.max(10,this.speed-.28);
+        const local=sampleAt(this.progress);
+        const side=(dx*local.right.x+dz*local.right.z)/dist;
+        this.lane=clamp(this.lane+side*impact*.25,-ROAD_WIDTH/2-2,ROAD_WIDTH/2+2);
+        this.speed=Math.max(10,this.speed-.36);
         if(!rival.finished)rival.speed=Math.max(14,rival.speed-.23);
       }
     }
   }
   moveCamera(dt){
-    const forward=new THREE.Vector3(Math.sin(this.yaw),0,-Math.cos(this.yaw));
-    const target=this.player.position.clone().addScaledVector(forward,-12);
-    target.y=7.9;
-    this.camera.position.lerp(target,1-Math.exp(-5*dt));
-    const look=this.player.position.clone().addScaledVector(forward,16);look.y=2.1;
+    const at=sampleAt(this.progress);
+    const target=at.position.clone().addScaledVector(at.tangent,-15)
+      .addScaledVector(at.right,this.lane*.36);
+    target.y=8.4;
+    this.camera.position.lerp(target,1-Math.exp(-4.8*dt));
+    const look=at.position.clone().addScaledVector(at.tangent,20)
+      .addScaledVector(at.right,this.lane*.5);
+    look.y=2.1;
     this.camera.lookAt(look);
-    this.camera.fov=63+this.speed*.13;this.camera.updateProjectionMatrix();
+    this.camera.fov=64+this.speed*.09;this.camera.updateProjectionMatrix();
   }
   updateHud(){
     this.ui.position.textContent=this.rank+" / 6";
@@ -314,8 +338,11 @@ class KartRace {
     }else if(this.state==="running")this.update(dt);
     if(this.state==="ready"){
       const point=sampleAt(-32);
-      this.camera.position.lerp(new THREE.Vector3(point.position.x-17,12,point.position.z+19),.045);
-      this.camera.lookAt(this.player.position.x,1,this.player.position.z);
+      const readyCamera=point.position.clone().addScaledVector(point.tangent,-20);
+      readyCamera.y=11;
+      this.camera.position.lerp(readyCamera,.05);
+      const look=point.position.clone().addScaledVector(point.tangent,18);look.y=1.4;
+      this.camera.lookAt(look);
     }
     this.renderer.render(this.scene,this.camera);
   }

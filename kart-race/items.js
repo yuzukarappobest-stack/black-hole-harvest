@@ -1,8 +1,8 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {CIRCUIT_LENGTH, sampleAt} from "./track.js?v=3";
+import {CIRCUIT_LENGTH, sampleAt} from "./track.js?v=4";
 
 // Pickups stay at known positions on the racing surface and reset each lap.
-const LANES = [0,-5,5,0,5,-5,0,5,-5,0,-5,5];
+const LANES = [-2.3,2.3]; // Two easily reachable items each lap.
 const COLLECT_RADIUS = 3.5;
 
 export function createDashPickups(scene) {
@@ -27,7 +27,7 @@ export function createDashPickups(scene) {
     color:0xffffff,side:THREE.DoubleSide
   });
   return LANES.map((lane,index)=>{
-    const along=(index+.72)*CIRCUIT_LENGTH/LANES.length;
+    const along=(index+.5)*CIRCUIT_LENGTH/LANES.length;
     const track=sampleAt(along);
     const root=new THREE.Group();
     const ring=new THREE.Mesh(ringGeometry,ringMaterial);

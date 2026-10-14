@@ -28,6 +28,24 @@ export function sampleAt(distance) {
   return {position:p,tangent,right,yaw:Math.atan2(tangent.x,-tangent.z)};
 }
 
+// Compare against the ENTIRE visible road, regardless of the driver's last
+// lap projection. A stale local projection must never trigger a false rescue.
+export function distanceSquaredToRoad(position) {
+  let closest=Infinity;
+  for(let i=0;i<SAMPLES;i++) {
+    const a=points[i],b=points[(i+1)%SAMPLES];
+    const vx=b.x-a.x,vz=b.z-a.z;
+    const dx=position.x-a.x,dz=position.z-a.z;
+    const lengthSq=vx*vx+vz*vz;
+    const t=lengthSq>0?Math.max(0,Math.min(1,(dx*vx+dz*vz)/lengthSq)):0;
+    const px=dx-t*vx,pz=dz-t*vz;
+    const distanceSq=px*px+pz*pz;
+    if(distanceSq<closest)closest=distanceSq;
+    if(closest<.0001)break;
+  }
+  return closest;
+}
+
 // Search near the previous projection to prevent shortcuts / jumping across nearby bends.
 export function projectOnCircuit(position,lastIndex=null) {
   let best=null;

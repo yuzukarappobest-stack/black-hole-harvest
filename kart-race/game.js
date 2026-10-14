@@ -1,7 +1,8 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=3";
-import {stepKart} from "./driving.js?v=2";
-import {Controls} from "./controls.js?v=2";
+import {stepKart} from "./driving.js?v=3";
+import {Controls} from "./controls.js?v=3";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=1";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -83,11 +84,21 @@ class KartRace {
     this.camera=new THREE.PerspectiveCamera(67,1,.1,450);
     const world=buildCircuit(this.scene);this.mapPoints=world.points;
     this.player=createKart(0xf15747,true);this.scene.add(this.player);
+    this.dashItems=createDashPickups(this.scene);
+    this.dashFlames=[];
+    const flameMaterial=new THREE.MeshBasicMaterial({
+      color:0x64dcff,transparent:true,opacity:.83,depthWrite:false
+    });
+    for(const x of [-.55,.55]){
+      const flame=new THREE.Mesh(new THREE.ConeGeometry(.35,1.55,8),flameMaterial);
+      flame.rotation.x=Math.PI/2;flame.position.set(x,.84,2.25);
+      flame.visible=false;this.player.add(flame);this.dashFlames.push(flame);
+    }
     this.rivals=rivalStyles.map((style,index)=>{
       const mesh=createKart(style.color);this.scene.add(mesh);
       return {...style,index,mesh,progress:0,speed:0,lane:0,targetLane:0,finished:false};
     });
-    this.input=new Controls(this.canvas,document.getElementById("brakeButton"));
+    this.input=new Controls(this.canvas);
     this.audio=new EngineAudio();
     this.ui={
       ready:document.getElementById("readyPanel"),result:document.getElementById("resultPanel"),
@@ -97,7 +108,10 @@ class KartRace {
       time:document.getElementById("timeValue"),banner:document.getElementById("banner"),
       resultPlace:document.getElementById("resultPlace"),resultTime:document.getElementById("resultTime"),
       resultMessage:document.getElementById("resultMessage"),best:document.getElementById("bestTime"),
-      brake:document.getElementById("brakeButton"),recenter:document.getElementById("recenterButton"),
+      dash:document.getElementById("dashButton"),
+      dashLabel:document.getElementById("dashLabel"),
+      dashCount:document.getElementById("dashCount"),
+      recenter:document.getElementById("recenterButton"),
       minimap:document.getElementById("minimap"),
     };
     this.mapCtx=this.ui.minimap.getContext("2d");
@@ -106,15 +120,17 @@ class KartRace {
     this.vehicle={x:0,z:0,yaw:0,speed:17,steering:0};
     this.trackIndex=null;this.trackS=0;this.cameraTarget=new THREE.Vector3();
     this.offroadTime=0;this.rank=6;this.countdown=3.5;this.hudTimer=0;
+    this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
     this.bestTime=Number(localStorage.getItem("kartRaceBestTime")||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
-    this.placeCars();this.setupEvents();this.resize();this.drawMap();this.updateHud();
+    this.placeCars();this.setupEvents();this.resize();this.drawMap();this.updateHud();this.updateDashButton();
     this.camera.position.set(0,17,160);this.camera.lookAt(0,0,100);
     this.tick=this.tick.bind(this);requestAnimationFrame(this.tick);
   }
   setupEvents(){
     window.addEventListener("resize",()=>this.resize());
     this.ui.start.addEventListener("click",()=>this.begin());
+    this.ui.dash.addEventListener("click",()=>this.activateDash());
     this.ui.recenter.addEventListener("click",()=>{this.input.recenter();this.notify("ハンドルを まんなかに したよ");});
     document.getElementById("returnButton").addEventListener("click",()=>this.goBack());
     document.getElementById("resumeButton").addEventListener("click",()=>{
@@ -134,6 +150,10 @@ class KartRace {
   placeCars(){
     // The kart starts behind the line, but drives in world coordinates after START.
     this.progress=-32;this.lane=.75;
+    this.dashCharges=0;this.boostTime=0;
+    resetDashPickups(this.dashItems);
+    this.dashFlames.forEach(flame=>{flame.visible=false;});
+    this.input.clearDashRequest();
     const start=sampleAt(this.progress);
     this.vehicle={
       x:start.position.x+start.right.x*this.lane,
@@ -166,7 +186,8 @@ class KartRace {
     this.placeCars();this.elapsed=0;this.rank=6;this.offroadTime=0;
     this.state="countdown";this.countdown=3.5;
     this.ui.ready.classList.add("hidden");
-    this.ui.brake.classList.remove("hidden");
+    this.ui.dash.classList.remove("hidden");
+    this.updateDashButton();
     this.ui.recenter.classList.remove("hidden");
     this.audio.start();this.lastFrame=performance.now();
     this.showBanner("3");
@@ -180,16 +201,52 @@ class KartRace {
     this.showBanner(message);
     this.noticeUntil=performance.now()+1250;
   }
+  updateDashButton(){
+    const boosting=this.boostTime>0;
+    const ready=this.state==="running"&&this.dashCharges>0&&!boosting;
+    this.ui.dash.disabled=!ready;
+    this.ui.dash.classList.toggle("charged",ready);
+    this.ui.dash.classList.toggle("boosting",boosting);
+    this.ui.dashLabel.textContent=boosting?"ダッシュ中":"ダッシュ";
+    this.ui.dashCount.textContent="×"+this.dashCharges;
+  }
+  collectDashItem(){
+    if(this.state!=="running"||this.dashCharges>=this.maxDashCharges)return false;
+    this.dashCharges++;
+    this.notify("⚡ ダッシュ +1");
+    this.updateDashButton();
+    return true;
+  }
+  activateDash(){
+    if(this.state!=="running"||this.boostTime>0||this.dashCharges<=0)return false;
+    this.dashCharges--;
+    this.boostTime=2.8;
+    this.vehicle.speed=Math.max(this.vehicle.speed,49);
+    this.dashFlames.forEach(flame=>{flame.visible=true;});
+    this.notify("DASH!");
+    this.updateDashButton();
+    return true;
+  }
   showBanner(message){this.ui.banner.textContent=message;this.ui.banner.classList.remove("hidden");}
   clearBanner(){this.ui.banner.classList.add("hidden");}
   update(dt){
     this.elapsed+=dt;
-    const steer=clamp(this.input.steer,-1,1),braking=this.input.brake;
+    if(this.input.consumeDashRequest())this.activateDash();
+    const steer=clamp(this.input.steer,-1,1);
+    const boosting=this.boostTime>0;
     const before=projectOnCircuit(this.player.position,this.trackIndex);
     const offroad=Math.abs(before.lateral)>ROAD_WIDTH/2-.5;
 
     // Unlike the prior on-rails implementation, no spline direction is applied to the driver.
-    stepKart(this.vehicle,{dt,steer,brake:braking,offroad});
+    stepKart(this.vehicle,{dt,steer,offroad,boost:boosting});
+    if(boosting){
+      this.boostTime=Math.max(0,this.boostTime-dt);
+      this.dashFlames.forEach((flame,index)=>{
+        flame.visible=this.boostTime>0;
+        flame.scale.y=.85+.21*Math.sin(this.elapsed*24+index*2);
+      });
+      if(this.boostTime===0)this.updateDashButton();
+    }
     this.speed=this.vehicle.speed;this.yaw=this.vehicle.yaw;
     this.player.position.set(this.vehicle.x,.02+Math.sin(this.elapsed*13)*.018,this.vehicle.z);
     this.player.rotation.set(0,-this.yaw,-clamp(this.vehicle.steering*.085,-.10,.10));
@@ -215,6 +272,11 @@ class KartRace {
 
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
+    const currentLap=Math.min(2,Math.floor(Math.max(0,this.progress)/CIRCUIT_LENGTH));
+    updateDashPickups(
+      this.dashItems,this.player.position,this.elapsed,dt,currentLap,
+      ()=>this.collectDashItem()
+    );
     this.rank=1+this.rivals.filter((r)=>r.finished||r.progress>this.progress+.05).length;
     if(this.progress>=raceDistance-.01){this.finish();return;}
     this.moveCamera(dt);this.audio.update(this.speed);
@@ -313,7 +375,8 @@ class KartRace {
   }
   finish(){
     if(this.state!=="running")return;
-    this.state="finished";this.audio.mute();this.ui.brake.classList.add("hidden");
+    this.state="finished";this.audio.mute();this.ui.dash.classList.add("hidden");
+    this.dashFlames.forEach(flame=>{flame.visible=false;});
     this.ui.recenter.classList.add("hidden");this.clearBanner();
     this.updateHud();this.drawMap();
     this.ui.resultPlace.textContent=this.rank+"い / 6だい";

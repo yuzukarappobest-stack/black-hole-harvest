@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=1";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=2";
 import {stepKart} from "./driving.js?v=1";
 import {Controls} from "./controls.js?v=1";
 
@@ -141,14 +141,15 @@ class KartRace {
       yaw:start.yaw,speed:17,steering:0,
     };
     this.player.position.set(this.vehicle.x,.02,this.vehicle.z);
-    this.yaw=this.vehicle.yaw;this.player.rotation.set(0,this.yaw,0);
+    // Three.js local forward is -Z, so mesh yaw is the negative of travel yaw.
+    this.yaw=this.vehicle.yaw;this.player.rotation.set(0,-this.yaw,0);
     const near=projectOnCircuit(this.player.position);
     this.trackIndex=near.index;this.trackS=near.s;
     this.rivals.forEach((r,i)=>{
       r.progress=-6-i*4.4;r.speed=23+i*.35;r.finished=false;
       r.lane=i%2===0?-2.2:2.2;r.targetLane=r.lane;
       const p=sampleAt(r.progress);
-      r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);r.mesh.rotation.y=p.yaw;
+      r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);r.mesh.rotation.y=-p.yaw;
     });
     const fwd=new THREE.Vector3(Math.sin(this.yaw),0,-Math.cos(this.yaw));
     this.camera.position.copy(this.player.position).addScaledVector(fwd,-12);this.camera.position.y=7.5;
@@ -190,7 +191,7 @@ class KartRace {
     stepKart(this.vehicle,{dt,steer,brake:braking,offroad});
     this.speed=this.vehicle.speed;this.yaw=this.vehicle.yaw;
     this.player.position.set(this.vehicle.x,.02+Math.sin(this.elapsed*13)*.018,this.vehicle.z);
-    this.player.rotation.set(0,this.yaw,-clamp(this.vehicle.steering*.085,-.10,.10));
+    this.player.rotation.set(0,-this.yaw,-clamp(this.vehicle.steering*.085,-.10,.10));
 
     const near=projectOnCircuit(this.player.position,this.trackIndex);
     this.lane=near.lateral;
@@ -225,7 +226,7 @@ class KartRace {
     this.vehicle.x=p.position.x;this.vehicle.z=p.position.z;
     this.vehicle.yaw=p.yaw;this.vehicle.steering=0;this.vehicle.speed=12;
     this.player.position.set(this.vehicle.x,.02,this.vehicle.z);
-    this.player.rotation.set(0,this.vehicle.yaw,0);
+    this.player.rotation.set(0,-this.vehicle.yaw,0);
     this.yaw=this.vehicle.yaw;this.speed=this.vehicle.speed;this.lane=0;
     const near=projectOnCircuit(this.player.position);
     this.trackIndex=near.index;this.trackS=near.s;this.offroadTime=0;
@@ -252,7 +253,7 @@ class KartRace {
     const lane=r.finished?ROAD_WIDTH/2+10+r.index*3:r.lane;
     r.mesh.position.copy(p.position).addScaledVector(p.right,lane);
     r.mesh.position.y=.02+Math.sin(this.elapsed*6+r.index)*.035;
-    r.mesh.rotation.y=p.yaw;
+    r.mesh.rotation.y=-p.yaw;
   }
   handleContacts(){
     for(const rival of this.rivals){

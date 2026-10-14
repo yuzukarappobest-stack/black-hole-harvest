@@ -1,5 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,distanceSquaredToRoad,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=4";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=4";
+import {applyRaceProgress} from "./progress.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=3";
 import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=2";
@@ -261,26 +262,19 @@ class KartRace {
     this.player.position.set(this.vehicle.x,.02+Math.sin(this.elapsed*13)*.018,this.vehicle.z);
     this.player.rotation.set(0,-this.yaw,-clamp(this.vehicle.steering*.085,-.10,.10));
 
-    const near=projectOnCircuit(this.player.position,this.trackIndex);
-    this.lane=near.lateral;
-    // The nearby segment is only for lap progress, not for rescue decisions.
-    if(Math.sqrt(near.squared)<ROAD_WIDTH/2+5) {
-      let advanced=near.s-this.trackS;
-      if(advanced>CIRCUIT_LENGTH/2)advanced-=CIRCUIT_LENGTH;
-      if(advanced<-CIRCUIT_LENGTH/2)advanced+=CIRCUIT_LENGTH;
-      // Count only genuine progress near the track. No teleporting across bends.
-      const maxDelta=this.speed*dt*1.3+.15;
-      if(Math.abs(advanced)<maxDelta){
-        this.progress=clamp(this.progress+advanced,-55,raceDistance);
-        this.trackIndex=near.index;this.trackS=near.s;
-      }
-    }
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
 
-    // Match the actual road geometry using every centerline segment.
-    // An ample outside margin and delay also avoid edge/contact false positives.
-    this.roadDistanceSquared=distanceSquaredToRoad(this.player.position);
+    // Use both local continuity and whole-road projection; global wins if the
+    // old tracking index becomes stale. Always refresh the progress reference.
+    const globalRoad=projectOnCircuit(this.player.position);
+    const localRoad=projectOnCircuit(this.player.position,this.trackIndex);
+    const near=applyRaceProgress(this,globalRoad,localRoad,{
+      length:CIRCUIT_LENGTH,roadWidth:ROAD_WIDTH,speed:this.speed,
+      dt,raceLength:raceDistance
+    });
+    this.lane=near.lateral;
+    this.roadDistanceSquared=globalRoad.squared;
     // Never teleport automatically: it was interrupting races even when the
     // driver appeared to be on the road. Offer recovery only after truly
     // driving far onto the grass, and only when the player asks for it.

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#8fd5ff">
   <title>カートレース</title>
-  <link rel="stylesheet" href="style.css?v=1">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <main id="app">
@@ -19,7 +19,11 @@
     <canvas id="minimap" class="minimap" width="150" height="125" aria-label="コースと車のいち"></canvas>
     <button id="pauseButton" class="pause-button" type="button" aria-label="いちじていし">Ⅱ</button>
     <button id="recenterButton" class="recenter-button hidden" type="button">ハンドル<br>ちょうせい</button>
-    <button id="brakeButton" class="brake-button hidden" type="button">ブレーキ</button>
+    <button id="dashButton" class="dash-button hidden" type="button" disabled aria-label="アイテムで ダッシュ">
+      <span class="dash-icon" aria-hidden="true">⚡</span>
+      <span id="dashLabel">ダッシュ</span>
+      <small id="dashCount">×0</small>
+    </button>
     <div id="banner" class="banner hidden" aria-live="polite">3</div>
 
     <section id="readyPanel" class="overlay">
@@ -31,10 +35,11 @@
         <div class="howto">
           <div>📱 スマホを かたむけて まがる</div>
           <div>🚗 まえには じどうで はしる</div>
-          <div>🛑 カーブの まえで ブレーキ！</div>
+          <div>⚡ ひかるアイテムを あつめよう</div>
+          <div>🚀 ボタンを おすと ダッシュ！</div>
         </div>
         <button id="startButton" class="start-button" type="button">レース スタート！</button>
-        <p id="controlHint" class="hint">かたむきが つかえない ときは がめんを ドラッグ<br>PCは ← → と スペースで そうさ</p>
+        <p id="controlHint" class="hint">かたむきが つかえない ときは がめんを ドラッグ<br>PCは ← → で ハンドル、スペースで ダッシュ</p>
         <small>ベスト：<span id="bestTime">まだないよ</span></small>
       </div>
     </section>
@@ -56,6 +61,6 @@
       </div>
     </section>
   </main>
-  <script type="module" src="game.js?v=5"></script>
+  <script type="module" src="game.js?v=6"></script>
 </body>
 </html>

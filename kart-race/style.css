@@ -20,6 +20,8 @@ button{font:inherit;font-weight:950;cursor:pointer;touch-action:none}
 .dash-button.charged:active{transform:translateY(6px) scale(.98);box-shadow:0 2px 0 #1948a5,0 6px 12px #047bcf6e}
 .dash-button.boosting{background:linear-gradient(145deg,#ffcd5b,#f17b25);box-shadow:0 6px 0 #c15d27;opacity:1}
 @keyframes chargedGlow{to{filter:brightness(1.16)}}
+.recovery-button{position:fixed;left:max(12px,env(safe-area-inset-left));bottom:calc(max(20px,env(safe-area-inset-bottom)) + 145px);z-index:4;border:3px solid #fff;border-radius:14px;background:linear-gradient(130deg,#ffcf58,#f18a4d);box-shadow:0 5px 16px #321a0b80;color:#562b10;font-size:clamp(13px,3.4vw,18px);padding:12px 16px}
+.recovery-button:active{transform:translateY(2px)}
 .pause-button,.recenter-button{position:fixed;z-index:3;border:2px solid #fff;border-radius:13px;background:#153a60cf;color:#fff;padding:7px 11px;box-shadow:0 5px 13px #12335030}
 .pause-button{top:calc(max(10px,env(safe-area-inset-top)) + 72px);right:max(11px,env(safe-area-inset-right));min-height:37px;min-width:39px}
 .recenter-button{font-size:12px;line-height:1.16;top:calc(max(10px,env(safe-area-inset-top)) + 116px);right:max(10px,env(safe-area-inset-right))}

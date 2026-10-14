@@ -1,5 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=1";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=1";
+import {stepKart} from "./driving.js?v=1";
 import {Controls} from "./controls.js?v=1";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -101,7 +102,9 @@ class KartRace {
     };
     this.mapCtx=this.ui.minimap.getContext("2d");
     this.state="ready";this.lastFrame=0;this.elapsed=0;this.speed=0;this.yaw=0;
-    this.progress=-32;this.lane=.75;this.laneVelocity=0;
+    this.progress=-32;this.lane=.75;
+    this.vehicle={x:0,z:0,yaw:0,speed:17,steering:0};
+    this.trackIndex=null;this.trackS=0;this.cameraTarget=new THREE.Vector3();
     this.offroadTime=0;this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.bestTime=Number(localStorage.getItem("kartRaceBestTime")||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
@@ -129,18 +132,28 @@ class KartRace {
     this.camera.aspect=innerWidth/Math.max(1,innerHeight);this.camera.updateProjectionMatrix();
   }
   placeCars(){
-    // Every kart starts behind the same finish line: no teleporting or disconnected tracks.
-    this.progress=-32;this.lane=.75;this.laneVelocity=0;
+    // The kart starts behind the line, but drives in world coordinates after START.
+    this.progress=-32;this.lane=.75;
     const start=sampleAt(this.progress);
-    this.player.position.copy(start.position).addScaledVector(start.right,this.lane);
-    this.yaw=start.yaw;this.player.rotation.y=this.yaw;
-    this.speed=17;
+    this.vehicle={
+      x:start.position.x+start.right.x*this.lane,
+      z:start.position.z+start.right.z*this.lane,
+      yaw:start.yaw,speed:17,steering:0,
+    };
+    this.player.position.set(this.vehicle.x,.02,this.vehicle.z);
+    this.yaw=this.vehicle.yaw;this.player.rotation.set(0,this.yaw,0);
+    const near=projectOnCircuit(this.player.position);
+    this.trackIndex=near.index;this.trackS=near.s;
     this.rivals.forEach((r,i)=>{
       r.progress=-6-i*4.4;r.speed=23+i*.35;r.finished=false;
       r.lane=i%2===0?-2.2:2.2;r.targetLane=r.lane;
       const p=sampleAt(r.progress);
       r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);r.mesh.rotation.y=p.yaw;
     });
+    const fwd=new THREE.Vector3(Math.sin(this.yaw),0,-Math.cos(this.yaw));
+    this.camera.position.copy(this.player.position).addScaledVector(fwd,-12);this.camera.position.y=7.5;
+    this.cameraTarget.copy(this.player.position).addScaledVector(fwd,17);this.cameraTarget.y=2.1;
+    this.camera.lookAt(this.cameraTarget);
   }
   async begin(){
     if(this.state!=="ready")return;
@@ -169,71 +182,53 @@ class KartRace {
   clearBanner(){this.ui.banner.classList.add("hidden");}
   update(dt){
     this.elapsed+=dt;
-    const steer=clamp(this.input.steer,-1,1);
-    const braking=this.input.brake;
-    const here=sampleAt(this.progress),ahead=sampleAt(this.progress+18);
-    // Signed curvature: positive = right hand bend, negative = left hand bend.
-    const cross=here.tangent.x*ahead.tangent.z-here.tangent.z*ahead.tangent.x;
-    const dot=clamp(here.tangent.dot(ahead.tangent),-1,1);
-    const curvature=Math.atan2(cross,dot)/18;
-    const offroad=Math.abs(this.lane)>ROAD_WIDTH/2-.45;
+    const steer=clamp(this.input.steer,-1,1),braking=this.input.brake;
+    const before=projectOnCircuit(this.player.position,this.trackIndex);
+    const offroad=Math.abs(before.lateral)>ROAD_WIDTH/2-.5;
 
-    // Arcade path-following assistance keeps the kart aligned with the race circuit.
-    // Tilt adjusts its line within the road; the track itself provides the basic turn.
-    // Brake remains useful because turning at high speed introduces outward sliding.
-    const desiredSpeed=offroad?17:braking?16:42;
-    const accel=offroad?2.7:braking?3.7:.82;
-    this.speed+=(desiredSpeed-this.speed)*(1-Math.exp(-accel*dt));
-    this.speed=clamp(this.speed,8,44);
+    // Unlike the prior on-rails implementation, no spline direction is applied to the driver.
+    stepKart(this.vehicle,{dt,steer,brake:braking,offroad});
+    this.speed=this.vehicle.speed;this.yaw=this.vehicle.yaw;
+    this.player.position.set(this.vehicle.x,.02+Math.sin(this.elapsed*13)*.018,this.vehicle.z);
+    this.player.rotation.set(0,this.yaw,-clamp(this.vehicle.steering*.085,-.10,.10));
 
-    const lateralTarget=steer*(braking?9.6:11.0);
-    this.laneVelocity+=(lateralTarget-this.laneVelocity)*(1-Math.exp(-(braking?8:6)*dt));
-    const cornerLoad=Math.max(0,Math.abs(curvature)*this.speed-.44);
-    const outward=-Math.sign(curvature)*cornerLoad*(braking?1.1:3.0);
-    this.lane+=(this.laneVelocity+outward)*dt;
-    // Mild centering gives younger players time to recover after a sharp curve.
-    if(Math.abs(steer)<.28 && Math.abs(this.lane)>3){
-      this.lane-=Math.sign(this.lane)*(Math.abs(this.lane)-3)*.55*dt;
+    const near=projectOnCircuit(this.player.position,this.trackIndex);
+    this.lane=near.lateral;
+    const roadDistance=Math.sqrt(near.squared);
+    if(roadDistance<ROAD_WIDTH/2+5) {
+      let advanced=near.s-this.trackS;
+      if(advanced>CIRCUIT_LENGTH/2)advanced-=CIRCUIT_LENGTH;
+      if(advanced<-CIRCUIT_LENGTH/2)advanced+=CIRCUIT_LENGTH;
+      // Count only genuine progress near the track. No teleporting across bends.
+      const maxDelta=this.speed*dt*1.3+.15;
+      if(Math.abs(advanced)<maxDelta){
+        this.progress=clamp(this.progress+advanced,-55,raceDistance);
+        this.trackIndex=near.index;this.trackS=near.s;
+      }
     }
-    if(Math.abs(this.lane)>ROAD_WIDTH/2-.45){
-      this.lane-=Math.sign(this.lane)*1.35*dt;
-    }
-    this.lane=clamp(this.lane,-ROAD_WIDTH/2-4.2,ROAD_WIDTH/2+4.2);
-    if(Math.abs(this.lane)>ROAD_WIDTH/2+2.9){
+    if(roadDistance>ROAD_WIDTH/2+2){
       this.offroadTime+=dt;
-      if(this.offroadTime>1.5)this.rescue();
+      if(this.offroadTime>1.8)this.rescue();
     }else this.offroadTime=0;
-
-    // Arc length is the sole source of race progress: no skipped laps when roads
-    // converge, the car briefly leaves the road, or the camera changes angle.
-    this.progress=Math.min(raceDistance,this.progress+this.speed*dt*(offroad?.74:1));
-    const p=sampleAt(this.progress);
-    this.player.position.copy(p.position).addScaledVector(p.right,this.lane);
-    this.player.position.y=.02+Math.sin(this.elapsed*13)*.018;
-    const travel=p.tangent.clone().multiplyScalar(this.speed)
-      .addScaledVector(p.right,this.laneVelocity+outward);
-    const heading=Math.atan2(travel.x,-travel.z);
-    let difference=heading-this.yaw;
-    while(difference>Math.PI)difference-=2*Math.PI;
-    while(difference<-Math.PI)difference+=2*Math.PI;
-    this.yaw+=difference*(1-Math.exp(-12*dt));
-    this.player.rotation.set(0,this.yaw,-clamp(this.laneVelocity*.017,-.11,.11));
 
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
     this.rank=1+this.rivals.filter((r)=>r.finished||r.progress>this.progress+.05).length;
     if(this.progress>=raceDistance-.01){this.finish();return;}
-    this.moveCamera(dt);
-    this.audio.update(this.speed);
+    this.moveCamera(dt);this.audio.update(this.speed);
     this.hudTimer+=dt;
     if(this.hudTimer>.09){this.hudTimer=0;this.updateHud();this.drawMap();}
     if(this.noticeUntil && performance.now()>this.noticeUntil){this.noticeUntil=0;this.clearBanner();}
   }
   rescue(){
-    const at=sampleAt(this.progress);
-    this.lane=0;this.laneVelocity=0;
-    this.player.position.copy(at.position);this.yaw=at.yaw;
-    this.player.rotation.set(0,this.yaw,0);this.speed=13;this.offroadTime=0;
+    const p=sampleAt(this.progress);
+    this.vehicle.x=p.position.x;this.vehicle.z=p.position.z;
+    this.vehicle.yaw=p.yaw;this.vehicle.steering=0;this.vehicle.speed=12;
+    this.player.position.set(this.vehicle.x,.02,this.vehicle.z);
+    this.player.rotation.set(0,this.vehicle.yaw,0);
+    this.yaw=this.vehicle.yaw;this.speed=this.vehicle.speed;this.lane=0;
+    const near=projectOnCircuit(this.player.position);
+    this.trackIndex=near.index;this.trackS=near.s;this.offroadTime=0;
     this.elapsed+=2.5;this.notify("コースに もどったよ！ +2.5びょう");
   }
   advanceRival(r,dt){
@@ -260,30 +255,27 @@ class KartRace {
     r.mesh.rotation.y=p.yaw;
   }
   handleContacts(){
-    const p=this.player.position;
     for(const rival of this.rivals){
-      const dx=p.x-rival.mesh.position.x,dz=p.z-rival.mesh.position.z;
+      if(rival.finished)continue;
+      const dx=this.vehicle.x-rival.mesh.position.x,dz=this.vehicle.z-rival.mesh.position.z;
       const dist=Math.hypot(dx,dz);
       if(dist<2.65&&dist>.02){
-        const impact=(2.65-dist);
-        const local=sampleAt(this.progress);
-        const side=(dx*local.right.x+dz*local.right.z)/dist;
-        this.lane=clamp(this.lane+side*impact*.25,-ROAD_WIDTH/2-2,ROAD_WIDTH/2+2);
-        this.speed=Math.max(10,this.speed-.36);
-        if(!rival.finished)rival.speed=Math.max(14,rival.speed-.23);
+        const push=(2.65-dist)*.3;
+        this.vehicle.x+=dx/dist*push;this.vehicle.z+=dz/dist*push;
+        this.player.position.x=this.vehicle.x;this.player.position.z=this.vehicle.z;
+        this.vehicle.speed=Math.max(10,this.vehicle.speed-1.4);
+        this.speed=this.vehicle.speed;
+        rival.speed=Math.max(14,rival.speed-1);
       }
     }
   }
   moveCamera(dt){
-    const at=sampleAt(this.progress);
-    const target=at.position.clone().addScaledVector(at.tangent,-15)
-      .addScaledVector(at.right,this.lane*.36);
-    target.y=8.4;
-    this.camera.position.lerp(target,1-Math.exp(-4.8*dt));
-    const look=at.position.clone().addScaledVector(at.tangent,20)
-      .addScaledVector(at.right,this.lane*.5);
-    look.y=2.1;
-    this.camera.lookAt(look);
+    const fwd=new THREE.Vector3(Math.sin(this.vehicle.yaw),0,-Math.cos(this.vehicle.yaw));
+    const target=this.player.position.clone().addScaledVector(fwd,-12);target.y=7.5;
+    this.camera.position.lerp(target,1-Math.exp(-5*dt));
+    const look=this.player.position.clone().addScaledVector(fwd,17);look.y=2.1;
+    this.cameraTarget.lerp(look,1-Math.exp(-7*dt));
+    this.camera.lookAt(this.cameraTarget);
     this.camera.fov=64+this.speed*.09;this.camera.updateProjectionMatrix();
   }
   updateHud(){

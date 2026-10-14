@@ -11,9 +11,9 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .progress-panel span { display: inline; }.progress-panel strong { font-size: .8rem; }
 .progress-track { height: 10px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.26); }
 .progress-track i { display:block; width:0%; height:100%; border-radius:inherit; background: linear-gradient(90deg,#ffe85d,#ff9f4b); transition:width .12s linear; }
-.screen { position: fixed; z-index: 4; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(5,38,90,.3); backdrop-filter: blur(4px); }
+.screen { position: fixed; z-index: 4; inset: 0; display: grid; place-items: center; padding: 24px; overflow-y:auto; background: rgba(5,38,90,.3); backdrop-filter: blur(4px); }
 .hidden { display: none !important; }
-.panel { width: min(90vw, 390px); padding: 30px 22px; border: 3px solid rgba(255,255,255,.9); border-radius: 12px; background: rgba(255,255,255,.94); box-shadow: 0 20px 44px rgba(4,28,72,.32); color: #17345f; text-align: center; }
+.panel { width: min(90vw, 390px); max-height:calc(100dvh - 48px); overflow-y:auto; padding: 30px 22px; border: 3px solid rgba(255,255,255,.9); border-radius: 12px; background: rgba(255,255,255,.94); box-shadow: 0 20px 44px rgba(4,28,72,.32); color: #17345f; text-align: center; }
 .eyebrow { margin: 0 0 6px; color: #f06172; font-size: .75rem; font-weight: 950; letter-spacing: .12em; }
 h1 { margin: 0; color: #ff5270; font-size: clamp(2.6rem, 13vw, 4.7rem); letter-spacing: 0; line-height: .95; }
 .panel > p:not(.eyebrow) { font-weight: 900; font-size: 1.15rem; }
@@ -37,5 +37,7 @@ small { display:block; margin-top: 16px; color:#6480a8; font-weight:800; }
 .stage-card:nth-child(2){background:linear-gradient(145deg,#26295b,#4d4f9b);color:#fff;box-shadow:0 5px 0 #171a45}
 .stage-card:nth-child(3){background:linear-gradient(145deg,#e8f0df,#b8cea6);color:#35502f;box-shadow:0 5px 0 #8ca27d}
 .stage-card:nth-child(4){background:linear-gradient(145deg,#d9f7ff,#77d0e8);color:#12516b;box-shadow:0 5px 0 #4ca7c0}
+.stage-card:nth-child(5){background:linear-gradient(145deg,#6b251c,#ed742b);color:#fff;box-shadow:0 5px 0 #87351f}
+.stage-card:nth-child(6){background:linear-gradient(145deg,#f1fcff,#8bd7f0);color:#215572;box-shadow:0 5px 0 #5daac8}
 .stage-card.selected{border-color:#ff6b83;outline:3px solid #ffd9df}
 .stage-card:active{transform:translateY(3px)}

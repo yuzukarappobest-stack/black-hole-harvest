@@ -1,6 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=4";
-import {applyRaceProgress} from "./progress.js?v=1";
+import {applyRaceProgress} from "./progress.js?v=2";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=3";
 import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=2";

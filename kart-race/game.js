@@ -1,8 +1,8 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=3";
+import {buildCircuit,sampleAt,projectOnCircuit,distanceSquaredToRoad,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=4";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=3";
-import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=1";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=2";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -119,7 +119,7 @@ class KartRace {
     this.progress=-32;this.lane=.75;
     this.vehicle={x:0,z:0,yaw:0,speed:17,steering:0};
     this.trackIndex=null;this.trackS=0;this.cameraTarget=new THREE.Vector3();
-    this.offroadTime=0;this.rank=6;this.countdown=3.5;this.hudTimer=0;
+    this.offroadTime=0;this.roadDistanceSquared=0;this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
     this.bestTime=Number(localStorage.getItem("kartRaceBestTime")||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
@@ -150,6 +150,7 @@ class KartRace {
   placeCars(){
     // The kart starts behind the line, but drives in world coordinates after START.
     this.progress=-32;this.lane=.75;
+    this.roadDistanceSquared=0;this.offroadTime=0;
     this.dashCharges=0;this.boostTime=0;
     resetDashPickups(this.dashItems);
     this.dashFlames.forEach(flame=>{flame.visible=false;});
@@ -234,8 +235,9 @@ class KartRace {
     if(this.input.consumeDashRequest())this.activateDash();
     const steer=clamp(this.input.steer,-1,1);
     const boosting=this.boostTime>0;
-    const before=projectOnCircuit(this.player.position,this.trackIndex);
-    const offroad=Math.abs(before.lateral)>ROAD_WIDTH/2-.5;
+    // Use the closest point on the full circuit for road/grass classification.
+    // The local lap projection can lag or jump and is not reliable here.
+    const offroad=this.roadDistanceSquared>(ROAD_WIDTH/2-.5)**2;
 
     // Unlike the prior on-rails implementation, no spline direction is applied to the driver.
     stepKart(this.vehicle,{dt,steer,offroad,boost:boosting});
@@ -253,8 +255,8 @@ class KartRace {
 
     const near=projectOnCircuit(this.player.position,this.trackIndex);
     this.lane=near.lateral;
-    const roadDistance=Math.sqrt(near.squared);
-    if(roadDistance<ROAD_WIDTH/2+5) {
+    // The nearby segment is only for lap progress, not for rescue decisions.
+    if(Math.sqrt(near.squared)<ROAD_WIDTH/2+5) {
       let advanced=near.s-this.trackS;
       if(advanced>CIRCUIT_LENGTH/2)advanced-=CIRCUIT_LENGTH;
       if(advanced<-CIRCUIT_LENGTH/2)advanced+=CIRCUIT_LENGTH;
@@ -265,13 +267,16 @@ class KartRace {
         this.trackIndex=near.index;this.trackS=near.s;
       }
     }
-    if(roadDistance>ROAD_WIDTH/2+2){
-      this.offroadTime+=dt;
-      if(this.offroadTime>1.8)this.rescue();
-    }else this.offroadTime=0;
-
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
+
+    // Match the actual road geometry using every centerline segment.
+    // An ample outside margin and delay also avoid edge/contact false positives.
+    this.roadDistanceSquared=distanceSquaredToRoad(this.player.position);
+    if(this.roadDistanceSquared>(ROAD_WIDTH/2+6)**2){
+      this.offroadTime+=dt;
+      if(this.offroadTime>2.5)this.rescue();
+    }else this.offroadTime=0;
     const currentLap=Math.min(2,Math.floor(Math.max(0,this.progress)/CIRCUIT_LENGTH));
     updateDashPickups(
       this.dashItems,this.player.position,this.elapsed,dt,currentLap,
@@ -292,7 +297,7 @@ class KartRace {
     this.player.rotation.set(0,-this.vehicle.yaw,0);
     this.yaw=this.vehicle.yaw;this.speed=this.vehicle.speed;this.lane=0;
     const near=projectOnCircuit(this.player.position);
-    this.trackIndex=near.index;this.trackS=near.s;this.offroadTime=0;
+    this.trackIndex=near.index;this.trackS=near.s;this.offroadTime=0;this.roadDistanceSquared=0;
     this.elapsed+=2.5;this.notify("コースに もどったよ！ +2.5びょう");
   }
   advanceRival(r,dt){

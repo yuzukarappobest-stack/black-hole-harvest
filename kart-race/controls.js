@@ -46,7 +46,12 @@ export class Controls {
     if(!Number.isFinite(raw))return;
     this.rawTilt=raw;
     if(this.tiltBaseline===null)this.tiltBaseline=raw;
-    const target=clamp((raw-this.tiltBaseline)/19,-1,1);
+    // A physical dead zone prevents sensor noise or a slight resting tilt from
+    // causing a continuous slow rotation while the player isn't steering.
+    const offset=raw-this.tiltBaseline;
+    const deadZone=4;
+    const active=Math.sign(offset)*Math.max(0,Math.abs(offset)-deadZone);
+    const target=clamp(active/17,-1,1);
     this.tilt+=(target-this.tilt)*.24;
     this.tiltActive=true;
   }

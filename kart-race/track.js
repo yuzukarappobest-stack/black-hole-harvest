@@ -1,7 +1,7 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 
 // A genuinely closed, arc-length-sampled circuit. All six karts share this path.
-export const ROAD_WIDTH = 14;
+export const ROAD_WIDTH = 22;
 export const SAMPLES = 640;
 const controlPoints = [
   [0,100], [68,114], [142,85], [170,27], [160,-45],

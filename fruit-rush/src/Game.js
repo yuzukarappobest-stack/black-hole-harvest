@@ -1,9 +1,9 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { CONFIG, FRUIT_LEVELS, setStage, ACTIVE_STAGE } from "./config.js?v=12";
+import { CONFIG, FRUIT_LEVELS, setStage, ACTIVE_STAGE } from "./config.js?v=13";
 import { Fruit, fruitData } from "./Fruit.js?v=5";
-import { Player } from "./Player.js?v=9";
-import { Course } from "./Course.js?v=5";
-import { courseCenterX, courseWidthAtZ } from "./coursePath.js?v=2";
+import { Player } from "./Player.js?v=10";
+import { Course } from "./Course.js?v=6";
+import { courseCenterX, courseWidthAtZ } from "./coursePath.js?v=3";
 import { InputManager } from "./InputManager.js?v=2";
 import { UI } from "./UI.js?v=3";
 import { AudioManager } from "./Audio.js?v=5";

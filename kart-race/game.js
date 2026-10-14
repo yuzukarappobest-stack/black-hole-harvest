@@ -201,7 +201,7 @@ class KartRace {
     }else this.offroadTime=0;
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
-    this.rank=1+this.rivals.filter((r)=>r.progress>this.progress+.05).length;
+    this.rank=1+this.rivals.filter((r)=>r.finished||r.progress>this.progress+.05).length;
     if(this.progress>=raceDistance-.01){this.finish();return;}
     this.moveCamera(dt);
     this.audio.update(this.speed);

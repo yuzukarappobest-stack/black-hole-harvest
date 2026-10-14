@@ -111,6 +111,7 @@ class KartRace {
       dash:document.getElementById("dashButton"),
       dashLabel:document.getElementById("dashLabel"),
       dashCount:document.getElementById("dashCount"),
+      recovery:document.getElementById("recoveryButton"),
       recenter:document.getElementById("recenterButton"),
       minimap:document.getElementById("minimap"),
     };
@@ -131,10 +132,16 @@ class KartRace {
     window.addEventListener("resize",()=>this.resize());
     this.ui.start.addEventListener("click",()=>this.begin());
     this.ui.dash.addEventListener("click",()=>this.activateDash());
+    this.ui.recovery.addEventListener("click",()=>{
+      if(this.state==="running"&&this.offroadTime>=3){
+        this.rescue();
+        this.ui.recovery.classList.add("hidden");
+      }
+    });
     this.ui.recenter.addEventListener("click",()=>{this.input.recenter();this.notify("ハンドルを まんなかに したよ");});
     document.getElementById("returnButton").addEventListener("click",()=>this.goBack());
     document.getElementById("resumeButton").addEventListener("click",()=>{
-      this.state=this.wasCounting?"countdown":"running";this.ui.pause.classList.add("hidden");this.lastFrame=performance.now();this.audio.start();
+      this.state=this.wasCounting?"countdown":"running";this.ui.pause.classList.add("hidden");this.ui.recovery.classList.toggle("hidden",this.offroadTime<3);this.lastFrame=performance.now();this.audio.start();
     });
     document.getElementById("pauseButton").addEventListener("click",()=>this.pause());
     document.addEventListener("visibilitychange",()=>{if(document.hidden)this.pause();});
@@ -151,6 +158,7 @@ class KartRace {
     // The kart starts behind the line, but drives in world coordinates after START.
     this.progress=-32;this.lane=.75;
     this.roadDistanceSquared=0;this.offroadTime=0;
+    this.ui.recovery.classList.add("hidden");
     this.dashCharges=0;this.boostTime=0;
     resetDashPickups(this.dashItems);
     this.dashFlames.forEach(flame=>{flame.visible=false;});
@@ -196,7 +204,7 @@ class KartRace {
   pause(){
     if(this.state!=="running"&&this.state!=="countdown")return;
     this.wasCounting=this.state==="countdown";this.state="paused";
-    this.ui.pause.classList.remove("hidden");this.audio.mute();
+    this.ui.pause.classList.remove("hidden");this.ui.recovery.classList.add("hidden");this.audio.mute();
   }
   notify(message){
     this.showBanner(message);
@@ -273,10 +281,13 @@ class KartRace {
     // Match the actual road geometry using every centerline segment.
     // An ample outside margin and delay also avoid edge/contact false positives.
     this.roadDistanceSquared=distanceSquaredToRoad(this.player.position);
-    if(this.roadDistanceSquared>(ROAD_WIDTH/2+6)**2){
+    // Never teleport automatically: it was interrupting races even when the
+    // driver appeared to be on the road. Offer recovery only after truly
+    // driving far onto the grass, and only when the player asks for it.
+    if(this.roadDistanceSquared>(ROAD_WIDTH/2+11)**2){
       this.offroadTime+=dt;
-      if(this.offroadTime>2.5)this.rescue();
     }else this.offroadTime=0;
+    this.ui.recovery.classList.toggle("hidden",this.offroadTime<3);
     const currentLap=Math.min(2,Math.floor(Math.max(0,this.progress)/CIRCUIT_LENGTH));
     updateDashPickups(
       this.dashItems,this.player.position,this.elapsed,dt,currentLap,
@@ -298,6 +309,7 @@ class KartRace {
     this.yaw=this.vehicle.yaw;this.speed=this.vehicle.speed;this.lane=0;
     const near=projectOnCircuit(this.player.position);
     this.trackIndex=near.index;this.trackS=near.s;this.offroadTime=0;this.roadDistanceSquared=0;
+    this.ui.recovery.classList.add("hidden");
     this.elapsed+=2.5;this.notify("コースに もどったよ！ +2.5びょう");
   }
   advanceRival(r,dt){
@@ -381,6 +393,7 @@ class KartRace {
   finish(){
     if(this.state!=="running")return;
     this.state="finished";this.audio.mute();this.ui.dash.classList.add("hidden");
+    this.ui.recovery.classList.add("hidden");
     this.dashFlames.forEach(flame=>{flame.visible=false;});
     this.ui.recenter.classList.add("hidden");this.clearBanner();
     this.updateHud();this.drawMap();

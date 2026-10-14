@@ -1,15 +1,26 @@
 import { Fruit, fruitData } from "./Fruit.js?v=5";
-import { CONFIG, FRUIT_LEVELS } from "./config.js?v=12";
-import { courseCenterX, courseWidthAtZ } from "./coursePath.js?v=2";
+import { CONFIG, FRUIT_LEVELS } from "./config.js?v=13";
+import { courseCenterX, courseWidthAtZ } from "./coursePath.js?v=3";
 
 export class Player extends Fruit {
-  constructor() { super(1, courseCenterX(CONFIG.courseStartZ), CONFIG.courseStartZ, true); this.targetX = 0; this.lastX = 0; }
-  reset() { this.targetX = 0; this.lastX = 0; this.mesh.position.set(courseCenterX(CONFIG.courseStartZ), this.radius, CONFIG.courseStartZ); this.setLevel(1); }
-  respawn(z) { this.targetX = 0; this.lastX = 0; this.mesh.position.set(courseCenterX(z), this.radius, z); this.mesh.rotation.set(0, 0, 0); }
+  constructor() { super(1, courseCenterX(CONFIG.courseStartZ), CONFIG.courseStartZ, true); this.targetX = 0; this.lastX = 0; this.slideVelocity = 0; }
+  reset() { this.targetX = 0; this.lastX = 0; this.slideVelocity = 0; this.mesh.position.set(courseCenterX(CONFIG.courseStartZ), this.radius, CONFIG.courseStartZ); this.setLevel(1); }
+  respawn(z) { this.targetX = 0; this.lastX = 0; this.slideVelocity = 0; this.mesh.position.set(courseCenterX(z), this.radius, z); this.mesh.rotation.set(0, 0, 0); }
   move(delta, input, speedScale = 1) {
-    this.targetX += input * CONFIG.lateralSpeed * delta;
+    if(CONFIG.iceSteering) {
+      // Sliding momentum persists briefly after releasing or reversing the controls.
+      const steering=Math.abs(input)<.04?0:input;
+      const response=steering===0?CONFIG.iceFriction:CONFIG.iceSteeringAcceleration;
+      this.slideVelocity+=(steering*CONFIG.lateralSpeed-this.slideVelocity)*(1-Math.exp(-response*delta));
+      this.targetX+=this.slideVelocity*delta;
+    } else {
+      this.slideVelocity=0;
+      this.targetX+=input*CONFIG.lateralSpeed*delta;
+    }
     const boundary = courseWidthAtZ(this.mesh.position.z) / 2 + this.radius + .9;
+    const unclamped=this.targetX;
     this.targetX = Math.max(-boundary, Math.min(boundary, this.targetX));
+    if(this.targetX!==unclamped)this.slideVelocity=0;
     this.mesh.position.z -= CONFIG.forwardSpeed * speedScale * delta;
     const oldX = this.mesh.position.x;
     const desiredX = courseCenterX(this.mesh.position.z) + this.targetX;

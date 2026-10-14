@@ -79,6 +79,49 @@ export const STAGES = {
       forwardSpeed:9.0,
     },
   },
+  5: {
+    id:5, name:"ステージ5", subtitle:"マグマの きょうこく",
+    theme:"magma",
+    config:{
+      ...BASE_CONFIG,
+      courseWidth:7.2,
+      widthProfile:[
+        {from:0,to:80,width:8.0},{from:80,to:150,width:6.2},
+        {from:150,to:240,width:7.4},{from:240,to:330,width:5.8},
+        {from:330,to:420,width:6.6},
+      ],
+      courseSegments:[
+        {length:55,curve:.08},{length:60,curve:-.10},{length:70,curve:.09},
+        {length:75,curve:-.11},{length:70,curve:.08},{length:90,curve:-.04},
+      ],
+      forwardSpeed:9.3,
+      lateralSpeed:12.5,
+      courseOutPenalty:250,
+    },
+  },
+  6: {
+    id:6, name:"ステージ6", subtitle:"こおりの せかい",
+    theme:"ice",
+    config:{
+      ...BASE_CONFIG,
+      courseWidth:7.8,
+      widthProfile:[
+        {from:0,to:90,width:8.4},{from:90,to:180,width:7.2},
+        {from:180,to:260,width:6.6},{from:260,to:340,width:7.4},
+        {from:340,to:420,width:6.8},
+      ],
+      courseSegments:[
+        {length:70,curve:.045},{length:65,curve:-.06},{length:75,curve:.05},
+        {length:70,curve:-.07},{length:65,curve:.055},{length:75,curve:-.035},
+      ],
+      forwardSpeed:8.8,
+      lateralSpeed:11.2,
+      iceSteering:true,
+      iceSteeringAcceleration:6.0,
+      iceFriction:1.6,
+      courseOutPenalty:230,
+    },
+  },
 };
 
 export let CONFIG = { ...STAGES[1].config };

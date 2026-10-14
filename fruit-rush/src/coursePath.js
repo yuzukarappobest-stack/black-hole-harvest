@@ -1,4 +1,4 @@
-import { CONFIG, courseWidthAtDistance } from "./config.js?v=12";
+import { CONFIG, courseWidthAtDistance } from "./config.js?v=13";
 
 export function traveledDistance(z) {
   return Math.max(0, Math.min(CONFIG.courseLength, CONFIG.courseStartZ - z));

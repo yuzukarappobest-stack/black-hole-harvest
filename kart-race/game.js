@@ -115,7 +115,7 @@ class KartRace {
     this.ui.recenter.addEventListener("click",()=>{this.input.recenter();this.notify("ハンドルを まんなかに したよ");});
     document.getElementById("returnButton").addEventListener("click",()=>this.goBack());
     document.getElementById("resumeButton").addEventListener("click",()=>{
-      this.state="running";this.ui.pause.classList.add("hidden");this.lastFrame=performance.now();this.audio.start();
+      this.state=this.wasCounting?"countdown":"running";this.ui.pause.classList.add("hidden");this.lastFrame=performance.now();this.audio.start();
     });
     document.getElementById("pauseButton").addEventListener("click",()=>this.pause());
     document.addEventListener("visibilitychange",()=>{if(document.hidden)this.pause();});
@@ -221,8 +221,7 @@ class KartRace {
     if(r.finished)return;
     const here=sampleAt(r.progress),ahead=sampleAt(r.progress+27);
     const turn=Math.acos(clamp(here.tangent.dot(ahead.tangent),-1,1));
-    let desired=r.speedMax ?? r.speedBase ?? r.speed;
-    desired=r.speedBase??rivalStyles[r.index].speed;
+    let desired=rivalStyles[r.index].speed;
     desired*=1-.3*clamp(turn/.65,0,1);
     const close=this.rivals.find((other)=>other!==r&&other.progress>r.progress&&other.progress-r.progress<17&&Math.abs(other.lane-r.lane)<2);
     const playerAhead=this.progress>r.progress&&this.progress-r.progress<13&&Math.abs(projectOnCircuit(this.player.position,this.trackIndex).lateral-r.lane)<2;
@@ -235,8 +234,9 @@ class KartRace {
     r.lane+=(r.targetLane-r.lane)*(1-Math.exp(-2.7*dt));
     r.progress=Math.min(raceDistance,r.progress+r.speed*dt);
     if(r.progress>=raceDistance)r.finished=true;
-    const p=sampleAt(r.progress);
-    r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);
+    const p=sampleAt(r.finished?10:r.progress);
+    const lane=r.finished?ROAD_WIDTH/2+10+r.index*3:r.lane;
+    r.mesh.position.copy(p.position).addScaledVector(p.right,lane);
     r.mesh.position.y=.02+Math.sin(this.elapsed*6+r.index)*.035;
     r.mesh.rotation.y=p.yaw;
   }

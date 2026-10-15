@@ -18,7 +18,7 @@
     { id: "shooting-star", label: "流れ星", sub: "すばやくタップ！", icon: "🌠", href: "shooting-star.html", soft: "#e9efff" },
     { id: "frog-jump", label: "カエルジャンプ", sub: "ぴょんぴょん進もう", icon: "🐸", href: "frog-jump.html", soft: "#e9f8df" },
     { id: "fruit-rush", label: "フルーツラッシュ", sub: "フルーツであそぼう", icon: "🍓", href: "fruit-rush/", soft: "#fff0e8" },
-    { id: "kart-race", label: "カートレース 3D", sub: "6だいで 3しゅう！ 1いを めざせ", icon: "🏎️", href: "kart-race/?v=13", soft: "#fff0d5" },
+    { id: "kart-race", label: "カートレース 3D", sub: "6だいで 3しゅう！ 1いを めざせ", icon: "🏎️", href: "kart-race/?v=12", soft: "#fff0d5" },
     { id: "space-blaster", label: "スペースブラスター", sub: "うちゅうバトル！", icon: "🚀", href: "space-blaster/", soft: "#e9edff" },
     { id: "kabuto-sumo", label: "カブトムシ相撲", sub: "連打で押し出せ！", icon: "🪲", href: "kabuto-sumo/", soft: "#f5eadb" },
     { id: "mushijingi-reward", label: "蟲神器", sub: "スターターデッキでCPU対戦", icon: "🃏", href: "mushijingi-reward/", soft: "#edf3df" },

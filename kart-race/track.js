@@ -2,6 +2,8 @@ import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.m
 
 // A genuinely closed, arc-length-sampled circuit. All six karts share this path.
 export const ROAD_WIDTH = 22;
+export const GRASS_MARGIN = 5.5;
+export const RAIL_OFFSET = ROAD_WIDTH/2 + GRASS_MARGIN;
 export const SAMPLES = 640;
 const controlPoints = [
   [0,100], [68,114], [142,85], [170,27], [160,-45],
@@ -110,6 +112,53 @@ export function buildCircuit(scene) {
     stripes.setMatrixAt(i,helper.matrix);
   }
   stripes.instanceMatrix.needsUpdate=true;scene.add(stripes);
+
+  // Closed red/white guardrails on BOTH sides, 5.5m beyond the tarmac.
+  // Instancing keeps ~1,280 rail sections cheap enough for mobile devices.
+  const railBarGeometry=new THREE.BoxGeometry(1,1,1);
+  const railMaterial=new THREE.MeshStandardMaterial({
+    color:0xffffff,roughness:.78,metalness:.08
+  });
+  const railSections=new THREE.InstancedMesh(railBarGeometry,railMaterial,SAMPLES*2);
+  const redRail=new THREE.Color(0xe84848),whiteRail=new THREE.Color(0xfff7e4);
+  const railPostGeometry=new THREE.BoxGeometry(1,1,1);
+  const postCount=Math.ceil(CIRCUIT_LENGTH/9)*2;
+  const posts=new THREE.InstancedMesh(railPostGeometry,
+    new THREE.MeshStandardMaterial({color:0x687587,roughness:.65}),postCount);
+  let sectionIndex=0;
+  for(let side of [-1,1]){
+    for(let i=0;i<SAMPLES;i++){
+      const a=sampleAt(i*SEGMENT_LENGTH),b=sampleAt((i+1)*SEGMENT_LENGTH);
+      const ax=a.position.x+a.right.x*side*RAIL_OFFSET;
+      const az=a.position.z+a.right.z*side*RAIL_OFFSET;
+      const bx=b.position.x+b.right.x*side*RAIL_OFFSET;
+      const bz=b.position.z+b.right.z*side*RAIL_OFFSET;
+      const dx=bx-ax,dz=bz-az;
+      const length=Math.hypot(dx,dz);
+      helper.position.set((ax+bx)/2,.98,(az+bz)/2);
+      helper.rotation.set(0,-Math.atan2(dx,-dz),0);
+      helper.scale.set(.45,.72,length+.16);
+      helper.updateMatrix();
+      railSections.setMatrixAt(sectionIndex,helper.matrix);
+      railSections.setColorAt(sectionIndex,Math.floor(i*SEGMENT_LENGTH/10)%2?redRail:whiteRail);
+      sectionIndex++;
+    }
+  }
+  railSections.instanceMatrix.needsUpdate=true;
+  if(railSections.instanceColor)railSections.instanceColor.needsUpdate=true;
+  scene.add(railSections);
+  const perSide=Math.ceil(CIRCUIT_LENGTH/9);
+  let postIndex=0;
+  for(const side of [-1,1])for(let i=0;i<perSide;i++){
+    const p=sampleAt(i*CIRCUIT_LENGTH/perSide);
+    helper.position.copy(p.position).addScaledVector(p.right,side*RAIL_OFFSET);
+    helper.position.y=.85;
+    helper.rotation.set(0,0,0);
+    helper.scale.set(.55,1.7,.55);
+    helper.updateMatrix();
+    posts.setMatrixAt(postIndex++,helper.matrix);
+  }
+  posts.instanceMatrix.needsUpdate=true;scene.add(posts);
   // Proper start/finish across the driving surface.
   const lineGroup=new THREE.Group();
   const tile=new THREE.BoxGeometry(ROAD_WIDTH/10,.025,1.8);

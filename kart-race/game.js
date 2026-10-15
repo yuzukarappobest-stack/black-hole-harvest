@@ -1,9 +1,10 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH} from "./track.js?v=4";
-import {applyRaceProgress} from "./progress.js?v=2";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET} from "./track.js?v=5";
+import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=1";
+import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
-import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=2";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=3";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -121,7 +122,8 @@ class KartRace {
     this.progress=-32;this.lane=.75;
     this.vehicle={x:0,z:0,yaw:0,speed:17,steering:0};
     this.trackIndex=null;this.trackS=0;this.cameraTarget=new THREE.Vector3();
-    this.offroadTime=0;this.roadDistanceSquared=0;this.rank=6;this.countdown=3.5;this.hudTimer=0;
+    this.offroadTime=0;this.roadDistanceSquared=0;this.lastRailImpact=-Infinity;this.gatesPassed=0;
+    this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
     this.bestTime=Number(localStorage.getItem("kartRaceBestTime")||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
@@ -158,6 +160,8 @@ class KartRace {
   placeCars(){
     // The kart starts behind the line, but drives in world coordinates after START.
     this.progress=-32;this.lane=.75;
+    initializeCheckpoints(this,CIRCUIT_LENGTH,-32);
+    this.lastRailImpact=-Infinity;
     this.roadDistanceSquared=0;this.offroadTime=0;
     this.ui.recovery.classList.add("hidden");
     this.dashCharges=0;this.boostTime=0;
@@ -243,6 +247,7 @@ class KartRace {
     this.elapsed+=dt;
     if(this.input.consumeDashRequest())this.activateDash();
     const steer=clamp(this.input.steer,-1,1);
+    const previousPosition={x:this.vehicle.x,z:this.vehicle.z};
     const boosting=this.boostTime>0;
     // Use the closest point on the full circuit for road/grass classification.
     // The local lap projection can lag or jump and is not reliable here.
@@ -265,15 +270,30 @@ class KartRace {
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
     this.handleContacts();
 
-    // Use both local continuity and whole-road projection; global wins if the
-    // old tracking index becomes stale. Always refresh the progress reference.
+    // Guardrails are a real collision boundary, not merely decoration.
+    // Allow a 5.5m grass shoulder beyond the 22m tarmac, then prevent crossing.
+    const beforeRail=projectOnCircuit(this.player.position);
+    const impacted=constrainToGuardrail(this.vehicle,beforeRail.center,RAIL_OFFSET-1.05);
+    if(impacted){
+      this.player.position.x=this.vehicle.x;
+      this.player.position.z=this.vehicle.z;
+      if(this.elapsed-this.lastRailImpact>.65){
+        this.vehicle.speed=Math.max(15,this.vehicle.speed-1.2);
+        this.speed=this.vehicle.speed;
+        this.lastRailImpact=this.elapsed;
+      }
+    }
+
+    // Progress is gated by ACTUAL ordered crossings of 18 physical sectors.
+    // Moving to a distant road or crossing grass cannot increment the lap.
     const globalRoad=projectOnCircuit(this.player.position);
-    const localRoad=projectOnCircuit(this.player.position,this.trackIndex);
-    const near=applyRaceProgress(this,globalRoad,localRoad,{
-      length:CIRCUIT_LENGTH,roadWidth:ROAD_WIDTH,speed:this.speed,
-      dt,raceLength:raceDistance
+    updateCheckpointProgress(this,previousPosition,this.player.position,globalRoad,sampleAt,{
+      length:CIRCUIT_LENGTH,roadWidth:ROAD_WIDTH,grassMargin:GRASS_MARGIN,
+      finishLaps:3,speed:this.speed,dt
     });
-    this.lane=near.lateral;
+    this.trackIndex=globalRoad.index;
+    this.trackS=globalRoad.s;
+    this.lane=globalRoad.lateral;
     this.roadDistanceSquared=globalRoad.squared;
     // Never teleport automatically: it was interrupting races even when the
     // driver appeared to be on the road. Offer recovery only after truly

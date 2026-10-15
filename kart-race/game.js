@@ -3,7 +3,8 @@ import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_M
 import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=1";
 import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
-import {Controls} from "./controls.js?v=4";
+import {Controls} from "./controls.js?v=5";
+import {isAppleTablet,portraitFrame} from "./portrait.js?v=1";
 import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=3";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -74,10 +75,14 @@ class EngineAudio {
 
 class KartRace {
   constructor(){
+    this.app=document.getElementById("app");
+    this.appleTablet=isAppleTablet(window.navigator);
+    this.frame=null;
+    this.updatePortraitFrame();
     this.canvas=document.getElementById("raceCanvas");
     this.renderer=new THREE.WebGLRenderer({canvas:this.canvas,antialias:true,powerPreference:"high-performance"});
     this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
-    this.renderer.setSize(innerWidth,innerHeight,false);
+    this.renderer.setSize(this.frame.width,this.frame.height,false);
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x8fd5ff);
     this.scene.fog=new THREE.Fog(0x9ee4f4,115,330);
@@ -100,7 +105,7 @@ class KartRace {
       const mesh=createKart(style.color);this.scene.add(mesh);
       return {...style,index,mesh,progress:0,speed:0,lane:0,targetLane:0,finished:false};
     });
-    this.input=new Controls(this.canvas);
+    this.input=new Controls(this.canvas,()=>this.frame.rotation,()=>this.frame.width);
     this.audio=new EngineAudio();
     this.ui={
       ready:document.getElementById("readyPanel"),result:document.getElementById("resultPanel"),
@@ -133,6 +138,7 @@ class KartRace {
   }
   setupEvents(){
     window.addEventListener("resize",()=>this.resize());
+    window.addEventListener("orientationchange",()=>this.resize());
     this.ui.start.addEventListener("click",()=>this.begin());
     this.ui.dash.addEventListener("click",()=>this.activateDash());
     this.ui.recovery.addEventListener("click",()=>{
@@ -152,10 +158,31 @@ class KartRace {
   goBack(){
     window.location.replace("../"+(sessionStorage.getItem("miniGameReturnUrl")||"learn.html"));
   }
+  updatePortraitFrame(){
+    // iPad Safari may rotate the OS browser. Counter-rotate the game stage.
+    const angle=window.orientation===90||window.orientation===-90
+      ?window.orientation:(window.screen?.orientation?.angle??90);
+    const frame=portraitFrame(innerWidth,innerHeight,angle,this.appleTablet);
+    this.frame=frame;
+    this.app.classList.toggle("portrait-rotated",frame.rotation!==0);
+    this.app.style.width=frame.width+"px";
+    this.app.style.height=frame.height+"px";
+    this.app.style.transform=frame.transform;
+  }
   resize(){
+    this.updatePortraitFrame();
     this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
-    this.renderer.setSize(innerWidth,innerHeight,false);
-    this.camera.aspect=innerWidth/Math.max(1,innerHeight);this.camera.updateProjectionMatrix();
+    this.renderer.setSize(this.frame.width,this.frame.height,false);
+    this.camera.aspect=this.frame.width/Math.max(1,this.frame.height);
+    this.camera.updateProjectionMatrix();
+  }
+  tryNativePortraitLock(){
+    // Allowed in some browsers only; silently fall back to CSS counterrotation.
+    try{
+      const lock=window.screen?.orientation?.lock;
+      if(typeof lock==="function")
+        Promise.resolve(lock.call(window.screen.orientation,"portrait")).catch(()=>{});
+    }catch {}
   }
   placeCars(){
     // The kart starts behind the line, but drives in world coordinates after START.
@@ -194,6 +221,7 @@ class KartRace {
   async begin(){
     if(this.state!=="ready")return;
     this.ui.start.disabled=true;
+    this.tryNativePortraitLock();
     // Request permission from the START tap (required by Safari/iOS).
     const enabled=await this.input.enableTilt();
     this.ui.note.textContent=enabled?"スマホを かたむけて ハンドルそうさ":"かたむきが つかえないときは がめんを さゆうに ドラッグ";

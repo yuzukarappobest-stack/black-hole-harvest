@@ -1,6 +1,6 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
 import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME} from "./track.js?v=6";
-import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=1";
+import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=2";
 import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
@@ -296,7 +296,7 @@ class KartRace {
     // Progress is gated by ACTUAL ordered crossings of 18 physical sectors.
     // Moving to a distant road or crossing grass cannot increment the lap.
     const globalRoad=projectOnCircuit(this.player.position);
-    updateCheckpointProgress(this,previousPosition,this.player.position,globalRoad,sampleAt,{
+    const checkpointResult=updateCheckpointProgress(this,previousPosition,this.player.position,globalRoad,sampleAt,{
       length:CIRCUIT_LENGTH,roadWidth:ROAD_WIDTH,grassMargin:GRASS_MARGIN,
       finishLaps:3,speed:this.speed,dt
     });
@@ -317,7 +317,9 @@ class KartRace {
       ()=>this.collectDashItem()
     );
     this.rank=1+this.rivals.filter((r)=>r.finished||r.progress>this.progress+.05).length;
-    if(this.progress>=raceDistance-.01){this.finish();return;}
+    // Finishing must be caused by crossing the third finish line, not
+    // a rounded or projected progress value just before that line.
+    if(checkpointResult.finished){this.finish();return;}
     this.moveCamera(dt);this.audio.update(this.speed);
     this.hudTimer+=dt;
     if(this.hudTimer>.09){this.hudTimer=0;this.updateHud();this.drawMap();}

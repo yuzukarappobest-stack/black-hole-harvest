@@ -1,6 +1,8 @@
+import {portraitPointerX} from "./portrait.js?v=1";
 const clamp=(x,min,max)=>Math.max(min,Math.min(max,x));
 export class Controls {
-  constructor(canvas) {
+  constructor(canvas,getRotation=()=>0,getLogicalWidth=()=>innerWidth) {
+    this.getRotation=getRotation;this.getLogicalWidth=getLogicalWidth;
     this.left=false;this.right=false;this.dashRequested=false;
     this.dragging=false;this.dragValue=0;this.dragStart=0;
     this.tiltActive=false;this.rawTilt=null;this.tiltBaseline=null;this.tilt=0;
@@ -23,12 +25,15 @@ export class Controls {
     });
     window.addEventListener("blur",()=>{this.left=false;this.right=false;this.dashRequested=false;this.dragging=false;});
     canvas.addEventListener("pointerdown",(e)=>{
-      this.dragging=true;this.dragStart=e.clientX;this.dragValue=0;
+      this.dragging=true;
+      this.dragStart=portraitPointerX(e,this.getRotation());
+      this.dragValue=0;
       canvas.setPointerCapture?.(e.pointerId);
     });
     canvas.addEventListener("pointermove",(e)=>{
       if(!this.dragging)return;
-      this.dragValue=clamp((e.clientX-this.dragStart)/Math.max(75,innerWidth*.24),-1,1);
+      const coordinate=portraitPointerX(e,this.getRotation());
+      this.dragValue=clamp((coordinate-this.dragStart)/Math.max(75,this.getLogicalWidth()*.24),-1,1);
     });
     const release=()=>{this.dragging=false;this.dragValue=0;};
     canvas.addEventListener("pointerup",release);

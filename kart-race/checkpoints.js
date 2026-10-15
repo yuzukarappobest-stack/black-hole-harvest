@@ -15,7 +15,10 @@ export function updateCheckpointProgress(state,previousPosition,currentPosition,
   }
 ){
   const spacing=length/CHECKPOINT_COUNT;
-  const finishGate=CHECKPOINT_COUNT*finishLaps;
+  // Gate 0 is the very first start-line crossing (after starting at -32).
+  // A complete 3-lap race then needs gate 54 at the SAME finish line:
+  // indices 0..54 = 55 crossings, NOT 54.
+  const finishGate=CHECKPOINT_COUNT*finishLaps+1;
   if(state.gatesPassed>=finishGate){
     state.progress=length*finishLaps;
     return {crossed:false,finished:true};

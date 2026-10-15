@@ -1,10 +1,10 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET} from "./track.js?v=5";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME} from "./track.js?v=6";
 import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=1";
 import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
-import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=3";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=4";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -13,7 +13,10 @@ const rivalStyles=[
   {color:0x648cfa,name:"ソラ",speed:37.3},
   {color:0x69cf91,name:"ミント",speed:38.4},
   {color:0xe988c7,name:"ピーチ",speed:39.6},
-  {color:0x9e77e9,name:"グレープ",speed:40.8},
+  // Only course 2 has a single CPU capable of the player's 42 world-unit/s
+  // normal top speed. Others keep the original slower course-1 behaviour.
+  {color:0x9e77e9,name:COURSE_ID===2?"チャンピオン":"グレープ",
+   speed:COURSE_ID===2?42:40.8,turnSlowdown:COURSE_ID===2?0:.15},
 ];
 function createKart(color,isPlayer=false) {
   const root=new THREE.Group();
@@ -79,8 +82,9 @@ class KartRace {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio||1,1.6));
     this.renderer.setSize(innerWidth,innerHeight,false);
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
-    this.scene=new THREE.Scene();this.scene.background=new THREE.Color(0x8fd5ff);
-    this.scene.fog=new THREE.Fog(0x9ee4f4,115,330);
+    this.scene=new THREE.Scene();
+    this.scene.background=new THREE.Color(COURSE_ID===2?0xffcca7:0x8fd5ff);
+    this.scene.fog=new THREE.Fog(COURSE_ID===2?0xffd6b8:0x9ee4f4,115,330);
     this.scene.add(new THREE.HemisphereLight(0xffffff,0x478158,2.45));
     const sun=new THREE.DirectionalLight(0xfff4d2,2.1);sun.position.set(-80,100,40);this.scene.add(sun);
     this.camera=new THREE.PerspectiveCamera(67,1,.1,450);
@@ -100,6 +104,10 @@ class KartRace {
       const mesh=createKart(style.color);this.scene.add(mesh);
       return {...style,index,mesh,progress:0,speed:0,lane:0,targetLane:0,finished:false};
     });
+    document.getElementById("courseTitle").textContent=COURSE_NAME;
+    document.getElementById("courseDescription").textContent=COURSE_ID===2
+      ?"はやい チャンピオンと 3しゅう しょうぶ！"
+      :"CPU 5だい と 3しゅう しょうぶ！";
     this.input=new Controls(this.canvas);
     this.audio=new EngineAudio();
     this.ui={
@@ -125,7 +133,8 @@ class KartRace {
     this.offroadTime=0;this.roadDistanceSquared=0;this.lastRailImpact=-Infinity;this.gatesPassed=0;
     this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
-    this.bestTime=Number(localStorage.getItem("kartRaceBestTime")||0);
+    this.bestTimeKey=COURSE_ID===2?"kartRaceBestTime2":"kartRaceBestTime";
+    this.bestTime=Number(localStorage.getItem(this.bestTimeKey)||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
     this.placeCars();this.setupEvents();this.resize();this.drawMap();this.updateHud();this.updateDashButton();
     this.camera.position.set(0,17,160);this.camera.lookAt(0,0,100);
@@ -331,7 +340,7 @@ class KartRace {
     const here=sampleAt(r.progress),ahead=sampleAt(r.progress+27);
     const turn=Math.acos(clamp(here.tangent.dot(ahead.tangent),-1,1));
     let desired=rivalStyles[r.index].speed;
-    desired*=1-.15*clamp(turn/.65,0,1);
+    desired*=1-(r.turnSlowdown??.15)*clamp(turn/.65,0,1);
     const close=this.rivals.find((other)=>other!==r&&other.progress>r.progress&&other.progress-r.progress<17&&Math.abs(other.lane-r.lane)<2.8);
     const playerAhead=this.progress>r.progress&&this.progress-r.progress<13&&Math.abs(this.lane-r.lane)<2.8;
     if(close||playerAhead){
@@ -416,7 +425,7 @@ class KartRace {
     this.ui.resultMessage.textContent=this.rank===1?"おめでとう！ いちばんはやかったよ！":
       this.rank<=3?"やったね！ つぎは1いを めざそう！":"ゴール！ つぎもがんばろう！";
     if(!this.bestTime||this.elapsed<this.bestTime){
-      this.bestTime=this.elapsed;localStorage.setItem("kartRaceBestTime",this.elapsed.toString());
+      this.bestTime=this.elapsed;localStorage.setItem(this.bestTimeKey,this.elapsed.toString());
     }
     this.ui.result.classList.remove("hidden");
   }
@@ -441,7 +450,7 @@ class KartRace {
   }
 }
 
-const accessKey="miniGameAccess:kart-race";
+const accessKey=COURSE_ID===2?"miniGameAccess:kart-race-2":"miniGameAccess:kart-race";
 if(sessionStorage.getItem(accessKey)!=="1"){
   window.location.replace("../"+(sessionStorage.getItem("miniGameReturnUrl")||"learn.html"));
 }else{

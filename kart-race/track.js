@@ -5,11 +5,24 @@ export const ROAD_WIDTH = 22;
 export const GRASS_MARGIN = 5.5;
 export const RAIL_OFFSET = ROAD_WIDTH/2 + GRASS_MARGIN;
 export const SAMPLES = 640;
-const controlPoints = [
+export const COURSE_ID = new URLSearchParams(window.location.search).get("course")==="2" ? 2 : 1;
+export const COURSE_NAME = COURSE_ID===2 ? "サンセット・サーキット" : "みどりのサーキット";
+
+// Two independent closed layouts share the same physics, rails and checkpoint
+// system. Course 1 stays geometrically identical to the original.
+const courseOnePoints = [
   [0,100], [68,114], [142,85], [170,27], [160,-45],
   [108,-108], [42,-93], [-21,-117], [-108,-108],
   [-177,-50], [-170,34], [-112,101], [-47,89],
-].map(([x,z]) => new THREE.Vector3(x,0,z));
+];
+const courseTwoPoints = [
+  [0,112], [82,130], [153,100], [190,55], [185,5],
+  [160,-48], [166,-108], [121,-155], [58,-149], [4,-106],
+  [-57,-128], [-137,-157], [-204,-122], [-222,-55], [-213,0],
+  [-191,61], [-151,110], [-82,93], [-36,92],
+];
+const controlPoints=(COURSE_ID===2 ? courseTwoPoints : courseOnePoints)
+  .map(([x,z])=>new THREE.Vector3(x,0,z));
 const spline = new THREE.CatmullRomCurve3(controlPoints,true,"centripetal",.45);
 export const CIRCUIT_LENGTH = spline.getLength();
 export const SEGMENT_LENGTH = CIRCUIT_LENGTH/SAMPLES;
@@ -90,12 +103,18 @@ function ribbon(inner,outer,height,material,colorAlternation=false) {
 }
 
 export function buildCircuit(scene) {
-  const green=new THREE.MeshStandardMaterial({color:0x5fae66,roughness:1});
+  const green=new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0xcfae79:0x5fae66,roughness:1
+  });
   const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,650),green);
   ground.rotation.x=-Math.PI/2;ground.position.y=-.13;scene.add(ground);
-  const asphalt=new THREE.MeshStandardMaterial({color:0x414957,roughness:.94,side:THREE.DoubleSide});
+  const asphalt=new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0x665361:0x414957,roughness:.94,side:THREE.DoubleSide
+  });
   const curb=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.85,side:THREE.DoubleSide});
-  const side=new THREE.MeshStandardMaterial({color:0x9aaa80,roughness:1,side:THREE.DoubleSide});
+  const side=new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0xe1c492:0x9aaa80,roughness:1,side:THREE.DoubleSide
+  });
   scene.add(ribbon(-ROAD_WIDTH/2-.8,ROAD_WIDTH/2+.8,-.04,side));
   scene.add(ribbon(-ROAD_WIDTH/2,ROAD_WIDTH/2,.015,asphalt));
   scene.add(ribbon(-ROAD_WIDTH/2-.65,-ROAD_WIDTH/2,.045,curb,true));
@@ -120,7 +139,8 @@ export function buildCircuit(scene) {
     color:0xffffff,roughness:.78,metalness:.08
   });
   const railSections=new THREE.InstancedMesh(railBarGeometry,railMaterial,SAMPLES*2);
-  const redRail=new THREE.Color(0xe84848),whiteRail=new THREE.Color(0xfff7e4);
+  const redRail=new THREE.Color(COURSE_ID===2?0x5275ce:0xe84848);
+  const whiteRail=new THREE.Color(0xfff7e4);
   const railPostGeometry=new THREE.BoxGeometry(1,1,1);
   const postCount=Math.ceil(CIRCUIT_LENGTH/9)*2;
   const posts=new THREE.InstancedMesh(railPostGeometry,
@@ -173,10 +193,16 @@ export function buildCircuit(scene) {
 
   const trunkGeo=new THREE.CylinderGeometry(.48,.62,4,5);
   const crownGeo=new THREE.ConeGeometry(2.7,7,7);
-  const trunks=new THREE.InstancedMesh(trunkGeo,new THREE.MeshStandardMaterial({color:0x896048}),170);
-  const crowns=new THREE.InstancedMesh(crownGeo,new THREE.MeshStandardMaterial({color:0x258851,roughness:1}),170);
+  const trunks=new THREE.InstancedMesh(trunkGeo,new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0x8f6656:0x896048
+  }),170);
+  const crowns=new THREE.InstancedMesh(crownGeo,new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0x789c63:0x258851,roughness:1
+  }),170);
   const rockGeo=new THREE.DodecahedronGeometry(1.8,0);
-  const rocks=new THREE.InstancedMesh(rockGeo,new THREE.MeshStandardMaterial({color:0xadb5ac}),35);
+  const rocks=new THREE.InstancedMesh(rockGeo,new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0xc89b87:0xadb5ac
+  }),35);
   for(let i=0;i<170;i++) {
     const p=sampleAt(i*CIRCUIT_LENGTH/170+1);
     const sideSign=i%2===0?1:-1,offset=24+(i*19%18);
@@ -195,7 +221,9 @@ export function buildCircuit(scene) {
   }
   rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
   // Finish arch, set forward over the line.
-  const arch=new THREE.Group(),postMaterial=new THREE.MeshStandardMaterial({color:0x375fb2});
+  const arch=new THREE.Group(),postMaterial=new THREE.MeshStandardMaterial({
+    color:COURSE_ID===2?0xa75c81:0x375fb2
+  });
   for(const x of [-ROAD_WIDTH/2-1,ROAD_WIDTH/2+1]){
     const post=new THREE.Mesh(new THREE.BoxGeometry(.7,6,.7),postMaterial);post.position.set(x,3,0);arch.add(post);
   }

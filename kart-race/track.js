@@ -259,12 +259,17 @@ export function buildCircuit(scene) {
     crystals.count=placed;
     crystals.instanceMatrix.needsUpdate=true;scene.add(crystals);
   }
+  let rockIndex=0;
   for(let i=0;i<35;i++) {
     const p=sampleAt(i*CIRCUIT_LENGTH/35+8),sign=i%2===0?-1:1;
     helper.position.copy(p.position).addScaledVector(p.right,sign*(43+(i%5)*4));
+    // Folded switchbacks have roads nearby on both sides. Never decorate
+    // a neighboring road with a stone that belongs to this section.
+    if(COURSE_ID===3&&distanceSquaredToRoad(helper.position)<(RAIL_OFFSET+9)**2)continue;
     helper.position.y=1.1;helper.rotation.set(i*.47,i*1.1,0);helper.scale.setScalar(1+(i%5)*.27);
-    helper.updateMatrix();rocks.setMatrixAt(i,helper.matrix);
+    helper.updateMatrix();rocks.setMatrixAt(rockIndex++,helper.matrix);
   }
+  if(COURSE_ID===3)rocks.count=rockIndex;
   rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
   // Finish arch, set forward over the line.
   const arch=new THREE.Group(),postMaterial=new THREE.MeshStandardMaterial({

@@ -12,11 +12,16 @@ const rivalStyles=[
   {color:0xf9c94f,name:"レモン",speed:35.8},
   {color:0x648cfa,name:"ソラ",speed:37.3},
   {color:0x69cf91,name:"ミント",speed:38.4},
-  {color:0xe988c7,name:"ピーチ",speed:39.6},
-  // Technical courses 2/3 each have one full-speed rival. The original
-  // green course retains all its CPU speeds unchanged.
-  {color:0x9e77e9,name:COURSE_ID===1?"グレープ":"チャンピオン",
-   speed:COURSE_ID===1?40.8:42,turnSlowdown:COURSE_ID===1?.15:0},
+  // Crystal course only: one CPU matches the player's normal 42-speed cap.
+  // Sunset and Green retain their original Peach tuning.
+  {color:0xe988c7,name:COURSE_ID===3?"エース":"ピーチ",
+   speed:COURSE_ID===3?42:39.6,turnSlowdown:COURSE_ID===3?0:.15},
+  // Crystal's single faster CPU is deliberately only slightly faster than
+  // the player (43.2 vs 42); smart use of the 2-per-lap dashes (66) can win.
+  // Course 1 and 2 keep their exact previous speed/turning specifications.
+  {color:0x9e77e9,name:COURSE_ID===1?"グレープ":COURSE_ID===3?"キング":"チャンピオン",
+   speed:COURSE_ID===3?43.2:COURSE_ID===2?42:40.8,
+   turnSlowdown:COURSE_ID===1?.15:0},
 ];
 function createKart(color,isPlayer=false) {
   const root=new THREE.Group();
@@ -106,7 +111,7 @@ class KartRace {
     });
     document.getElementById("courseTitle").textContent=COURSE_NAME;
     document.getElementById("courseDescription").textContent=COURSE_ID===3
-      ?"ヘアピン いっぱい！ チャンピオンに かてるかな？"
+      ?"42の エースと 43.2の キング！ ダッシュで ぬきかえせ！"
       :COURSE_ID===2?"はやい チャンピオンと 3しゅう しょうぶ！"
       :"CPU 5だい と 3しゅう しょうぶ！";
     this.input=new Controls(this.canvas);

@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {CIRCUIT_LENGTH, sampleAt} from "./track.js?v=6";
+import {CIRCUIT_LENGTH, sampleAt} from "./track.js?v=7";
 
 // Pickups stay at known positions on the racing surface and reset each lap.
 const LANES = [-2.3,2.3]; // Two easily reachable items each lap.

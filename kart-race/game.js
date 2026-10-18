@@ -1,10 +1,10 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME} from "./track.js?v=6";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME} from "./track.js?v=7";
 import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=2";
 import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
-import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=4";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=5";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -13,10 +13,10 @@ const rivalStyles=[
   {color:0x648cfa,name:"ソラ",speed:37.3},
   {color:0x69cf91,name:"ミント",speed:38.4},
   {color:0xe988c7,name:"ピーチ",speed:39.6},
-  // Only course 2 has a single CPU capable of the player's 42 world-unit/s
-  // normal top speed. Others keep the original slower course-1 behaviour.
-  {color:0x9e77e9,name:COURSE_ID===2?"チャンピオン":"グレープ",
-   speed:COURSE_ID===2?42:40.8,turnSlowdown:COURSE_ID===2?0:.15},
+  // Technical courses 2/3 each have one full-speed rival. The original
+  // green course retains all its CPU speeds unchanged.
+  {color:0x9e77e9,name:COURSE_ID===1?"グレープ":"チャンピオン",
+   speed:COURSE_ID===1?40.8:42,turnSlowdown:COURSE_ID===1?.15:0},
 ];
 function createKart(color,isPlayer=false) {
   const root=new THREE.Group();
@@ -83,8 +83,8 @@ class KartRace {
     this.renderer.setSize(innerWidth,innerHeight,false);
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.scene=new THREE.Scene();
-    this.scene.background=new THREE.Color(COURSE_ID===2?0xffcca7:0x8fd5ff);
-    this.scene.fog=new THREE.Fog(COURSE_ID===2?0xffd6b8:0x9ee4f4,115,330);
+    this.scene.background=new THREE.Color(COURSE_ID===3?0x91b2e2:COURSE_ID===2?0xffcca7:0x8fd5ff);
+    this.scene.fog=new THREE.Fog(COURSE_ID===3?0xb7d8ec:COURSE_ID===2?0xffd6b8:0x9ee4f4,115,330);
     this.scene.add(new THREE.HemisphereLight(0xffffff,0x478158,2.45));
     const sun=new THREE.DirectionalLight(0xfff4d2,2.1);sun.position.set(-80,100,40);this.scene.add(sun);
     this.camera=new THREE.PerspectiveCamera(67,1,.1,450);
@@ -105,8 +105,9 @@ class KartRace {
       return {...style,index,mesh,progress:0,speed:0,lane:0,targetLane:0,finished:false};
     });
     document.getElementById("courseTitle").textContent=COURSE_NAME;
-    document.getElementById("courseDescription").textContent=COURSE_ID===2
-      ?"はやい チャンピオンと 3しゅう しょうぶ！"
+    document.getElementById("courseDescription").textContent=COURSE_ID===3
+      ?"ヘアピン いっぱい！ チャンピオンに かてるかな？"
+      :COURSE_ID===2?"はやい チャンピオンと 3しゅう しょうぶ！"
       :"CPU 5だい と 3しゅう しょうぶ！";
     this.input=new Controls(this.canvas);
     this.audio=new EngineAudio();
@@ -133,7 +134,8 @@ class KartRace {
     this.offroadTime=0;this.roadDistanceSquared=0;this.lastRailImpact=-Infinity;this.gatesPassed=0;
     this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
-    this.bestTimeKey=COURSE_ID===2?"kartRaceBestTime2":"kartRaceBestTime";
+    this.bestTimeKey=COURSE_ID===3?"kartRaceBestTime3"
+      :COURSE_ID===2?"kartRaceBestTime2":"kartRaceBestTime";
     this.bestTime=Number(localStorage.getItem(this.bestTimeKey)||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
     this.placeCars();this.setupEvents();this.resize();this.drawMap();this.updateHud();this.updateDashButton();
@@ -452,7 +454,8 @@ class KartRace {
   }
 }
 
-const accessKey=COURSE_ID===2?"miniGameAccess:kart-race-2":"miniGameAccess:kart-race";
+const accessKey=COURSE_ID===3?"miniGameAccess:kart-race-3"
+  :COURSE_ID===2?"miniGameAccess:kart-race-2":"miniGameAccess:kart-race";
 if(sessionStorage.getItem(accessKey)!=="1"){
   window.location.replace("../"+(sessionStorage.getItem("miniGameReturnUrl")||"learn.html"));
 }else{

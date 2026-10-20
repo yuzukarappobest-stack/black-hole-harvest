@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {CIRCUIT_LENGTH, sampleAt} from "./track.js?v=7";
+import {CIRCUIT_LENGTH, sampleAt} from "./track.js?v=8";
 
 // Pickups stay at known positions on the racing surface and reset each lap.
 const LANES = [-2.3,2.3]; // Two easily reachable items each lap.
@@ -40,12 +40,12 @@ export function createDashPickups(scene) {
     root.add(ring,core,bolt,backBolt);
     root.position.set(
       track.position.x+track.right.x*lane,
-      1.9,
+      track.position.y+1.9,
       track.position.z+track.right.z*lane
     );
     scene.add(root);
     return {mesh:root,index,lane,collectedLap:-1,
-      x:root.position.x,z:root.position.z};
+      x:root.position.x,z:root.position.z,baseY:track.position.y};
   });
 }
 
@@ -61,7 +61,7 @@ export function updateDashPickups(items,position,elapsed,dt,lap,collect) {
     const picked=item.collectedLap===lap;
     item.mesh.visible=!picked;
     if(picked)continue;
-    item.mesh.position.y=1.9+Math.sin(elapsed*3.8+item.index*.7)*.23;
+    item.mesh.position.y=item.baseY+1.9+Math.sin(elapsed*3.8+item.index*.7)*.23;
     item.mesh.rotation.y+=dt*1.8;
     const dx=position.x-item.x,dz=position.z-item.z;
     if(dx*dx+dz*dz<COLLECT_RADIUS*COLLECT_RADIUS && collect()) {

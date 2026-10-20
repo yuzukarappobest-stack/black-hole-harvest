@@ -273,6 +273,15 @@ class KartRace {
   clearBanner(){this.ui.banner.classList.add("hidden");}
   update(dt){
     this.elapsed+=dt;
+    if(COURSE_ID===4&&this.vehicle.failedJump){
+      // A missed canyon landing is a real failure. Wait for the player's
+      // manual recovery button instead of silently teleporting the kart.
+      this.speed=0;
+      this.rivals.forEach(r=>this.advanceRival(r,dt));
+      this.ui.recovery.classList.remove("hidden");
+      this.moveCamera(dt);this.updateHud();this.drawMap();
+      return;
+    }
     if(this.input.consumeDashRequest())this.activateDash();
     const steer=clamp(this.input.steer,-1,1);
     const previousPosition={x:this.vehicle.x,z:this.vehicle.z};
@@ -292,7 +301,9 @@ class KartRace {
       if(this.boostTime===0)this.updateDashButton();
     }
     this.speed=this.vehicle.speed;this.yaw=this.vehicle.yaw;
-    this.player.position.set(this.vehicle.x,.02+Math.sin(this.elapsed*13)*.018,this.vehicle.z);
+    this.player.position.set(this.vehicle.x,
+      COURSE_ID===4?this.vehicle.height:.02+Math.sin(this.elapsed*13)*.018,
+      this.vehicle.z);
     this.player.rotation.set(0,-this.yaw,-clamp(this.vehicle.steering*.085,-.10,.10));
 
     this.rivals.forEach((r)=>this.advanceRival(r,dt));
@@ -301,7 +312,9 @@ class KartRace {
     // Guardrails are a real collision boundary, not merely decoration.
     // Allow a 5.5m grass shoulder beyond the 22m tarmac, then prevent crossing.
     const beforeRail=projectOnCircuit(this.player.position);
-    const impacted=constrainToGuardrail(this.vehicle,beforeRail.center,RAIL_OFFSET-1.05);
+    // The gorge is open air; no invisible rails across the missing road.
+    const impacted=COURSE_ID===4&&isJumpGap(beforeRail.s)?false
+      :constrainToGuardrail(this.vehicle,beforeRail.center,RAIL_OFFSET-1.05);
     if(impacted){
       this.player.position.x=this.vehicle.x;
       this.player.position.z=this.vehicle.z;
@@ -315,6 +328,27 @@ class KartRace {
     // Progress is gated by ACTUAL ordered crossings of 18 physical sectors.
     // Moving to a distant road or crossing grass cannot increment the lap.
     const globalRoad=projectOnCircuit(this.player.position);
+    if(COURSE_ID===4){
+      const road=sampleAt(globalRoad.s);
+      const launchVelocity=getJumpLaunch(this.trackS,globalRoad.s,this.speed,dt,globalRoad.lateral);
+      const vertical=advanceVertical(this.vehicle,{
+        dt,roadHeight:road.position.y,
+        overRoad:!isJumpGap(globalRoad.s)&&globalRoad.squared<(RAIL_OFFSET-1)**2,
+        launchVelocity
+      });
+      this.player.position.y=this.vehicle.height;
+      const pitch=this.vehicle.airborne
+        ?Math.atan2(this.vehicle.verticalSpeed,Math.max(1,this.vehicle.speed))*.65
+        :road.pitch;
+      this.player.rotation.set(pitch,-this.yaw,
+        -clamp(this.vehicle.steering*.085,-.10,.10),"YXZ");
+      if(vertical.launched)this.notify("JUMP!");
+      if(vertical.failed){
+        this.vehicle.speed=0;
+        this.offroadTime=3;
+        this.notify("ジャンプ しっぱい！");
+      }
+    }
     const checkpointResult=updateCheckpointProgress(this,previousPosition,this.player.position,globalRoad,sampleAt,{
       length:CIRCUIT_LENGTH,roadWidth:ROAD_WIDTH,grassMargin:GRASS_MARGIN,
       finishLaps:3,speed:this.speed,dt
@@ -329,7 +363,8 @@ class KartRace {
     if(this.roadDistanceSquared>(ROAD_WIDTH/2+11)**2){
       this.offroadTime+=dt;
     }else this.offroadTime=0;
-    this.ui.recovery.classList.toggle("hidden",this.offroadTime<3);
+    this.ui.recovery.classList.toggle("hidden",this.offroadTime<3
+      &&!(COURSE_ID===4&&this.vehicle.failedJump));
     const currentLap=Math.min(2,Math.floor(Math.max(0,this.progress)/CIRCUIT_LENGTH));
     updateDashPickups(
       this.dashItems,this.player.position,this.elapsed,dt,currentLap,
@@ -345,12 +380,24 @@ class KartRace {
     if(this.noticeUntil && performance.now()>this.noticeUntil){this.noticeUntil=0;this.clearBanner();}
   }
   rescue(){
-    const p=sampleAt(this.progress);
+    // Recover a failed mountain jump BEFORE its lip, not in midair.
+    let rescueProgress=this.progress;
+    if(COURSE_ID===4&&this.vehicle.failedJump){
+      const near=projectOnCircuit(this.player.position);
+      const jumpStartDistance=CIRCUIT_LENGTH*.275;
+      const gapS=isJumpGap(near.s);
+      if(gapS)rescueProgress=Math.floor(Math.max(0,this.progress)/CIRCUIT_LENGTH)*CIRCUIT_LENGTH
+        +jumpStartDistance-22;
+    }
+    const p=sampleAt(rescueProgress);
     this.vehicle.x=p.position.x;this.vehicle.z=p.position.z;
     this.vehicle.yaw=p.yaw;this.vehicle.steering=0;this.vehicle.speed=12;
-    this.player.position.set(this.vehicle.x,.02,this.vehicle.z);
+    if(COURSE_ID===4)initVertical(this.vehicle,p.position.y);
+    this.player.position.set(this.vehicle.x,
+      COURSE_ID===4?this.vehicle.height:.02,this.vehicle.z);
     this.player.rotation.set(0,-this.vehicle.yaw,0);
     this.yaw=this.vehicle.yaw;this.speed=this.vehicle.speed;this.lane=0;
+    if(COURSE_ID===4){this.player.rotation.set(p.pitch,-p.yaw,0,"YXZ");}
     const near=projectOnCircuit(this.player.position);
     this.trackIndex=near.index;this.trackS=near.s;this.offroadTime=0;this.roadDistanceSquared=0;
     this.ui.recovery.classList.add("hidden");
@@ -400,9 +447,11 @@ class KartRace {
   }
   moveCamera(dt){
     const fwd=new THREE.Vector3(Math.sin(this.vehicle.yaw),0,-Math.cos(this.vehicle.yaw));
-    const target=this.player.position.clone().addScaledVector(fwd,-12);target.y=7.5;
+    const target=this.player.position.clone().addScaledVector(fwd,-12);
+    target.y=(COURSE_ID===4?this.player.position.y:0)+7.5;
     this.camera.position.lerp(target,1-Math.exp(-5*dt));
-    const look=this.player.position.clone().addScaledVector(fwd,17);look.y=2.1;
+    const look=this.player.position.clone().addScaledVector(fwd,17);
+    look.y=(COURSE_ID===4?this.player.position.y:0)+2.1;
     this.cameraTarget.lerp(look,1-Math.exp(-7*dt));
     this.camera.lookAt(this.cameraTarget);
     this.camera.fov=64+this.speed*.09;this.camera.updateProjectionMatrix();
@@ -462,9 +511,10 @@ class KartRace {
     if(this.state==="ready"){
       const point=sampleAt(-32);
       const readyCamera=point.position.clone().addScaledVector(point.tangent,-20);
-      readyCamera.y=11;
+      readyCamera.y=(COURSE_ID===4?point.position.y:0)+11;
       this.camera.position.lerp(readyCamera,.05);
-      const look=point.position.clone().addScaledVector(point.tangent,18);look.y=1.4;
+      const look=point.position.clone().addScaledVector(point.tangent,18);
+      look.y=(COURSE_ID===4?point.position.y:0)+1.4;
       this.camera.lookAt(look);
     }
     this.renderer.render(this.scene,this.camera);

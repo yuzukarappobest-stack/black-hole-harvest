@@ -6,8 +6,9 @@ export const GRASS_MARGIN = 5.5;
 export const RAIL_OFFSET = ROAD_WIDTH/2 + GRASS_MARGIN;
 export const SAMPLES = 640;
 const selectedCourse=new URLSearchParams(window.location.search).get("course");
-export const COURSE_ID=selectedCourse==="3"?3:selectedCourse==="2"?2:1;
-export const COURSE_NAME=COURSE_ID===3?"クリスタル・スイッチバック"
+export const COURSE_ID=selectedCourse==="4"?4:selectedCourse==="3"?3:selectedCourse==="2"?2:1;
+export const COURSE_NAME=COURSE_ID===4?"スカイマウンテン"
+  :COURSE_ID===3?"クリスタル・スイッチバック"
   :COURSE_ID===2?"サンセット・サーキット":"みどりのサーキット";
 
 // Two independent closed layouts share the same physics, rails and checkpoint
@@ -36,8 +37,19 @@ const courseThreePoints = [
   [-280,-205],[-332,-148],[-339,-55],[-344,30],[-349,115],
   [-360,195],[-341,247],
 ];
+// Long elevated alpine course: climbing switchbacks, a real canyon gap,
+// twisting descent and two shorter launch ramps. Open curves avoid rail overlap.
+const courseFourPoints=[
+  [-290,170],[-205,185],[-155,207],[-65,180],[35,220],[135,183],
+  [230,218],[300,165],[320,85],[285,0],[195,-25],[105,9],
+  [18,-20],[-80,-52],[-180,-25],[-266,-90],[-285,-175],
+  [-216,-244],[-130,-235],[-37,-200],[48,-243],[141,-215],
+  [233,-238],[318,-195],[355,-110],[369,0],[365,130],
+  [318,235],[229,299],[125,310],[24,300],[-78,268],
+  [-174,292],[-263,280],[-310,270],[-330,210],
+];
 const courseScale=COURSE_ID===3?.78:1;
-const controlPoints=(COURSE_ID===3?courseThreePoints
+const controlPoints=(COURSE_ID===4?courseFourPoints:COURSE_ID===3?courseThreePoints
   :COURSE_ID===2?courseTwoPoints:courseOnePoints)
   .map(([x,z])=>new THREE.Vector3(x*courseScale,0,z*courseScale));
 const spline = new THREE.CatmullRomCurve3(controlPoints,true,"centripetal",.45);
@@ -47,17 +59,64 @@ const points = spline.getSpacedPoints(SAMPLES).slice(0,SAMPLES);
 const wrap = (i) => ((i%SAMPLES)+SAMPLES)%SAMPLES;
 export const modulus = (x,n) => ((x%n)+n)%n;
 
+const jumpStart=CIRCUIT_LENGTH*.275;
+export const JUMP_ZONES=COURSE_ID===4?[
+  {start:jumpStart,end:jumpStart+29,velocity:14,gap:true},
+  {start:CIRCUIT_LENGTH*.665,end:CIRCUIT_LENGTH*.665+9,velocity:8,gap:false},
+  {start:CIRCUIT_LENGTH*.785,end:CIRCUIT_LENGTH*.785+9,velocity:8,gap:false},
+]:[];
+const highPoints=[
+  [0,9],[.08,18],[.18,46],[.26,60],[.34,63],[.46,44],
+  [.57,11],[.69,17],[.81,29],[.9,15],[1,9],
+];
+const smooth=t=>t*t*(3-2*t);
+function rampHeight(s,lip,runup,rise){
+  return s>=lip-runup&&s<lip?rise*smooth((s-(lip-runup))/runup):0;
+}
+export function heightAt(distance){
+  if(COURSE_ID!==4)return 0;
+  const s=modulus(distance,CIRCUIT_LENGTH),f=s/CIRCUIT_LENGTH;
+  let h=9;
+  for(let i=0;i<highPoints.length-1;i++){
+    const a=highPoints[i],b=highPoints[i+1];
+    if(f>=a[0]&&f<=b[0]){
+      h=a[1]+(b[1]-a[1])*smooth((f-a[0])/(b[0]-a[0]));
+      break;
+    }
+  }
+  return h+rampHeight(s,jumpStart,44,6.5)
+    +rampHeight(s,JUMP_ZONES[1].start,23,2.1)
+    +rampHeight(s,JUMP_ZONES[2].start,23,2.1);
+}
+export function isJumpGap(distance){
+  if(COURSE_ID!==4)return false;
+  const s=modulus(distance,CIRCUIT_LENGTH);
+  return s>=JUMP_ZONES[0].start&&s<JUMP_ZONES[0].end;
+}
+export function getJumpLaunch(previousS,currentS,speed,dt,lateral=0){
+  if(COURSE_ID!==4||Math.abs(lateral)>ROAD_WIDTH/2+1)return 0;
+  const delta=modulus(currentS-previousS,CIRCUIT_LENGTH);
+  if(delta<=0||delta>Math.max(4,speed*Math.min(dt,.05)*2+3))return 0;
+  for(const zone of JUMP_ZONES){
+    const ahead=modulus(zone.start-previousS,CIRCUIT_LENGTH);
+    if(ahead<=delta)return zone.velocity;
+  }
+  return 0;
+}
 export function sampleAt(distance) {
   const f = modulus(distance,CIRCUIT_LENGTH)/SEGMENT_LENGTH;
   const i = Math.floor(f), t=f-i, j=wrap(i+1);
   const p = points[i].clone().lerp(points[j],t);
+  p.y=heightAt(distance);
   const ahead = points[wrap(i+2)].clone().sub(points[wrap(i)]).normalize();
   const behind = points[wrap(i+1)].clone().sub(points[wrap(i-1)]).normalize();
   const tangent = behind.lerp(ahead,t).normalize();
   const right = new THREE.Vector3(-tangent.z,0,tangent.x);
   // yaw denotes compass-like motion (+yaw drives toward +X).
   // A Three.js mesh whose nose points toward local -Z must render at -yaw.
-  return {position:p,tangent,right,yaw:Math.atan2(tangent.x,-tangent.z)};
+  const pitch=COURSE_ID===4
+    ?Math.atan2(heightAt(distance+3)-heightAt(distance-3),6):0;
+  return {position:p,tangent,right,pitch,yaw:Math.atan2(tangent.x,-tangent.z)};
 }
 
 // Compare against the ENTIRE visible road, regardless of the driver's last

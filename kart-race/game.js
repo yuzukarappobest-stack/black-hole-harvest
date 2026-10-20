@@ -1,11 +1,11 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME,isJumpGap,getJumpLaunch} from "./track.js?v=8";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME,JUMP_ZONES,modulus,isJumpGap,getJumpLaunch} from "./track.js?v=9";
 import {initVertical,advanceVertical} from "./vertical.js?v=1";
 import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=2";
 import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
-import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=6";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=7";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -141,6 +141,7 @@ class KartRace {
     this.vehicle={x:0,z:0,yaw:0,speed:17,steering:0};
     this.trackIndex=null;this.trackS=0;this.cameraTarget=new THREE.Vector3();
     this.offroadTime=0;this.roadDistanceSquared=0;this.lastRailImpact=-Infinity;this.gatesPassed=0;
+    this.falling=false;this.fallTimer=0;this.fallStartHeight=0;
     this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
     this.bestTimeKey=COURSE_ID===4?"kartRaceBestTime4"
@@ -157,7 +158,7 @@ class KartRace {
     this.ui.start.addEventListener("click",()=>this.begin());
     this.ui.dash.addEventListener("click",()=>this.activateDash());
     this.ui.recovery.addEventListener("click",()=>{
-      if(this.state==="running"&&this.offroadTime>=3){
+      if(COURSE_ID!==4&&this.state==="running"&&this.offroadTime>=3){
         this.rescue();
         this.ui.recovery.classList.add("hidden");
       }
@@ -184,6 +185,7 @@ class KartRace {
     initializeCheckpoints(this,CIRCUIT_LENGTH,-32);
     this.lastRailImpact=-Infinity;
     this.roadDistanceSquared=0;this.offroadTime=0;
+    this.falling=false;this.fallTimer=0;
     this.ui.recovery.classList.add("hidden");
     this.dashCharges=0;this.boostTime=0;
     resetDashPickups(this.dashItems);
@@ -272,14 +274,72 @@ class KartRace {
   }
   showBanner(message){this.ui.banner.textContent=message;this.ui.banner.classList.remove("hidden");}
   clearBanner(){this.ui.banner.classList.add("hidden");}
+  startMountainFall(){
+    if(COURSE_ID!==4||this.falling)return;
+    this.falling=true;
+    this.fallTimer=0;
+    this.fallStartHeight=this.vehicle.height;
+    this.vehicle.verticalSpeed=0;
+    this.vehicle.speed=0;
+    this.speed=0;
+    this.boostTime=0;
+    this.input.clearDashRequest();
+    this.dashFlames.forEach(flame=>{flame.visible=false;});
+    this.updateDashButton();
+    this.ui.recovery.classList.add("hidden");
+    this.notify("おっこちた！ 3びょうで もどるよ");
+  }
+  recoverMountain(){
+    // Rewind to a confirmed part of the CURRENT sector, not ahead of
+    // an unchecked gate. This prevents farming shortcuts or getting stuck.
+    const sector=CIRCUIT_LENGTH/18;
+    let safe=this.gatesPassed===0?-32:
+      (this.gatesPassed-1)*sector+Math.min(12,sector*.12);
+    const gap=JUMP_ZONES.find(zone=>zone.gap);
+    if(gap){
+      const lap=Math.floor(Math.max(0,safe)/CIRCUIT_LENGTH);
+      const local=modulus(safe,CIRCUIT_LENGTH);
+      if(local>=gap.start-40&&local<=gap.end+12){
+        safe=lap*CIRCUIT_LENGTH+gap.start-55;
+      }
+    }
+    const p=sampleAt(safe);
+    this.vehicle.x=p.position.x;
+    this.vehicle.z=p.position.z;
+    this.vehicle.yaw=p.yaw;
+    this.vehicle.steering=0;
+    this.vehicle.speed=12;
+    initVertical(this.vehicle,p.position.y);
+    this.player.position.set(this.vehicle.x,this.vehicle.height,this.vehicle.z);
+    this.player.rotation.set(p.pitch,-p.yaw,0,"YXZ");
+    this.yaw=p.yaw;this.speed=12;this.lane=0;
+    this.progress=safe;
+    this.gatesPassed=Math.max(0,Math.floor(safe/sector)+1);
+    this.trackS=modulus(safe,CIRCUIT_LENGTH);
+    this.trackIndex=null;
+    this.projectionMisses=0;this.roadDistanceSquared=0;this.offroadTime=0;
+    this.falling=false;this.fallTimer=0;
+    this.lastRailImpact=-Infinity;
+    const fwd=new THREE.Vector3(Math.sin(p.yaw),0,-Math.cos(p.yaw));
+    this.camera.position.copy(this.player.position).addScaledVector(fwd,-12);
+    this.camera.position.y=this.player.position.y+7.5;
+    this.cameraTarget.copy(this.player.position).addScaledVector(fwd,17);
+    this.cameraTarget.y=this.player.position.y+2.1;
+    this.camera.lookAt(this.cameraTarget);
+    this.ui.recovery.classList.add("hidden");
+    this.updateDashButton();
+    this.notify("コースに もどったよ！");
+  }
   update(dt){
     this.elapsed+=dt;
-    if(COURSE_ID===4&&this.vehicle.failedJump){
-      // A missed canyon landing is a real failure. Wait for the player's
-      // manual recovery button instead of silently teleporting the kart.
-      this.speed=0;
+    if(COURSE_ID===4&&this.falling){
+      // Three seconds of visibly falling; CPU keeps racing.
+      this.fallTimer+=dt;
+      this.vehicle.height=this.fallStartHeight-16*this.fallTimer*this.fallTimer;
+      this.player.position.y=this.vehicle.height;
       this.rivals.forEach(r=>this.advanceRival(r,dt));
-      this.ui.recovery.classList.remove("hidden");
+      if(this.fallTimer>=3)this.recoverMountain();
+      this.rank=1+this.rivals.filter(r=>r.finished||r.progress>this.progress+.05).length;
       this.moveCamera(dt);this.updateHud();this.drawMap();
       return;
     }
@@ -314,7 +374,7 @@ class KartRace {
     // Allow a 5.5m grass shoulder beyond the 22m tarmac, then prevent crossing.
     const beforeRail=projectOnCircuit(this.player.position);
     // The gorge is open air; no invisible rails across the missing road.
-    const impacted=COURSE_ID===4&&isJumpGap(beforeRail.s)?false
+    const impacted=COURSE_ID===4?false
       :constrainToGuardrail(this.vehicle,beforeRail.center,RAIL_OFFSET-1.05);
     if(impacted){
       this.player.position.x=this.vehicle.x;
@@ -344,10 +404,16 @@ class KartRace {
       this.player.rotation.set(pitch,-this.yaw,
         -clamp(this.vehicle.steering*.085,-.10,.10),"YXZ");
       if(vertical.launched)this.notify("JUMP!");
-      if(vertical.failed){
-        this.vehicle.speed=0;
-        this.offroadTime=3;
-        this.notify("ジャンプ しっぱい！");
+      // A real offroad drop: never allow the kart to drive on imaginary
+      // horizontal surfaces outside the elevated pavement. The open canyon
+      // is only valid while aligned with the intended jumping corridor.
+      const leftRoad=globalRoad.squared>(ROAD_WIDTH/2+.8)**2;
+      const belowDeck=this.vehicle.airborne&&!isJumpGap(globalRoad.s)
+        &&this.vehicle.height<road.position.y-3;
+      if(leftRoad||belowDeck||vertical.failed){
+        this.startMountainFall();
+        this.moveCamera(dt);this.updateHud();this.drawMap();
+        return;
       }
     }
     const checkpointResult=updateCheckpointProgress(this,previousPosition,this.player.position,globalRoad,sampleAt,{
@@ -364,8 +430,8 @@ class KartRace {
     if(this.roadDistanceSquared>(ROAD_WIDTH/2+11)**2){
       this.offroadTime+=dt;
     }else this.offroadTime=0;
-    this.ui.recovery.classList.toggle("hidden",this.offroadTime<3
-      &&!(COURSE_ID===4&&this.vehicle.failedJump));
+    this.ui.recovery.classList.toggle("hidden",
+      COURSE_ID===4||this.offroadTime<3);
     const currentLap=Math.min(2,Math.floor(Math.max(0,this.progress)/CIRCUIT_LENGTH));
     updateDashPickups(
       this.dashItems,this.player.position,this.elapsed,dt,currentLap,

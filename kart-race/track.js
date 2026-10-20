@@ -37,18 +37,15 @@ const courseThreePoints = [
   [-280,-205],[-332,-148],[-339,-55],[-344,30],[-349,115],
   [-360,195],[-341,247],
 ];
-// Long elevated alpine course: climbing switchbacks, a real canyon gap,
-// twisting descent and two shorter launch ramps. Open curves avoid rail overlap.
+// v20: Rebuilt mountain loop at roughly half the original lap distance,
+// with broad open turns and generous separation between parallel road decks.
+// This is NOT a 50% uniform shrink (which would overlap the 22m-wide roads).
 const courseFourPoints=[
-  [-290,170],[-205,185],[-155,207],[-65,180],[35,220],[135,183],
-  [230,218],[300,165],[320,85],[285,0],[195,-25],[105,9],
-  [18,-20],[-80,-52],[-180,-25],[-266,-90],[-285,-175],
-  [-216,-244],[-130,-235],[-37,-200],[48,-243],[141,-215],
-  [233,-238],[318,-195],[355,-110],[369,0],[365,130],
-  [318,235],[229,299],[125,310],[24,300],[-78,268],
-  [-174,292],[-263,280],[-310,270],[-330,210],
+  [-210,120],[-110,145],[5,110],[110,150],[200,105],
+  [245,40],[210,-50],[100,-100],[0,-65],[-100,-95],
+  [-200,-70],[-255,0],[-260,80],
 ];
-const courseScale=COURSE_ID===3?.78:1;
+const courseScale=COURSE_ID===4?1.31:COURSE_ID===3?.78:1;
 const controlPoints=(COURSE_ID===4?courseFourPoints:COURSE_ID===3?courseThreePoints
   :COURSE_ID===2?courseTwoPoints:courseOnePoints)
   .map(([x,z])=>new THREE.Vector3(x*courseScale,0,z*courseScale));
@@ -259,7 +256,9 @@ export function buildCircuit(scene) {
   railSections.count=sectionIndex;
   railSections.instanceMatrix.needsUpdate=true;
   if(railSections.instanceColor)railSections.instanceColor.needsUpdate=true;
-  scene.add(railSections);
+  // Sky Mountain has no invisible guardrails: driving over the road edge
+  // drops the kart. Original 3 courses retain their collision guardrails.
+  if(COURSE_ID!==4)scene.add(railSections);
   const perSide=Math.ceil(CIRCUIT_LENGTH/9);
   let postIndex=0;
   for(const side of [-1,1])for(let i=0;i<perSide;i++){
@@ -274,7 +273,8 @@ export function buildCircuit(scene) {
     posts.setMatrixAt(postIndex++,helper.matrix);
   }
   posts.count=postIndex;
-  posts.instanceMatrix.needsUpdate=true;scene.add(posts);
+  posts.instanceMatrix.needsUpdate=true;
+  if(COURSE_ID!==4)scene.add(posts);
   if(COURSE_ID===4){
     // Columns support the elevated mountain roadway; none bridge the gap.
     const columns=new THREE.InstancedMesh(

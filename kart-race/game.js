@@ -405,6 +405,7 @@ class KartRace {
   }
   advanceRival(r,dt){
     if(r.finished)return;
+    const previousRivalDistance=r.progress;
     const here=sampleAt(r.progress),ahead=sampleAt(r.progress+27);
     const turn=Math.acos(clamp(here.tangent.dot(ahead.tangent),-1,1));
     let desired=rivalStyles[r.index].speed;
@@ -423,8 +424,19 @@ class KartRace {
     const p=sampleAt(r.finished?10:r.progress);
     const lane=r.finished?ROAD_WIDTH/2+10+r.index*3:r.lane;
     r.mesh.position.copy(p.position).addScaledVector(p.right,lane);
-    r.mesh.position.y=.02+Math.sin(this.elapsed*6+r.index)*.035;
-    r.mesh.rotation.y=-p.yaw;
+    if(COURSE_ID===4&&!r.finished){
+      const launchVelocity=getJumpLaunch(previousRivalDistance,r.progress,r.speed,dt,r.lane);
+      advanceVertical(r,{
+        dt,roadHeight:p.position.y,overRoad:!isJumpGap(r.progress),
+        launchVelocity,allowFailure:false
+      });
+      r.mesh.position.y=r.height;
+      const pitch=r.airborne?Math.atan2(r.verticalSpeed,Math.max(1,r.speed))*.6:p.pitch;
+      r.mesh.rotation.set(pitch,-p.yaw,0,"YXZ");
+    }else{
+      r.mesh.position.y=COURSE_ID===4?p.position.y+.02:.02+Math.sin(this.elapsed*6+r.index)*.035;
+      r.mesh.rotation.y=-p.yaw;
+    }
   }
   handleContacts(){
     for(const rival of this.rivals){

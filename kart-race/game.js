@@ -6,6 +6,7 @@ import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
 import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=7";
+import {RaceMusic} from "./music.js?v=1";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -59,10 +60,16 @@ function createKart(color,isPlayer=false) {
 
 class EngineAudio {
   constructor(){this.ctx=null;this.osc=null;this.gain=null;}
-  start(){
+  unlock(){
     try{
       if(!this.ctx)this.ctx=new (window.AudioContext||window.webkitAudioContext)();
       this.ctx.resume();
+    }catch {}
+  }
+  start(){
+    try{
+      this.unlock();
+      if(!this.ctx)return;
       if(!this.osc){
         this.osc=this.ctx.createOscillator();this.gain=this.ctx.createGain();
         const filter=this.ctx.createBiquadFilter();filter.type="lowpass";filter.frequency.value=450;
@@ -120,6 +127,7 @@ class KartRace {
       :"CPU 5だい と 3しゅう しょうぶ！";
     this.input=new Controls(this.canvas);
     this.audio=new EngineAudio();
+    this.music=new RaceMusic();
     this.ui={
       ready:document.getElementById("readyPanel"),result:document.getElementById("resultPanel"),
       pause:document.getElementById("pausePanel"),start:document.getElementById("startButton"),
@@ -133,6 +141,7 @@ class KartRace {
       dashCount:document.getElementById("dashCount"),
       recovery:document.getElementById("recoveryButton"),
       recenter:document.getElementById("recenterButton"),
+      music:document.getElementById("musicButton"),
       minimap:document.getElementById("minimap"),
     };
     this.mapCtx=this.ui.minimap.getContext("2d");
@@ -150,6 +159,7 @@ class KartRace {
     this.bestTime=Number(localStorage.getItem(this.bestTimeKey)||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
     this.placeCars();this.setupEvents();this.resize();this.drawMap();this.updateHud();this.updateDashButton();
+    this.updateMusicButton();
     this.camera.position.set(0,17,160);this.camera.lookAt(0,0,100);
     this.tick=this.tick.bind(this);requestAnimationFrame(this.tick);
   }
@@ -157,6 +167,11 @@ class KartRace {
     window.addEventListener("resize",()=>this.resize());
     this.ui.start.addEventListener("click",()=>this.begin());
     this.ui.dash.addEventListener("click",()=>this.activateDash());
+    this.ui.music.addEventListener("click",()=>{
+      this.music.setEnabled(!this.music.enabled);
+      this.updateMusicButton();
+      this.music.update();
+    });
     this.ui.recovery.addEventListener("click",()=>{
       if(COURSE_ID!==4&&this.state==="running"&&this.offroadTime>=3){
         this.rescue();
@@ -166,12 +181,20 @@ class KartRace {
     this.ui.recenter.addEventListener("click",()=>{this.input.recenter();this.notify("ハンドルを まんなかに したよ");});
     document.getElementById("returnButton").addEventListener("click",()=>this.goBack());
     document.getElementById("resumeButton").addEventListener("click",()=>{
-      this.state=this.wasCounting?"countdown":"running";this.ui.pause.classList.add("hidden");this.ui.recovery.classList.toggle("hidden",this.offroadTime<3);this.lastFrame=performance.now();this.audio.start();
+      this.audio.unlock(); // iPad requires resumed audio inside the tap handler.
+      this.state=this.wasCounting?"countdown":"running";
+      this.ui.pause.classList.add("hidden");
+      this.ui.recovery.classList.toggle("hidden",this.offroadTime<3);
+      this.lastFrame=performance.now();
+      this.audio.start();
+      if(this.state==="running")this.music.start(this.audio.ctx);
     });
     document.getElementById("pauseButton").addEventListener("click",()=>this.pause());
     document.addEventListener("visibilitychange",()=>{if(document.hidden)this.pause();});
   }
   goBack(){
+    this.music.stop();
+    this.audio.mute();
     window.location.replace("../"+(sessionStorage.getItem("miniGameReturnUrl")||"learn.html"));
   }
   resize(){
@@ -225,6 +248,9 @@ class KartRace {
   async begin(){
     if(this.state!=="ready")return;
     this.ui.start.disabled=true;
+    // iPad Safari: unlock the Web Audio context BEFORE the orientation
+    // permission await, while we still have a direct tap gesture.
+    this.audio.unlock();
     // Request permission from the START tap (required by Safari/iOS).
     const enabled=await this.input.enableTilt();
     this.ui.note.textContent=enabled?"スマホを かたむけて ハンドルそうさ":"かたむきが つかえないときは がめんを さゆうに ドラッグ";
@@ -240,7 +266,14 @@ class KartRace {
   pause(){
     if(this.state!=="running"&&this.state!=="countdown")return;
     this.wasCounting=this.state==="countdown";this.state="paused";
-    this.ui.pause.classList.remove("hidden");this.ui.recovery.classList.add("hidden");this.audio.mute();
+    this.ui.pause.classList.remove("hidden");this.ui.recovery.classList.add("hidden");
+    this.audio.mute();
+    this.music.pause();
+  }
+  updateMusicButton(){
+    this.ui.music.textContent=this.music.enabled?"♫ BGM ON":"♫ BGM OFF";
+    this.ui.music.setAttribute("aria-pressed",String(this.music.enabled));
+    this.ui.music.classList.toggle("is-muted",!this.music.enabled);
   }
   notify(message){
     this.showBanner(message);
@@ -567,7 +600,8 @@ class KartRace {
   }
   finish(){
     if(this.state!=="running")return;
-    this.state="finished";this.audio.mute();this.ui.dash.classList.add("hidden");
+    this.state="finished";this.audio.mute();this.music.stop();
+    this.ui.dash.classList.add("hidden");
     this.ui.recovery.classList.add("hidden");
     this.dashFlames.forEach(flame=>{flame.visible=false;});
     this.ui.recenter.classList.add("hidden");this.clearBanner();
@@ -587,7 +621,11 @@ class KartRace {
     this.lastFrame=now;
     if(this.state==="countdown"){
       this.countdown-=dt;
-      if(this.countdown<=0){this.state="running";this.showBanner("GO!");this.noticeUntil=performance.now()+1000;}
+      if(this.countdown<=0){
+        this.state="running";
+        this.music.start(this.audio.ctx);
+        this.showBanner("GO!");this.noticeUntil=performance.now()+1000;
+      }
       else this.showBanner(String(Math.ceil(this.countdown)));
     }else if(this.state==="running")this.update(dt);
     if(this.state==="ready"){
@@ -599,6 +637,7 @@ class KartRace {
       look.y=(COURSE_ID===4?point.position.y:0)+1.4;
       this.camera.lookAt(look);
     }
+    this.music.update();
     this.renderer.render(this.scene,this.camera);
   }
 }

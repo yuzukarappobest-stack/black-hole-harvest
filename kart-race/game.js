@@ -91,7 +91,8 @@ class KartRace {
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.scene=new THREE.Scene();
     this.scene.background=new THREE.Color(COURSE_ID===4?0xa0d7ff:COURSE_ID===3?0x91b2e2:COURSE_ID===2?0xffcca7:0x8fd5ff);
-    this.scene.fog=new THREE.Fog(COURSE_ID===4?0xb6dbea:COURSE_ID===3?0xb7d8ec:COURSE_ID===2?0xffd6b8:0x9ee4f4,145,490);
+    this.scene.fog=new THREE.Fog(COURSE_ID===4?0xb6dbea:COURSE_ID===3?0xb7d8ec:COURSE_ID===2?0xffd6b8:0x9ee4f4,
+      COURSE_ID===4?145:115,COURSE_ID===4?490:330);
     this.scene.add(new THREE.HemisphereLight(0xffffff,0x478158,2.45));
     const sun=new THREE.DirectionalLight(0xfff4d2,2.1);sun.position.set(-80,100,40);this.scene.add(sun);
     this.camera=new THREE.PerspectiveCamera(67,1,.1,450);

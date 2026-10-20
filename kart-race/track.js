@@ -379,6 +379,30 @@ export function buildCircuit(scene) {
   }
   if(COURSE_ID===3)rocks.count=rockIndex;
   rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
+  if(COURSE_ID===4){
+    // Rock ridges around the raised road reinforce its real height above
+    // the valley. No mountains touch the kart's collision envelope.
+    const mountains=new THREE.InstancedMesh(
+      new THREE.ConeGeometry(13,1,6),
+      new THREE.MeshStandardMaterial({color:0x788b79,roughness:1,flatShading:true}),
+      68
+    );
+    let mountainCount=0;
+    for(let i=0;i<110&&mountainCount<68;i++){
+      const p=sampleAt(i*CIRCUIT_LENGTH/110+7);
+      const sign=i%2===0?1:-1,offset=57+(i*17%29);
+      const candidate=p.position.clone().addScaledVector(p.right,sign*offset);
+      if(distanceSquaredToRoad(candidate)<(RAIL_OFFSET+31)**2)continue;
+      const height=19+(i*11%33);
+      helper.position.set(candidate.x,height/2-.3,candidate.z);
+      helper.rotation.set(0,i*.49,0);
+      helper.scale.set(.7+(i%4)*.19,height,.8+(i%3)*.24);
+      helper.updateMatrix();
+      mountains.setMatrixAt(mountainCount++,helper.matrix);
+    }
+    mountains.count=mountainCount;
+    mountains.instanceMatrix.needsUpdate=true;scene.add(mountains);
+  }
   // Finish arch, set forward over the line.
   const arch=new THREE.Group(),postMaterial=new THREE.MeshStandardMaterial({
     color:COURSE_ID===4?0xa85e33:COURSE_ID===3?0x2c9bad:COURSE_ID===2?0xa75c81:0x375fb2

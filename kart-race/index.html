@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#8fd5ff">
   <title>カートレース</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
   <main id="app">
@@ -19,6 +19,7 @@
     <canvas id="minimap" class="minimap" width="150" height="125" aria-label="コースと車のいち"></canvas>
     <button id="pauseButton" class="pause-button" type="button" aria-label="いちじていし">Ⅱ</button>
     <button id="recenterButton" class="recenter-button hidden" type="button">ハンドル<br>ちょうせい</button>
+    <button id="musicButton" class="music-button" type="button" aria-label="BGMをオン・オフ" aria-pressed="true">♫ BGM ON</button>
     <button id="dashButton" class="dash-button hidden" type="button" disabled aria-label="アイテムで ダッシュ">
       <span class="dash-icon" aria-hidden="true">⚡</span>
       <span id="dashLabel">ダッシュ</span>
@@ -29,7 +30,7 @@
 
     <section id="readyPanel" class="overlay">
       <div class="panel">
-        <div class="panel-eyebrow">3D KART RACING · v20</div>
+        <div class="panel-eyebrow">3D KART RACING · v21</div>
         <h1 id="courseTitle">カートレース！</h1>
         <div class="kart-icon" aria-hidden="true">🏎️💨</div>
         <p><span id="courseDescription">CPU 5だい と 3しゅう しょうぶ！</span><br>1いを めざそう！</p>
@@ -62,6 +63,6 @@
       </div>
     </section>
   </main>
-  <script type="module" src="game.js?v=20"></script>
+  <script type="module" src="game.js?v=21"></script>
 </body>
 </html>

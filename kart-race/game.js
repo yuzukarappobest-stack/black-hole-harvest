@@ -300,7 +300,8 @@ class KartRace {
       const lap=Math.floor(Math.max(0,safe)/CIRCUIT_LENGTH);
       const local=modulus(safe,CIRCUIT_LENGTH);
       if(local>=gap.start-40&&local<=gap.end+12){
-        safe=lap*CIRCUIT_LENGTH+gap.start-55;
+        // Give the kart a long enough acceleration run-up on retry.
+        safe=lap*CIRCUIT_LENGTH+gap.start-85;
       }
     }
     const p=sampleAt(safe);
@@ -508,6 +509,8 @@ class KartRace {
   handleContacts(){
     for(const rival of this.rivals){
       if(rival.finished)continue;
+      // No ghost collisions between cars separated vertically during jumps.
+      if(COURSE_ID===4&&Math.abs(this.player.position.y-rival.mesh.position.y)>2.7)continue;
       const dx=this.vehicle.x-rival.mesh.position.x,dz=this.vehicle.z-rival.mesh.position.z;
       const dist=Math.hypot(dx,dz);
       if(dist<2.65&&dist>.02){

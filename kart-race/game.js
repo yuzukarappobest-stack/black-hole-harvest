@@ -1,10 +1,11 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME} from "./track.js?v=7";
+import {buildCircuit,sampleAt,projectOnCircuit,CIRCUIT_LENGTH,ROAD_WIDTH,GRASS_MARGIN,RAIL_OFFSET,COURSE_ID,COURSE_NAME,isJumpGap,getJumpLaunch} from "./track.js?v=8";
+import {initVertical,advanceVertical} from "./vertical.js?v=1";
 import {initializeCheckpoints,updateCheckpointProgress} from "./checkpoints.js?v=2";
 import {constrainToGuardrail} from "./barriers.js?v=1";
 import {stepKart} from "./driving.js?v=3";
 import {Controls} from "./controls.js?v=4";
-import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=5";
+import {createDashPickups,resetDashPickups,updateDashPickups} from "./items.js?v=6";
 
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const raceDistance=CIRCUIT_LENGTH*3;
@@ -89,8 +90,8 @@ class KartRace {
     this.renderer.setSize(innerWidth,innerHeight,false);
     this.renderer.outputColorSpace=THREE.SRGBColorSpace;
     this.scene=new THREE.Scene();
-    this.scene.background=new THREE.Color(COURSE_ID===3?0x91b2e2:COURSE_ID===2?0xffcca7:0x8fd5ff);
-    this.scene.fog=new THREE.Fog(COURSE_ID===3?0xb7d8ec:COURSE_ID===2?0xffd6b8:0x9ee4f4,115,330);
+    this.scene.background=new THREE.Color(COURSE_ID===4?0xa0d7ff:COURSE_ID===3?0x91b2e2:COURSE_ID===2?0xffcca7:0x8fd5ff);
+    this.scene.fog=new THREE.Fog(COURSE_ID===4?0xb6dbea:COURSE_ID===3?0xb7d8ec:COURSE_ID===2?0xffd6b8:0x9ee4f4,145,490);
     this.scene.add(new THREE.HemisphereLight(0xffffff,0x478158,2.45));
     const sun=new THREE.DirectionalLight(0xfff4d2,2.1);sun.position.set(-80,100,40);this.scene.add(sun);
     this.camera=new THREE.PerspectiveCamera(67,1,.1,450);
@@ -111,8 +112,9 @@ class KartRace {
       return {...style,index,mesh,progress:0,speed:0,lane:0,targetLane:0,finished:false};
     });
     document.getElementById("courseTitle").textContent=COURSE_NAME;
-    document.getElementById("courseDescription").textContent=COURSE_ID===3
-      ?"エースは42！ キングは46！ ダッシュで ちょうせん！"
+    document.getElementById("courseDescription").textContent=COURSE_ID===4
+      ?"やまを のぼって たにを ジャンプ！ そらまで とぼう！"
+      :COURSE_ID===3?"エースは42！ キングは46！ ダッシュで ちょうせん！"
       :COURSE_ID===2?"はやい チャンピオンと 3しゅう しょうぶ！"
       :"CPU 5だい と 3しゅう しょうぶ！";
     this.input=new Controls(this.canvas);
@@ -140,7 +142,8 @@ class KartRace {
     this.offroadTime=0;this.roadDistanceSquared=0;this.lastRailImpact=-Infinity;this.gatesPassed=0;
     this.rank=6;this.countdown=3.5;this.hudTimer=0;
     this.dashCharges=0;this.maxDashCharges=2;this.boostTime=0;
-    this.bestTimeKey=COURSE_ID===3?"kartRaceBestTime3"
+    this.bestTimeKey=COURSE_ID===4?"kartRaceBestTime4"
+      :COURSE_ID===3?"kartRaceBestTime3"
       :COURSE_ID===2?"kartRaceBestTime2":"kartRaceBestTime";
     this.bestTime=Number(localStorage.getItem(this.bestTimeKey)||0);
     this.ui.best.textContent=this.bestTime?this.bestTime.toFixed(1)+"びょう":"まだないよ";
@@ -191,7 +194,9 @@ class KartRace {
       z:start.position.z+start.right.z*this.lane,
       yaw:start.yaw,speed:17,steering:0,
     };
-    this.player.position.set(this.vehicle.x,.02,this.vehicle.z);
+    if(COURSE_ID===4)initVertical(this.vehicle,start.position.y);
+    this.player.position.set(this.vehicle.x,
+      COURSE_ID===4?this.vehicle.height:.02,this.vehicle.z);
     // Three.js local forward is -Z, so mesh yaw is the negative of travel yaw.
     this.yaw=this.vehicle.yaw;this.player.rotation.set(0,-this.yaw,0);
     const near=projectOnCircuit(this.player.position);
@@ -201,11 +206,17 @@ class KartRace {
       r.progress=-6-i*4.4;r.speed=23+i*.35;r.finished=false;
       r.lane=startingLanes[i];r.targetLane=r.lane;r.homeLane=r.lane;r.lastContactAt=-Infinity;
       const p=sampleAt(r.progress);
-      r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);r.mesh.rotation.y=-p.yaw;
+      if(COURSE_ID===4)initVertical(r,p.position.y);
+      r.mesh.position.copy(p.position).addScaledVector(p.right,r.lane);
+      r.mesh.position.y=COURSE_ID===4?r.height:r.mesh.position.y;
+      if(COURSE_ID===4)r.mesh.rotation.set(p.pitch,-p.yaw,0,"YXZ");
+      else r.mesh.rotation.y=-p.yaw;
     });
     const fwd=new THREE.Vector3(Math.sin(this.yaw),0,-Math.cos(this.yaw));
-    this.camera.position.copy(this.player.position).addScaledVector(fwd,-12);this.camera.position.y=7.5;
-    this.cameraTarget.copy(this.player.position).addScaledVector(fwd,17);this.cameraTarget.y=2.1;
+    this.camera.position.copy(this.player.position).addScaledVector(fwd,-12);
+    this.camera.position.y=(COURSE_ID===4?this.player.position.y:0)+7.5;
+    this.cameraTarget.copy(this.player.position).addScaledVector(fwd,17);
+    this.cameraTarget.y=(COURSE_ID===4?this.player.position.y:0)+2.1;
     this.camera.lookAt(this.cameraTarget);
   }
   async begin(){
@@ -460,7 +471,8 @@ class KartRace {
   }
 }
 
-const accessKey=COURSE_ID===3?"miniGameAccess:kart-race-3"
+const accessKey=COURSE_ID===4?"miniGameAccess:kart-race-4"
+  :COURSE_ID===3?"miniGameAccess:kart-race-3"
   :COURSE_ID===2?"miniGameAccess:kart-race-2":"miniGameAccess:kart-race";
 if(sessionStorage.getItem(accessKey)!=="1"){
   window.location.replace("../"+(sessionStorage.getItem("miniGameReturnUrl")||"learn.html"));

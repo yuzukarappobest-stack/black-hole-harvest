@@ -164,10 +164,12 @@ function ribbon(inner,outer,height,material,colorAlternation=false) {
   for(let i=0;i<SAMPLES;i++) {
     const s=i*SEGMENT_LENGTH, p=sampleAt(s);
     for(const offset of [inner,outer]) {
-      vertices.push(p.position.x+p.right.x*offset,height,p.position.z+p.right.z*offset);
+      vertices.push(p.position.x+p.right.x*offset,height+p.position.y,p.position.z+p.right.z*offset);
       const col=colorAlternation?(Math.floor(s/10)%2===0?red:white):white;
       colors.push(col.r,col.g,col.b);
     }
+    // Do not create an invisible collision bridge across the canyon.
+    if(isJumpGap((i+.5)*SEGMENT_LENGTH))continue;
     const a=i*2,b=((i+1)%SAMPLES)*2;
     indices.push(a,a+1,b,b,a+1,b+1);
   }
@@ -180,17 +182,18 @@ function ribbon(inner,outer,height,material,colorAlternation=false) {
 
 export function buildCircuit(scene) {
   const green=new THREE.MeshStandardMaterial({
-    color:COURSE_ID===3?0x8fbfce:COURSE_ID===2?0xcfae79:0x5fae66,roughness:1
+    color:COURSE_ID===4?0x6d9362:COURSE_ID===3?0x8fbfce:COURSE_ID===2?0xcfae79:0x5fae66,
+    roughness:1
   });
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(800,650),green);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(COURSE_ID===4?1050:800,COURSE_ID===4?860:650),green);
   ground.rotation.x=-Math.PI/2;ground.position.y=-.13;scene.add(ground);
   const asphalt=new THREE.MeshStandardMaterial({
-    color:COURSE_ID===3?0x343d63:COURSE_ID===2?0x665361:0x414957,
+    color:COURSE_ID===4?0x48546a:COURSE_ID===3?0x343d63:COURSE_ID===2?0x665361:0x414957,
     roughness:.94,side:THREE.DoubleSide
   });
   const curb=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.85,side:THREE.DoubleSide});
   const side=new THREE.MeshStandardMaterial({
-    color:COURSE_ID===3?0xc5e7f0:COURSE_ID===2?0xe1c492:0x9aaa80,
+    color:COURSE_ID===4?0x9aaf95:COURSE_ID===3?0xc5e7f0:COURSE_ID===2?0xe1c492:0x9aaa80,
     roughness:1,side:THREE.DoubleSide
   });
   scene.add(ribbon(-ROAD_WIDTH/2-.8,ROAD_WIDTH/2+.8,-.04,side));
@@ -203,11 +206,16 @@ export function buildCircuit(scene) {
   const stripeCount=Math.floor(CIRCUIT_LENGTH/13);
   const stripes=new THREE.InstancedMesh(markerGeometry,stripe,stripeCount);
   const helper=new THREE.Object3D();
+  let painted=0;
   for(let i=0;i<stripeCount;i++) {
-    const p=sampleAt(i*13+5);
-    helper.position.set(p.position.x,.065,p.position.z);helper.rotation.set(0,-p.yaw,0);helper.updateMatrix();
-    stripes.setMatrixAt(i,helper.matrix);
+    const distance=i*13+5;
+    if(isJumpGap(distance))continue;
+    const p=sampleAt(distance);
+    helper.position.set(p.position.x,p.position.y+.065,p.position.z);
+    helper.rotation.set(0,-p.yaw,0);helper.updateMatrix();
+    stripes.setMatrixAt(painted++,helper.matrix);
   }
+  stripes.count=painted;
   stripes.instanceMatrix.needsUpdate=true;scene.add(stripes);
 
   // Closed red/white guardrails on BOTH sides, 5.5m beyond the tarmac.
@@ -217,7 +225,7 @@ export function buildCircuit(scene) {
     color:0xffffff,roughness:.78,metalness:.08
   });
   const railSections=new THREE.InstancedMesh(railBarGeometry,railMaterial,SAMPLES*2);
-  const redRail=new THREE.Color(COURSE_ID===3?0x31c5cb:COURSE_ID===2?0x5275ce:0xe84848);
+  const redRail=new THREE.Color(COURSE_ID===4?0xf6b43d:COURSE_ID===3?0x31c5cb:COURSE_ID===2?0x5275ce:0xe84848);
   const whiteRail=new THREE.Color(0xfff7e4);
   const railPostGeometry=new THREE.BoxGeometry(1,1,1);
   const postCount=Math.ceil(CIRCUIT_LENGTH/9)*2;
@@ -226,6 +234,7 @@ export function buildCircuit(scene) {
   let sectionIndex=0;
   for(let side of [-1,1]){
     for(let i=0;i<SAMPLES;i++){
+      if(isJumpGap((i+.5)*SEGMENT_LENGTH))continue;
       const a=sampleAt(i*SEGMENT_LENGTH),b=sampleAt((i+1)*SEGMENT_LENGTH);
       const ax=a.position.x+a.right.x*side*RAIL_OFFSET;
       const az=a.position.z+a.right.z*side*RAIL_OFFSET;
@@ -233,30 +242,70 @@ export function buildCircuit(scene) {
       const bz=b.position.z+b.right.z*side*RAIL_OFFSET;
       const dx=bx-ax,dz=bz-az;
       const length=Math.hypot(dx,dz);
-      helper.position.set((ax+bx)/2,.98,(az+bz)/2);
-      helper.rotation.set(0,-Math.atan2(dx,-dz),0);
-      helper.scale.set(.45,.72,length+.16);
+      helper.position.set((ax+bx)/2,(a.position.y+b.position.y)/2+.98,(az+bz)/2);
+      if(COURSE_ID===4){
+        helper.lookAt(bx,b.position.y+.98,bz);
+        helper.scale.set(.45,.72,Math.hypot(length,b.position.y-a.position.y)+.16);
+      }else{
+        helper.rotation.set(0,-Math.atan2(dx,-dz),0);
+        helper.scale.set(.45,.72,length+.16);
+      }
       helper.updateMatrix();
       railSections.setMatrixAt(sectionIndex,helper.matrix);
       railSections.setColorAt(sectionIndex,Math.floor(i*SEGMENT_LENGTH/10)%2?redRail:whiteRail);
       sectionIndex++;
     }
   }
+  railSections.count=sectionIndex;
   railSections.instanceMatrix.needsUpdate=true;
   if(railSections.instanceColor)railSections.instanceColor.needsUpdate=true;
   scene.add(railSections);
   const perSide=Math.ceil(CIRCUIT_LENGTH/9);
   let postIndex=0;
   for(const side of [-1,1])for(let i=0;i<perSide;i++){
-    const p=sampleAt(i*CIRCUIT_LENGTH/perSide);
+    const s=i*CIRCUIT_LENGTH/perSide;
+    if(isJumpGap(s))continue;
+    const p=sampleAt(s);
     helper.position.copy(p.position).addScaledVector(p.right,side*RAIL_OFFSET);
-    helper.position.y=.85;
+    helper.position.y=p.position.y+.85;
     helper.rotation.set(0,0,0);
     helper.scale.set(.55,1.7,.55);
     helper.updateMatrix();
     posts.setMatrixAt(postIndex++,helper.matrix);
   }
+  posts.count=postIndex;
   posts.instanceMatrix.needsUpdate=true;scene.add(posts);
+  if(COURSE_ID===4){
+    // Columns support the elevated mountain roadway; none bridge the gap.
+    const columns=new THREE.InstancedMesh(
+      new THREE.CylinderGeometry(.9,1.25,1,7),
+      new THREE.MeshStandardMaterial({color:0x7b8380,roughness:1}),
+      Math.ceil(CIRCUIT_LENGTH/23)*2
+    );
+    let count=0;
+    for(let i=0;i<Math.ceil(CIRCUIT_LENGTH/23);i++){
+      const distance=i*23;if(isJumpGap(distance))continue;
+      const p=sampleAt(distance);
+      for(const side of [-7,7]){
+        helper.position.copy(p.position).addScaledVector(p.right,side);
+        helper.position.y=Math.max(0,p.position.y/2);
+        helper.rotation.set(0,0,0);helper.scale.set(1,Math.max(1,p.position.y),1);
+        helper.updateMatrix();columns.setMatrixAt(count++,helper.matrix);
+      }
+    }
+    columns.count=count;columns.instanceMatrix.needsUpdate=true;scene.add(columns);
+    // Bright ramp lips show players where the jump starts.
+    const padMesh=new THREE.BoxGeometry(ROAD_WIDTH-2,.13,3);
+    const padMat=new THREE.MeshStandardMaterial({
+      color:0xffc446,emissive:0xff9821,emissiveIntensity:.25
+    });
+    for(const zone of JUMP_ZONES){
+      const p=sampleAt(zone.start-3);
+      const pad=new THREE.Mesh(padMesh,padMat);
+      pad.position.copy(p.position);pad.position.y+=.14;
+      pad.rotation.y=-p.yaw;scene.add(pad);
+    }
+  }
   // Proper start/finish across the driving surface.
   const lineGroup=new THREE.Group();
   const tile=new THREE.BoxGeometry(ROAD_WIDTH/10,.025,1.8);
@@ -332,7 +381,7 @@ export function buildCircuit(scene) {
   rocks.instanceMatrix.needsUpdate=true;scene.add(rocks);
   // Finish arch, set forward over the line.
   const arch=new THREE.Group(),postMaterial=new THREE.MeshStandardMaterial({
-    color:COURSE_ID===3?0x2c9bad:COURSE_ID===2?0xa75c81:0x375fb2
+    color:COURSE_ID===4?0xa85e33:COURSE_ID===3?0x2c9bad:COURSE_ID===2?0xa75c81:0x375fb2
   });
   for(const x of [-ROAD_WIDTH/2-1,ROAD_WIDTH/2+1]){
     const post=new THREE.Mesh(new THREE.BoxGeometry(.7,6,.7),postMaterial);post.position.set(x,3,0);arch.add(post);

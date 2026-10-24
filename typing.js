@@ -143,5 +143,35 @@
     if(!opening) inputEl.focus();
   });
 
+  // iPad Safari does not reliably shrink CSS vh when the software
+  // keyboard appears. VisualViewport DOES report the usable height.
+  // Keep the kana chart in that area and shrink only the question panel,
+  // not the font on the operating-system keyboard.
+  function updateVisibleViewport(){
+    const v = window.visualViewport;
+    const height = v ? v.height : window.innerHeight;
+    const top = v ? v.offsetTop : 0;
+    if(!Number.isFinite(height) || height<=0)return;
+    document.documentElement.style.setProperty(
+      '--typing-visible-height', Math.round(height)+'px'
+    );
+    document.documentElement.style.setProperty(
+      '--typing-visible-top', Math.max(0,Math.round(top))+'px'
+    );
+  }
+  inputEl.addEventListener('focus', () => {
+    document.body.classList.add('typing-focused');
+    updateVisibleViewport();
+  });
+  inputEl.addEventListener('blur', () => {
+    document.body.classList.remove('typing-focused');
+  });
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize', updateVisibleViewport);
+    window.visualViewport.addEventListener('scroll', updateVisibleViewport);
+  }
+  window.addEventListener('resize',updateVisibleViewport);
+  updateVisibleViewport();
+
   pickQuestion();
 })();

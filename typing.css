@@ -1,44 +1,139 @@
-:root{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;color:#332b22;background:#fff6d8}
+:root{
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;
+  color:#332b22;background:#fff6d8
+}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:linear-gradient(#fff9e8,#ffefbd)}
-.typing-app{width:min(920px,100%);margin:0 auto;padding:16px}
-.topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:16px}
-.topbar h1{margin:0;text-align:center;font-size:clamp(24px,5vw,40px)}
+.typing-app{width:min(1000px,100%);margin:0 auto;padding:12px 14px}
+.topbar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:9px}
+.topbar h1{margin:0;text-align:center;font-size:clamp(24px,5vw,37px)}
 .back-link{color:#5b4a35;text-decoration:none;font-weight:800}
-.table-toggle{justify-self:end;border:0;border-radius:999px;background:#5e7748;color:#fff;padding:10px 14px;font-weight:900;font-size:14px}
+.table-toggle{justify-self:end;border:0;border-radius:999px;background:#5e7748;color:#fff;padding:9px 13px;font-weight:900;font-size:14px;touch-action:manipulation}
 .table-toggle.on{background:#c7683b}
 .hidden{display:none!important}
-.romaji-table{background:#fffdf7;border:3px solid #e5c979;border-radius:20px;padding:12px;margin:0 auto 18px;box-shadow:0 8px 22px #8a6d2a18;max-width:760px}
-.romaji-table h2{text-align:center;margin:0 0 10px;font-size:18px}
-.table-grid{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px}
-.table-grid div{background:#fff3c9;border:1px solid #e5d49a;border-radius:8px;padding:5px 3px;text-align:center;min-width:0}
-.table-grid b{display:block;font-size:15px;line-height:1.1}
-.table-grid span{display:block;font-size:9px;line-height:1.1;color:#765d3f;margin-top:2px;white-space:nowrap}
-.table-note{margin:8px 0 0;text-align:center;font-size:11px;font-weight:700}
-.game-card{background:#fffdf8;border:3px solid #e0c06c;border-radius:24px;padding:clamp(18px,4vw,34px);box-shadow:0 10px 30px #8a6d2a22;text-align:center}
-.score-row{display:flex;justify-content:center;gap:26px;font-size:14px;margin-bottom:8px}
+.romaji-table{
+  background:#fffdf7;border:3px solid #e5c979;border-radius:18px;
+  padding:8px 10px;margin:0 auto 10px;box-shadow:0 8px 22px #8a6d2a18;
+  width:100%;max-width:960px
+}
+.romaji-table h2{text-align:center;margin:0 0 5px;font-size:16px}
+.kana-section{margin:0}
+.kana-section+.kana-section{margin-top:5px}
+.kana-section h3{
+  margin:0 0 3px;padding-left:4px;font-size:12px;line-height:1.2;
+  color:#756043;font-weight:900
+}
+.kana-section-2 h3{color:#956348}
+.kana-section-3 h3{color:#496c86}
+/* Explicit row boundaries: the 10 characters of あ..こ and さ..と
+   always share rows, regardless of browser width or section transitions. */
+.table-grid{display:grid;gap:3px}
+.kana-row{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px;min-width:0}
+.kana-cell{
+  min-width:0;min-height:31px;padding:3px 1px 2px;text-align:center;
+  border:1px solid #e5d49a;border-radius:6px;background:#fff3c9
+}
+.kana-section-2 .kana-cell{background:#fff0df;border-color:#eac8aa}
+.kana-section-3 .kana-cell{background:#eaf4fb;border-color:#c7d9e7}
+.kana-cell b{display:block;font-size:14px;line-height:1.08}
+.kana-cell span{
+  display:block;margin-top:1px;color:#765d3f;font-size:9px;line-height:1.05;
+  white-space:nowrap;letter-spacing:-.025em
+}
+.kana-space{visibility:hidden}
+.table-note{margin:5px 0 0;text-align:center;font-size:10px;font-weight:700}
+.game-card{
+  background:#fffdf8;border:3px solid #e0c06c;border-radius:20px;
+  padding:clamp(14px,3vw,22px);box-shadow:0 10px 30px #8a6d2a22;text-align:center
+}
+.score-row{display:flex;justify-content:center;gap:26px;font-size:14px;margin-bottom:5px}
 .score-row b{font-size:20px;color:#be603a}
-.instruction{margin:8px 0 12px;color:#7b684f;font-weight:700}
-.prompt{font-size:clamp(38px,9vw,72px);font-weight:1000;letter-spacing:.05em;min-height:1.4em;display:grid;place-items:center}
-.hint{min-height:24px;color:#987d5e;font-size:14px;margin:4px 0 10px}
-.typing-input{display:block;width:min(520px,100%);margin:0 auto;border:3px solid #b9a66e;border-radius:16px;background:#fff;color:#2f2a24;font-size:clamp(24px,6vw,40px);padding:12px 16px;text-align:center;font-weight:900;letter-spacing:.04em;outline:none}
-.typing-input:focus{border-color:#719052;box-shadow:0 0 0 4px #71905222}
+.instruction{margin:5px 0 8px;color:#7b684f;font-weight:700}
+.prompt{
+  font-size:clamp(38px,8vw,66px);font-weight:1000;letter-spacing:.05em;
+  min-height:1.25em;display:grid;place-items:center
+}
+.hint{min-height:20px;color:#987d5e;font-size:14px;margin:1px 0 5px}
+.typing-input{
+  display:block;width:min(520px,100%);margin:0 auto;
+  border:3px solid #b9a66e;border-radius:14px;background:#fff;color:#2f2a24;
+  font-size:clamp(23px,5vw,36px);padding:10px 14px;text-align:center;
+  font-weight:900;letter-spacing:.04em;outline:none
+}
+.typing-input:focus{border-color:#719052;box-shadow:0 0 0 3px #71905222}
 .typing-input.correct{border-color:#55a05f;background:#effaee}
 .typing-input.wrong{border-color:#d86b5f;background:#fff0ed}
-.feedback{min-height:24px;font-weight:900;color:#6c5b45}
-.feedback.ok{color:#42884e}.feedback.ng{color:#c34e43}
-.next-btn{border:0;border-radius:14px;background:#e6a84c;color:#3c2f20;padding:11px 20px;font-size:16px;font-weight:900}
-@media(max-width:640px){
-  .typing-app{padding:10px}
+.feedback{min-height:20px;margin:9px 0;font-weight:900;color:#6c5b45}
+.feedback.ok{color:#42884e}
+.feedback.ng{color:#c34e43}
+.next-btn{border:0;border-radius:14px;background:#e6a84c;color:#3c2f20;padding:9px 18px;font-size:16px;font-weight:900;touch-action:manipulation}
+
+/* In iPad Safari the software keyboard changes VisualViewport.height but
+   often not the CSS layout viewport. Use the measured visible height, keep
+   the question/input pinned into that area, and let ONLY the table scroll
+   if the viewport is exceptionally short. */
+body.typing-focused{overflow:hidden;height:var(--typing-visible-height,100dvh)}
+body.typing-focused .typing-app{
+  position:fixed;left:0;right:0;top:var(--typing-visible-top,0px);
+  height:var(--typing-visible-height,100dvh);min-height:0;overflow:hidden;
+  display:flex;flex-direction:column;
+  padding:5px 10px 4px;
+}
+body.typing-focused .topbar{flex:none;margin-bottom:4px;gap:7px;min-height:32px}
+body.typing-focused .topbar h1{font-size:22px}
+body.typing-focused .back-link{font-size:12px}
+body.typing-focused .table-toggle{font-size:12px;padding:7px 10px}
+body.typing-focused .romaji-table{
+  flex:1 1 auto;min-height:0;max-width:none;
+  overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
+  padding:5px 7px;margin:0 auto 5px;border-radius:13px;
+  -webkit-overflow-scrolling:touch;
+}
+body.typing-focused .romaji-table h2{font-size:12px;margin:0 0 3px}
+body.typing-focused .kana-section+.kana-section{margin-top:3px}
+body.typing-focused .kana-section h3{font-size:10px;margin:0 0 2px}
+body.typing-focused .table-grid{gap:2px}
+body.typing-focused .kana-row{gap:2px}
+body.typing-focused .kana-cell{min-height:26px;padding:2px 1px 1px}
+body.typing-focused .kana-cell b{font-size:13px}
+body.typing-focused .kana-cell span{font-size:8.5px}
+body.typing-focused .table-note{font-size:9px;margin:3px 0 0}
+body.typing-focused .game-card{
+  flex:none;padding:6px 9px 8px;border-radius:13px;
+}
+body.typing-focused .score-row,
+body.typing-focused .instruction,
+body.typing-focused .hint,
+body.typing-focused .feedback,
+body.typing-focused .next-btn{display:none}
+body.typing-focused .prompt{font-size:clamp(31px,6vw,43px);min-height:1.16em;line-height:1.17}
+body.typing-focused .typing-input{
+  font-size:23px;padding:5px 10px;border-radius:11px;
+  height:44px;max-width:570px;
+}
+
+/* Phones use true 5-character rows, not arbitrary 8-column wrapping.
+   On tablets the complete table keeps its compact 10-column layout. */
+@media(max-width:590px){
+  .typing-app{padding:9px}
   .topbar{grid-template-columns:auto 1fr auto}
-  .topbar h1{font-size:25px}
-  .back-link{font-size:13px}
-  .table-toggle{font-size:12px;padding:9px 11px}
-  .romaji-table{width:52%;min-width:330px;max-width:420px;padding:8px}
-  .romaji-table h2{font-size:14px;margin-bottom:7px}
-  .table-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}
-  .table-grid div{padding:4px 2px;border-radius:7px}
-  .table-grid b{font-size:13px}
-  .table-grid span{font-size:8px}
-  .table-note{font-size:9px;margin-top:6px}
+  .topbar h1{font-size:23px}
+  .back-link{font-size:12px}
+  .table-toggle{font-size:11px;padding:8px}
+  .romaji-table{padding:7px}
+  .romaji-table h2{font-size:13px}
+  .kana-row{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .kana-cell{min-height:30px}
+  .kana-cell b{font-size:13px}
+  .kana-cell span{font-size:8.5px}
+  body.typing-focused .kana-row{grid-template-columns:repeat(5,minmax(0,1fr))}
+}
+@media(orientation:landscape) and (max-height:550px){
+  body.typing-focused .topbar h1{font-size:18px}
+  body.typing-focused .romaji-table h2{display:none}
+  body.typing-focused .kana-cell{min-height:23px;padding:1px}
+  body.typing-focused .kana-cell b{font-size:12px}
+  body.typing-focused .kana-cell span{font-size:8px}
+  body.typing-focused .prompt{font-size:29px}
+  body.typing-focused .typing-input{height:38px;font-size:21px}
 }

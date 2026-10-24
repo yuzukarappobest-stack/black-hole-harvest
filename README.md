@@ -12,6 +12,7 @@
 - `katakana.html`: カタカナ学習
 - `katakana-bey.html`: カタカナベイ
 - `math.html`: 算数学習
+- `tsurukame.html`: つるかめ算（つる・かめの頭数と足の数、5問正解でごほうびゲーム一覧へ）
 - `addition.html`: 一桁の足し算
 - `fraction.html`: 分数の足し算・引き算
 - `fraction-muldiv.html`: 分数の掛け算・割り算
@@ -47,6 +48,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/katakana.html`
 - `http://localhost:8000/katakana-bey.html`
 - `http://localhost:8000/math.html`
+- `http://localhost:8000/tsurukame.html`
 - `http://localhost:8000/addition.html`
 - `http://localhost:8000/fraction.html`
 - `http://localhost:8000/fraction-muldiv.html`
@@ -71,6 +73,7 @@ python3 -m http.server 8000
 - カタカナ学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana.html
 - カタカナベイ: https://yuzukarappobest-stack.github.io/black-hole-harvest/katakana-bey.html
 - 算数学習: https://yuzukarappobest-stack.github.io/black-hole-harvest/math.html
+- つるかめ算: https://yuzukarappobest-stack.github.io/black-hole-harvest/tsurukame.html
 - 一桁の足し算: https://yuzukarappobest-stack.github.io/black-hole-harvest/addition.html
 - 分数の足し算・引き算: https://yuzukarappobest-stack.github.io/black-hole-harvest/fraction.html
 - 分数の掛け算・割り算: https://yuzukarappobest-stack.github.io/black-hole-harvest/fraction-muldiv.html
@@ -89,3 +92,10 @@ python3 -m http.server 8000
 - 蟲神器 SOLO: https://yuzukarappobest-stack.github.io/black-hole-harvest/mushijingi/
 
 静的ファイルだけで動くため、GitHub Pages の Source を `Deploy from a branch`、Branch を `main`、Folder を `/root` に設定すると公開できます。
+
+## つるかめ算（tsurukame.html）
+
+- 問題文にはつる＋かめの合計と足の合計を表示し、つると亀の個数を両方入力する。必ず正の整数解になるランダム問題で、同じ問題の重複を避ける。
+- つるの足は2本、かめの足は4本。任意のヒント表示、iPadで使える数字パッドと手書きの計算スペースを搭載。
+- 間違えても同じ問題に再挑戦し、5問正解するまでごほうびは出ない。5問目の正解で `sessionStorage.miniGameRewardToken` を発行し、共通の `game-menu.html` へ自動遷移。
+- 共通ゲーム選択画面でトークンを1回だけ消費し、選んだゲーム1つだけプレイ可能。新ページの開始時に古いトークンを消去する。

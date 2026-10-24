@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#fff4d4">
+  <title>つるかめ算｜がくしゅう</title>
+  <link rel="stylesheet" href="tsurukame.css?v=1">
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <a class="back" href="learn.html" aria-label="がくしゅうメニューにもどる">←</a>
+    <div class="title"><small>さんすう</small><h1>つるかめ算</h1></div>
+    <div class="progress" aria-label="5問正解でクリア">
+      <small>せいかい</small><strong><span id="correctCount">0</span><span class="total"> / 5</span></strong>
+    </div>
+  </header>
+  <div class="workspace">
+    <section class="lesson">
+      <section class="question card" aria-labelledby="questionHeading">
+        <div class="question-title"><h2 id="questionHeading">もんだい</h2><span class="star">⭐ 5もんで ごほうび！</span></div>
+        <p class="lead">つると かめが あわせて <strong id="headCount">10</strong> います。</p>
+        <p class="lead">あしの かずは ぜんぶで <strong id="legCount">28</strong> ほん です。</p>
+        <p class="question-text">つると かめは、それぞれ いくつ？</p>
+        <div class="facts" aria-label="あしのかずのヒント">
+          <span>🐦 つる：あし 2ほん</span>
+          <span>🐢 かめ：あし 4ほん</span>
+        </div>
+        <button id="hintButton" class="hint-button" type="button" aria-expanded="false">💡 ヒントを みる</button>
+        <p id="hintText" class="hint-text" hidden></p>
+      </section>
+      <section class="answer card" aria-label="こたえ">
+        <div class="answer-heading"><h2>こたえ</h2><p>わくを タップして すうじを いれよう</p></div>
+        <div class="answer-row">
+          <div class="answer-group"><label for="craneAnswer">🐦 つる</label><button id="craneAnswer" class="answer-box active empty" type="button" aria-pressed="true">？</button><span>わ</span></div>
+          <div class="answer-group"><label for="turtleAnswer">🐢 かめ</label><button id="turtleAnswer" class="answer-box empty" type="button" aria-pressed="false">？</button><span>ひき</span></div>
+        </div>
+        <div class="keyboard" aria-label="すうじの ボタン">
+          <button type="button" data-digit="1">1</button><button type="button" data-digit="2">2</button><button type="button" data-digit="3">3</button>
+          <button type="button" data-digit="4">4</button><button type="button" data-digit="5">5</button><button type="button" data-digit="6">6</button>
+          <button type="button" data-digit="7">7</button><button type="button" data-digit="8">8</button><button type="button" data-digit="9">9</button>
+          <button type="button" id="clearButton" class="utility">ぜんぶけす</button>
+          <button type="button" data-digit="0">0</button>
+          <button type="button" id="eraseButton" class="utility">⌫</button>
+        </div>
+        <button type="button" id="submitButton" class="submit" disabled>こたえる！</button>
+        <p id="feedback" class="feedback" aria-live="polite">つるは あしが2ほん、かめは4ほん。</p>
+      </section>
+    </section>
+    <section class="scratch card" aria-label="途中式をかくスペース">
+      <div class="scratch-head">
+        <div><h2>じゆうに かいて かんがえよう</h2><small>✏️ ゆびや ペンで かけるよ</small></div>
+        <button id="clearScratchButton" class="scratch-clear" type="button">かいたものを けす</button>
+      </div>
+      <canvas id="scratchCanvas" aria-label="途中計算の手書き欄"></canvas>
+    </section>
+  </div>
+  <section id="successPanel" class="success" role="status" aria-live="assertive" hidden>
+    <div class="success-content"><div class="trophy">🏆</div><h2>5もん せいかい！</h2><p>ごほうびゲームを えらぼう！</p></div>
+  </section>
+</main>
+<script src="tsurukame.js?v=1"></script>
+</body>
+</html>

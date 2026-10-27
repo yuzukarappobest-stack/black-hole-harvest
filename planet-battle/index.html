@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+  <meta name="theme-color" content="#0a1238">
+  <title>惑星バトル！｜太陽系ビリヤード</title>
+  <link rel="stylesheet" href="./style.css?v=1">
+</head>
+<body>
+<main class="app">
+  <header class="topbar">
+    <div class="title">
+      <span class="eyebrow">SOLAR SYSTEM BILLIARDS</span>
+      <h1>☀️ 惑星バトル！</h1>
+    </div>
+    <button id="soundButton" class="sound" type="button" aria-pressed="true">🔊 おと ON</button>
+  </header>
+  <section class="hud" aria-label="ゲームの きろく">
+    <div class="stat"><span>おとした わくせい</span><strong><span id="knocked">0</span><small> / 8</small></strong></div>
+    <div class="stat accent"><span>のこり ショット</span><strong id="shotsLeft">15</strong></div>
+    <div class="stat"><span>いままでの ショット</span><strong id="shotsUsed">0</strong></div>
+  </section>
+  <section class="arena-shell" aria-label="惑星ビリヤードの ゲームばん">
+    <canvas id="board" aria-label="たいようを ゆびで はじいて ほかの わくせいを おとす ゲーム"></canvas>
+    <div id="liveStatus" class="live-status" aria-live="polite">たいようを タッチして、いきたい ほうへ スワイプ！</div>
+
+    <section id="startPanel" class="overlay">
+      <div class="dialog">
+        <span class="logo">☀️ 🪐 💥</span>
+        <p class="eyebrow">SUN vs. 8 PLANETS</p>
+        <h2>惑星バトル！</h2>
+        <p>たいようを はじいて、<br><strong>8この わくせい</strong>を<br>うちゅうの そとへ おとそう！</p>
+        <div class="howto">
+          <span>👆 たいようを タッチ</span>
+          <span>➡️ とばしたい ほうへ スワイプ</span>
+          <span>✨ ゆびを はなすと ショット！</span>
+        </div>
+        <p class="minor">15かい までに ぜんぶ おとせるかな？</p>
+        <button id="startButton" class="primary" type="button">バトル スタート！</button>
+      </div>
+    </section>
+
+    <section id="finishPanel" class="overlay hidden" aria-live="assertive">
+      <div class="dialog">
+        <span id="resultIcon" class="logo">🏆</span>
+        <p class="eyebrow">RESULT</p>
+        <h2 id="resultTitle">たいようの かち！</h2>
+        <p id="resultMessage">8この わくせいを おとしたよ！</p>
+        <p id="resultStats" class="result-stats"></p>
+        <button id="returnButton" class="primary" type="button">がくしゅうへ もどる</button>
+      </div>
+    </section>
+  </section>
+  <footer class="bottom-note"><span>🌟 たいようは ショットのあとに まんなかへ もどるよ</span><span>🪐 おおきい わくせいは おもいぞ！</span></footer>
+</main>
+<script type="module" src="./game.js?v=1"></script>
+</body>
+</html>

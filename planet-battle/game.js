@@ -225,7 +225,12 @@ class PlanetBattle{
   }
   endShot(){
     if(this.state!=="moving")return;
-    for(const b of this.bodies){b.vx=0;b.vy=0;}
+    for(const b of this.bodies){
+      b.vx=0;b.vy=0;
+      // Fallen balls should not remain as half-transparent ghosts on
+      // the rim once the next aiming turn begins.
+      if(b.fallen)b.fallTime=Math.max(b.fallTime,.71);
+    }
     if(this.knocked()===PLANETS.length){this.finish(true);return;}
     if(this.shots>=MAX_SHOTS){this.finish(false);return;}
     resetSun(this.bodies);

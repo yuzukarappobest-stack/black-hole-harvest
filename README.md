@@ -24,6 +24,7 @@
 - `race.html`: ミニレース（開発用）
 - `dango-shot.html`: ダンゴムシショット
 - `planet-catch.html`: 惑星キャッチ
+- `planet-battle/`: 惑星バトル！ 太陽系ビリヤード（太陽をフリックして8惑星を落とす）
 - `shooting-star.html`: 流れ星タップ
 - `frog-jump.html`: カエルジャンプ
 - `fruit-rush/`: Fruit Rush（開発用の単独3Dミニゲーム）
@@ -59,6 +60,7 @@ python3 -m http.server 8000
 - `http://localhost:8000/race.html`
 - `http://localhost:8000/dango-shot.html`
 - `http://localhost:8000/planet-catch.html`
+- `http://localhost:8000/planet-battle/`
 - `http://localhost:8000/tetris.html`
 - `http://localhost:8000/tetris-drag.html`
 
@@ -84,6 +86,7 @@ python3 -m http.server 8000
 - ミニレース（開発用）: https://yuzukarappobest-stack.github.io/black-hole-harvest/race.html
 - ダンゴムシショット: https://yuzukarappobest-stack.github.io/black-hole-harvest/dango-shot.html
 - 惑星キャッチ: https://yuzukarappobest-stack.github.io/black-hole-harvest/planet-catch.html
+- 惑星バトル！: https://yuzukarappobest-stack.github.io/black-hole-harvest/planet-battle/
 - 流れ星タップ: https://yuzukarappobest-stack.github.io/black-hole-harvest/shooting-star.html
 - カエルジャンプ: https://yuzukarappobest-stack.github.io/black-hole-harvest/frog-jump.html
 - Fruit Rush（開発用）: https://yuzukarappobest-stack.github.io/black-hole-harvest/fruit-rush/
@@ -99,3 +102,11 @@ python3 -m http.server 8000
 - つるの足は2本、かめの足は4本。任意のヒント表示、iPadで使える数字パッドと手書きの計算スペースを搭載。
 - 間違えても同じ問題に再挑戦し、5問正解するまでごほうびは出ない。5問目の正解で `sessionStorage.miniGameRewardToken` を発行し、共通の `game-menu.html` へ自動遷移。
 - 共通ゲーム選択画面でトークンを1回だけ消費し、選んだゲーム1つだけプレイ可能。新ページの開始時に古いトークンを消去する。
+
+## 惑星バトル！（planet-battle/）
+- 画面の太陽を指でタッチし、とばしたい方向にスワイプして離すとショット。線と％表示で照準・パワーを確認できる。PCのポインター操作も対応。
+- 水星・金星・地球・火星・木星・土星・天王星・海王星の8個を台の縁の外に押し出す太陽系ビリヤード。惑星ごとに大きさ・重さ・色・輪・模様が異なる。
+- 衝突は質量差・反発係数・摩擦を計算。静止後に太陽をリセットして次のショットへ。最大15ショットで8惑星全てを落とすと勝ち。太陽が落ちても次のショットへ進む。
+- Canvas 2D描画、固定タイムステップ（1/120秒）でiPadのスワイプでも安定した衝突。衝突効果音はON/OFF可能（Web Audio、端末内生成）。
+- 学習の報酬選択画面でトークンを1回消費し、`miniGameAccess:planet-battle`を使って入場。ゲーム直接アクセス・更新・履歴戻りによる再プレイは拒否。終了後は学習メニューへ戻る。
+- 静的HTML/CSS/JSのみ。実iPad Safariでのタッチ感度・効果音・機種による描画性能は未確認。

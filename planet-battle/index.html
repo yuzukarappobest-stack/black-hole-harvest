@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#0a1238">
   <title>惑星バトル！｜太陽系ビリヤード</title>
-  <link rel="stylesheet" href="./style.css?v=3">
+  <link rel="stylesheet" href="./style.css?v=4">
 </head>
 <body>
 <main class="app">
   <header class="topbar">
     <div class="title">
-      <span class="eyebrow">SOLAR SYSTEM BILLIARDS · v4</span>
+      <span class="eyebrow">SOLAR SYSTEM BILLIARDS · v5</span>
       <h1>☀️ 惑星バトル！</h1>
     </div>
     <div class="header-controls">
@@ -26,7 +26,7 @@
   </section>
   <section class="arena-shell" aria-label="惑星ビリヤードの ゲームばん">
     <canvas id="board" aria-label="たいようを はじいて クッションで はねかえし、6つの ブラックホールへ 8つの わくせいを いれる ビリヤード"></canvas>
-    <div id="liveStatus" class="live-status" aria-live="polite">たいようを はじいて、ブラックホールに いれよう！ かべで はねかえるよ</div>
+    <div id="liveStatus" class="live-status" aria-live="polite">たいようを はんたいがわへ ひっぱって はなそう！</div>
 
     <section id="startPanel" class="overlay">
       <div class="dialog">
@@ -36,9 +36,9 @@
         <p>たいようを はじいて、<br><strong>8この わくせい</strong>を<br><strong>6この ブラックホール</strong>へ いれよう！</p>
         <div class="howto">
           <span>👆 たいようを タッチ</span>
-          <span>➡️ とばしたい ほうへ スワイプ</span>
-          <span>✨ ゆびを はなすと ショット！</span>
-          <span>🎱 かべで はねかえる！ ブラックホールが あな！</span>
+          <span>🏹 とばしたい ほうと <strong>はんたいに ひっぱる</strong></span>
+          <span>✨ はなすと ひっぱった ほうと <strong>ぎゃくに</strong> とぶ！</span>
+          <span>🎱 ちいさい オレンジの ブラックホールが あな！</span>
           <span>〰️ あおい せんが たいようの とぶ みち！</span>
           <span>☀️ たいようは とまった ばしょから つぎも うてるよ！</span>
         </div>
@@ -69,6 +69,6 @@
   </section>
   <footer class="bottom-note"><span>☀️ とまった ばしょから つぎの ショット！</span><span>🌌 たいようが あなに はいったときだけ もどるよ</span></footer>
 </main>
-<script type="module" src="./game.js?v=4"></script>
+<script type="module" src="./game.js?v=5"></script>
 </body>
 </html>

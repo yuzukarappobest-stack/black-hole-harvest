@@ -22,19 +22,20 @@
     <div class="stat"><span>いままでの ショット</span><strong id="shotsUsed">0</strong></div>
   </section>
   <section class="arena-shell" aria-label="惑星ビリヤードの ゲームばん">
-    <canvas id="board" aria-label="たいようを ゆびで はじいて ほかの わくせいを おとす ゲーム"></canvas>
-    <div id="liveStatus" class="live-status" aria-live="polite">たいようを タッチして、いきたい ほうへ スワイプ！</div>
+    <canvas id="board" aria-label="たいようを はじいて クッションで はねかえし、6つの ブラックホールへ 8つの わくせいを いれる ビリヤード"></canvas>
+    <div id="liveStatus" class="live-status" aria-live="polite">たいようを はじいて、ブラックホールに いれよう！ かべで はねかえるよ</div>
 
     <section id="startPanel" class="overlay">
       <div class="dialog">
         <span class="logo">☀️ 🪐 💥</span>
         <p class="eyebrow">SUN vs. 8 PLANETS</p>
         <h2>惑星バトル！</h2>
-        <p>たいようを はじいて、<br><strong>8この わくせい</strong>を<br>うちゅうの そとへ おとそう！</p>
+        <p>たいようを はじいて、<br><strong>8この わくせい</strong>を<br><strong>6この ブラックホール</strong>へ いれよう！</p>
         <div class="howto">
           <span>👆 たいようを タッチ</span>
           <span>➡️ とばしたい ほうへ スワイプ</span>
           <span>✨ ゆびを はなすと ショット！</span>
+          <span>🎱 かべで はねかえる！ ブラックホールが あな！</span>
         </div>
         <p class="minor">15かい までに ぜんぶ おとせるかな？</p>
         <button id="startButton" class="primary" type="button">バトル スタート！</button>
@@ -52,8 +53,8 @@
       </div>
     </section>
   </section>
-  <footer class="bottom-note"><span>🌟 たいようは ショットのあとに まんなかへ もどるよ</span><span>🪐 おおきい わくせいは おもいぞ！</span></footer>
+  <footer class="bottom-note"><span>☀️ たいようは ショットのあとに まんなかへ もどるよ</span><span>🌌 6つの ブラックホールに いれよう！</span></footer>
 </main>
-<script type="module" src="./game.js?v=1"></script>
+<script type="module" src="./game.js?v=2"></script>
 </body>
 </html>

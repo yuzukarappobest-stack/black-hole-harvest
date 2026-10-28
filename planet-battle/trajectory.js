@@ -2,7 +2,7 @@
 // Run only while the player changes their aim, not once per animation frame.
 // Predict the sun's first collision with a planet or a black-hole pocket,
 // including any cushion bounces before that first contact.
-import {launch,simulateStep,totalSpeed} from "./physics.js?v=4";
+import {launch,simulateStep,totalSpeed} from "./physics.js?v=5";
 
 export function predictShot(originalBodies,aim){
   if(!aim||Math.hypot(aim.dx,aim.dy)<12)return null;

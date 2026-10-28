@@ -2,7 +2,8 @@
 // World units are gameplay units, not true astronomical mass or gravity.
 export const ARENA_HALF_WIDTH=335;
 export const ARENA_HALF_HEIGHT=180;
-export const POCKET_RADIUS=36;
+// Pocket diameter halved in v5. A planet falls when its edge enters the hole.
+export const POCKET_RADIUS=18;
 export const SUN_RADIUS=25;
 export const MAX_LAUNCH_SPEED=510;
 export const PULL_DISTANCE=145;
@@ -53,7 +54,7 @@ export function pocketAt(b){
   // Capturing just inside the pocket mouth ensures larger balls can be potted
   // at the corners before their centre reaches the wooden cushion.
   for(const hole of POCKETS){
-    if(Math.hypot(b.x-hole.x,b.y-hole.y)<=POCKET_RADIUS-b.radius*.055)
+    if(Math.hypot(b.x-hole.x,b.y-hole.y)<=POCKET_RADIUS+b.radius*.58)
       return hole;
   }
   return null;
@@ -96,8 +97,10 @@ function isPocketMouth(b,axis){
   return POCKETS.some(hole=>{
     const tangential=axis==="x"?Math.abs(b.y-hole.y):Math.abs(b.x-hole.x);
     const outward=axis==="x"?Math.abs(b.x-hole.x):Math.abs(b.y-hole.y);
-    return tangential<POCKET_RADIUS+b.radius*.7&&
-      outward<POCKET_RADIUS+b.radius*.7;
+    // At a corner, a large planet first meets the other rail before its
+    // center reaches the pocket. The mouth must leave that approach open.
+    return tangential<POCKET_RADIUS+b.radius*1.2&&
+      outward<POCKET_RADIUS+b.radius*.9;
   });
 }
 function containOrPocket(b,onFall,onRail){

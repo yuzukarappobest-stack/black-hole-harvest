@@ -1,7 +1,7 @@
 // Planet Battle v2: rectangular 6-pocket solar billiards.
 // World units are gameplay units, not true astronomical mass or gravity.
-export const ARENA_HALF_WIDTH=300;
-export const ARENA_HALF_HEIGHT=210;
+export const ARENA_HALF_WIDTH=335;
+export const ARENA_HALF_HEIGHT=180;
 export const POCKET_RADIUS=36;
 export const SUN_RADIUS=25;
 export const MAX_LAUNCH_SPEED=510;
@@ -25,7 +25,7 @@ export const PLANETS=[
   {id:"mars",name:"かせい",radius:15,mass:1.4,color:"#cf674c",accent:"#f4b179",x:216,y:12},
   {id:"jupiter",name:"もくせい",radius:27,mass:11,color:"#cda077",accent:"#f8dcc1",x:175,y:122},
   {id:"saturn",name:"どせい",radius:25,mass:8.5,color:"#dbbe89",accent:"#fbebbd",x:-175,y:122,ring:true},
-  {id:"uranus",name:"てんのうせい",radius:21,mass:5.5,color:"#8bd3df",accent:"#c6faff",x:0,y:143},
+  {id:"uranus",name:"てんのうせい",radius:21,mass:5.5,color:"#8bd3df",accent:"#c6faff",x:0,y:132},
   {id:"neptune",name:"かいおうせい",radius:20,mass:5.5,color:"#426aca",accent:"#91afff",x:-105,y:-73}
 ];
 export function makeBodies(){
@@ -96,7 +96,7 @@ function isPocketMouth(b,axis){
   return POCKETS.some(hole=>{
     const tangential=axis==="x"?Math.abs(b.y-hole.y):Math.abs(b.x-hole.x);
     const outward=axis==="x"?Math.abs(b.x-hole.x):Math.abs(b.y-hole.y);
-    return tangential<POCKET_RADIUS+b.radius*.15&&
+    return tangential<POCKET_RADIUS+b.radius*.7&&
       outward<POCKET_RADIUS+b.radius*.7;
   });
 }

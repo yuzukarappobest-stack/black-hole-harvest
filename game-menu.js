@@ -15,7 +15,7 @@
     { id: "pillbug", label: "ダンゴムシ", sub: "ころころチャレンジ", icon: "🪲", href: "pillbug.html", soft: "#f2efe7" },
     { id: "dango-shot", label: "ダンゴショット", sub: "ひっぱって とばそう", icon: "🎯", href: "dango-shot.html", soft: "#fff2e2" },
     { id: "planet-catch", label: "惑星キャッチ", sub: "わくせいをつかまえよう", icon: "🪐", href: "planet-catch.html", soft: "#eeeaff" },
-    { id: "planet-battle", label: "惑星バトル！", sub: "かべではねかえして ブラックホールに いれよう！", icon: "☀️", href: "planet-battle/?v=2", soft: "#fff1d2" },
+    { id: "planet-battle", label: "惑星バトル！", sub: "ブラックホール6つ！ かべで バンクショット！", icon: "☀️", href: "planet-battle/?v=3", soft: "#fff1d2" },
     { id: "shooting-star", label: "流れ星", sub: "すばやくタップ！", icon: "🌠", href: "shooting-star.html", soft: "#e9efff" },
     { id: "frog-jump", label: "カエルジャンプ", sub: "ぴょんぴょん進もう", icon: "🐸", href: "frog-jump.html", soft: "#e9f8df" },
     { id: "fruit-rush", label: "フルーツラッシュ", sub: "フルーツであそぼう", icon: "🍓", href: "fruit-rush/", soft: "#fff0e8" },

@@ -2,10 +2,9 @@
 // World units are gameplay units, not true astronomical mass or gravity.
 export const ARENA_HALF_WIDTH=300;
 export const ARENA_HALF_HEIGHT=210;
-export const POCKET_RADIUS=53;
+export const POCKET_RADIUS=36;
 export const SUN_RADIUS=25;
 export const MAX_LAUNCH_SPEED=510;
-export const MAX_SHOTS=15;
 export const PULL_DISTANCE=145;
 export const FRICTION=145;
 export const CUSHION_RESTITUTION=.87;
@@ -90,6 +89,17 @@ function pocketAttraction(b,dt){
     }
   }
 }
+function isPocketMouth(b,axis){
+  // Only open the cushions right next to the six physical black holes.
+  // The opening accounts for the ball's size; larger planets can still
+  // enter a corner hole without hitting an invisible straight wall.
+  return POCKETS.some(hole=>{
+    const tangential=axis==="x"?Math.abs(b.y-hole.y):Math.abs(b.x-hole.x);
+    const outward=axis==="x"?Math.abs(b.x-hole.x):Math.abs(b.y-hole.y);
+    return tangential<POCKET_RADIUS+b.radius*.15&&
+      outward<POCKET_RADIUS+b.radius*.7;
+  });
+}
 function containOrPocket(b,onFall,onRail){
   const hole=pocketAt(b);
   if(hole){
@@ -101,18 +111,36 @@ function containOrPocket(b,onFall,onRail){
   const maxY=ARENA_HALF_HEIGHT-b.radius;
   let bounced=false,impact=0;
   if(b.x>maxX){
-    b.x=maxX-.03;
-    if(b.vx>0){impact=Math.max(impact,b.vx);b.vx=-b.vx*CUSHION_RESTITUTION;b.vy*=.984;bounced=true;}
+    if(!isPocketMouth(b,"x")){
+      b.x=maxX-.03;
+      if(b.vx>0){impact=Math.max(impact,b.vx);b.vx=-b.vx*CUSHION_RESTITUTION;b.vy*=.984;bounced=true;}
+    }
   }else if(b.x< -maxX){
-    b.x=-maxX+.03;
-    if(b.vx<0){impact=Math.max(impact,-b.vx);b.vx=-b.vx*CUSHION_RESTITUTION;b.vy*=.984;bounced=true;}
+    if(!isPocketMouth(b,"x")){
+      b.x=-maxX+.03;
+      if(b.vx<0){impact=Math.max(impact,-b.vx);b.vx=-b.vx*CUSHION_RESTITUTION;b.vy*=.984;bounced=true;}
+    }
   }
   if(b.y>maxY){
-    b.y=maxY-.03;
-    if(b.vy>0){impact=Math.max(impact,b.vy);b.vy=-b.vy*CUSHION_RESTITUTION;b.vx*=.984;bounced=true;}
+    if(!isPocketMouth(b,"y")){
+      b.y=maxY-.03;
+      if(b.vy>0){impact=Math.max(impact,b.vy);b.vy=-b.vy*CUSHION_RESTITUTION;b.vx*=.984;bounced=true;}
+    }
   }else if(b.y< -maxY){
-    b.y=-maxY+.03;
-    if(b.vy<0){impact=Math.max(impact,-b.vy);b.vy=-b.vy*CUSHION_RESTITUTION;b.vx*=.984;bounced=true;}
+    if(!isPocketMouth(b,"y")){
+      b.y=-maxY+.03;
+      if(b.vy<0){impact=Math.max(impact,-b.vy);b.vy=-b.vy*CUSHION_RESTITUTION;b.vx*=.984;bounced=true;}
+    }
+  }
+  // Keep any unlikely mouth glances from drifting out of play. Only a
+  // genuine pocket contact removes the planet.
+  if(Math.abs(b.x)>ARENA_HALF_WIDTH+POCKET_RADIUS||Math.abs(b.y)>ARENA_HALF_HEIGHT+POCKET_RADIUS){
+    if(!checkFall(b)){
+      b.x=Math.max(-maxX,Math.min(maxX,b.x));
+      b.y=Math.max(-maxY,Math.min(maxY,b.y));
+      b.vx=-b.vx*CUSHION_RESTITUTION;
+      b.vy=-b.vy*CUSHION_RESTITUTION;
+    }else if(onFall)onFall(b,POCKETS[b.pocketId]);
   }
   if(bounced&&onRail&&impact>26)onRail(b,impact);
 }

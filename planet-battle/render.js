@@ -53,7 +53,9 @@ function drawTable(c,now){
   c.setLineDash([]);
   c.beginPath();c.moveTo(-W+22,0);c.lineTo(W-22,0);
   c.strokeStyle="#d6e5ff16";c.lineWidth=2;c.stroke();
-  // The black-hole opening widens gently at the cushion jaws so that\n  // even large planets fit a physically small pocket.\n  const gap=POCKET_RADIUS+19;
+  // The black-hole opening widens gently at the cushion jaws so that
+  // even large planets fit a physically small pocket.
+  const gap=POCKET_RADIUS+19;
   function cushion(x1,y1,x2,y2){
     c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);
     c.strokeStyle="#79a5ee";c.lineWidth=17;c.lineCap="round";c.stroke();

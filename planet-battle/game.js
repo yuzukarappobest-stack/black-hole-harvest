@@ -1,7 +1,7 @@
 import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,POCKET_RADIUS,PLANETS,PULL_DISTANCE,makeBodies,launch,
-  resetSun,simulateStep,allStill} from "./physics.js?v=5";
-import {makeStars,drawScene} from "./render.js?v=4";
-import {predictShot} from "./trajectory.js?v=2";
+  resetSun,simulateStep,allStill} from "./physics.js?v=6";
+import {makeStars,drawScene} from "./render.js?v=5";
+import {predictShot} from "./trajectory.js?v=3";
 
 const ACCESS_KEY="miniGameAccess:planet-battle";
 function learningUrl(){
@@ -83,7 +83,7 @@ class PlanetBattle{
       this.state="aim";
       this.ui.start.classList.add("hidden");
       this.ui.pauseButton.classList.remove("hidden");
-      this.status("たいようを タッチして、とばしたい ほうへ スワイプ！");
+      this.status("たいようを タッチ！ とばしたい ほうと はんたいへ ひっぱろう！");
     });
     document.getElementById("returnButton").addEventListener("click",()=>{
       window.location.replace(learningUrl());
@@ -194,7 +194,7 @@ class PlanetBattle{
     }
     this.aim={dx,dy};
     this.trajectory=predictShot(this.bodies,this.aim);
-    this.status(length<12?"すすむ ほうへ スワイプ！":
+    this.status(length<12?"とばす ほうと はんたいへ ひっぱろう！":
       "パワー "+Math.round(100*Math.min(1,length/PULL_DISTANCE))+"％　ゆびを はなそう！");
   }
   ungrab(){
@@ -212,8 +212,9 @@ class PlanetBattle{
     this.ungrab();
     this.aim=null;
     this.trajectory=null;
-    if(!aim||!launch(this.bodies[0],aim.dx,aim.dy)){
-      this.status("もうすこし ながく スワイプしてみよう！");
+    // Slingshot: release sends the sun in the OPPOSITE direction of pull.
+    if(!aim||!launch(this.bodies[0],-aim.dx,-aim.dy)){
+      this.status("たいようを うしろへ もっと ひっぱってみよう！");
       return;
     }
     this.shots++;
@@ -221,7 +222,7 @@ class PlanetBattle{
     this.state="moving";
     this.sound.play(510);
     this.updateHud();
-    this.status("いけー！ たいよう！ ☀️💨");
+    this.status("パチンコ はっしゃ！ いけー！ ☀️💨");
   }
   cancelPointer(event){
     if(event.pointerId!==this.pointerId)return;

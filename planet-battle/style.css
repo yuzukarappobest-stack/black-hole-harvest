@@ -39,3 +39,23 @@ button{font:inherit;font-weight:950;cursor:pointer;touch-action:manipulation}
 .result-stats{background:#0a1a42;border-radius:11px;padding:11px;color:#ffe07a}
 @media(max-width:480px){.app{gap:5px}.bottom-note{gap:4px;flex-direction:column;text-align:center}.stat{padding:5px 3px}.live-status{font-size:11px}.dialog{padding:14px}}
 @media(orientation:landscape) and (max-height:650px){.app{gap:4px}.title h1{font-size:23px}.eyebrow{font-size:10px}.stat strong{font-size:24px}.stat{padding:3px 5px}.bottom-note{font-size:10px}.dialog{padding:12px}.dialog h2{font-size:24px}.dialog p{font-size:14px;margin:5px}.logo{font-size:36px}.howto{margin:7px auto;padding:6px}.primary{padding:8px}}
+
+/* v4: maximize the playable canvas instead of preserving a desktop-sized
+   strip in the middle of a portrait iPhone or iPad. Board orientation is
+   handled in JS, and all remaining height belongs to the arena. */
+@media(orientation:portrait){
+  .app{gap:4px;padding-top:max(5px,env(safe-area-inset-top));padding-bottom:max(4px,env(safe-area-inset-bottom))}
+  .topbar{gap:5px;min-height:0}
+  .title .eyebrow{font-size:10px;letter-spacing:.06em}
+  .title h1{font-size:clamp(20px,4.8vw,27px);line-height:1.1}
+  .header-controls{gap:4px}
+  .sound,.pause{font-size:11px;padding:6px;min-height:34px}
+  .hud{gap:5px}
+  .stat{padding:3px 3px;border-radius:10px}
+  .stat span{font-size:clamp(9px,2vw,12px)}
+  .stat strong{font-size:clamp(22px,5.5vw,31px)}
+  .stat small{font-size:14px}
+  .arena-shell{border-radius:13px}
+  .bottom-note{display:none}
+  .live-status{bottom:5px;left:6px;right:6px;padding:5px 7px}
+}

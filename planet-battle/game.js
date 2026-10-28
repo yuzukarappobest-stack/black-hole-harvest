@@ -1,6 +1,7 @@
 import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PLANETS,PULL_DISTANCE,MAX_SHOTS,makeBodies,launch,
-  resetSun,simulateStep,allStill} from "./physics.js?v=3";
-import {makeStars,drawScene} from "./render.js?v=2";
+  resetSun,simulateStep,allStill} from "./physics.js?v=4";
+import {makeStars,drawScene} from "./render.js?v=3";
+import {predictShot} from "./trajectory.js?v=1";
 
 const ACCESS_KEY="miniGameAccess:planet-battle";
 function learningUrl(){
@@ -49,7 +50,11 @@ class PlanetBattle{
       resultIcon:document.getElementById("resultIcon"),
       resultTitle:document.getElementById("resultTitle"),
       resultMessage:document.getElementById("resultMessage"),
-      resultStats:document.getElementById("resultStats")
+      resultStats:document.getElementById("resultStats"),
+      pauseButton:document.getElementById("pauseButton"),
+      pausePanel:document.getElementById("pausePanel"),
+      resumeButton:document.getElementById("resumeButton"),
+      quitButton:document.getElementById("quitButton")
     };
     this.state="ready";
     this.bodies=makeBodies();
@@ -58,6 +63,8 @@ class PlanetBattle{
     this.shots=0;
     this.pointerId=null;
     this.aim=null;
+    this.trajectory=null;
+    this.pausedFrom=null;
     this.particles=[];
     this.view={w:1,h:1,cx:0,cy:0,scale:1};
     this.lastTime=null;
@@ -75,9 +82,15 @@ class PlanetBattle{
       this.sound.unlock();
       this.state="aim";
       this.ui.start.classList.add("hidden");
+      this.ui.pauseButton.classList.remove("hidden");
       this.status("たいようを タッチして、とばしたい ほうへ スワイプ！");
     });
     document.getElementById("returnButton").addEventListener("click",()=>{
+      window.location.replace(learningUrl());
+    });
+    this.ui.pauseButton.addEventListener("click",()=>this.pause());
+    this.ui.resumeButton.addEventListener("click",()=>this.resume());
+    this.ui.quitButton.addEventListener("click",()=>{
       window.location.replace(learningUrl());
     });
     this.ui.sound.addEventListener("click",()=>{
@@ -92,7 +105,29 @@ class PlanetBattle{
     this.canvas.addEventListener("pointerup",e=>this.pointerUp(e));
     this.canvas.addEventListener("pointercancel",e=>this.cancelPointer(e));
     window.addEventListener("resize",()=>this.resize());
-    document.addEventListener("visibilitychange",()=>{this.lastTime=null;});
+    document.addEventListener("visibilitychange",()=>{
+      this.lastTime=null;
+      if(document.hidden)this.pause();
+    });
+  }
+  pause(){
+    if(this.state!=="aim"&&this.state!=="moving")return;
+    this.pausedFrom=this.state;
+    this.state="paused";
+    this.ungrab();
+    this.aim=null;
+    this.trajectory=null;
+    this.ui.pausePanel.classList.remove("hidden");
+    this.ui.pauseButton.classList.add("hidden");
+  }
+  resume(){
+    if(this.state!=="paused")return;
+    this.sound.unlock(); // iPad audio unlock belongs to the resume tap.
+    this.state=this.pausedFrom||"aim";
+    this.pausedFrom=null;
+    this.lastTime=null;
+    this.ui.pausePanel.classList.add("hidden");
+    this.ui.pauseButton.classList.remove("hidden");
   }
   status(s){this.ui.status.textContent=s;}
   knocked(){return this.bodies.slice(1).filter(b=>b.fallen).length;}
@@ -130,6 +165,7 @@ class PlanetBattle{
     event.preventDefault();
     this.pointerId=event.pointerId;
     this.aim={dx:0,dy:0};
+    this.trajectory=null;
     this.canvas.setPointerCapture(event.pointerId);
     this.pointerMove(event);
   }
@@ -143,6 +179,7 @@ class PlanetBattle{
       dx*=PULL_DISTANCE/length;dy*=PULL_DISTANCE/length;
     }
     this.aim={dx,dy};
+    this.trajectory=predictShot(this.bodies,this.aim);
     this.status(length<12?"すすむ ほうへ スワイプ！":
       "パワー "+Math.round(100*Math.min(1,length/PULL_DISTANCE))+"％　ゆびを はなそう！");
   }
@@ -160,6 +197,7 @@ class PlanetBattle{
     const aim=this.aim;
     this.ungrab();
     this.aim=null;
+    this.trajectory=null;
     if(!aim||!launch(this.bodies[0],aim.dx,aim.dy)){
       this.status("もうすこし ながく スワイプしてみよう！");
       return;
@@ -173,7 +211,7 @@ class PlanetBattle{
   }
   cancelPointer(event){
     if(event.pointerId!==this.pointerId)return;
-    this.ungrab();this.aim=null;
+    this.ungrab();this.aim=null;this.trajectory=null;
     this.status("たいようを タッチして もういちど！");
   }
   particlesAt(x,y,color,count){
@@ -248,6 +286,8 @@ class PlanetBattle{
   }
   finish(won){
     this.state="finished";
+    this.trajectory=null;
+    this.ui.pauseButton.classList.add("hidden");
     this.ui.resultIcon.textContent=won?"🏆 ☀️":"🪐 ✨";
     this.ui.resultTitle.textContent=won?"たいようの かち！":"バトル しゅうりょう！";
     this.ui.resultMessage.textContent=won?
@@ -261,7 +301,7 @@ class PlanetBattle{
     const dt=this.lastTime===null?0:Math.max(0,Math.min(.05,(time-this.lastTime)/1000));
     this.lastTime=time;
     if(!document.hidden)this.advance(dt);
-    drawScene(this.ctx,this.view,this.bodies,this.aim,this.stars,this.particles,time/1000);
+    drawScene(this.ctx,this.view,this.bodies,this.aim,this.stars,this.particles,time/1000,this.trajectory);
     requestAnimationFrame(t=>this.frame(t));
   }
 }

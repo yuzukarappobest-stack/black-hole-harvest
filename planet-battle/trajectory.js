@@ -2,13 +2,14 @@
 // Run only while the player changes their aim, not once per animation frame.
 // Predict the sun's first collision with a planet or a black-hole pocket,
 // including any cushion bounces before that first contact.
-import {launch,simulateStep,totalSpeed} from "./physics.js?v=5";
+import {launch,simulateStep,totalSpeed} from "./physics.js?v=6";
 
 export function predictShot(originalBodies,aim){
   if(!aim||Math.hypot(aim.dx,aim.dy)<12)return null;
   const bodies=originalBodies.map(b=>({...b}));
   const sun=bodies[0];
-  if(!launch(sun,aim.dx,aim.dy))return null;
+  // The finger pulls the slingshot BACKWARDS; preview points forward.
+  if(!launch(sun,-aim.dx,-aim.dy))return null;
   const dots=[{x:sun.x,y:sun.y}],banks=[];
   let impact=null, pocket=null;
   const step=1/120;

@@ -1,6 +1,6 @@
-import {ARENA_RADIUS,PLANETS,PULL_DISTANCE,MAX_SHOTS,makeBodies,launch,
-  resetSun,simulateStep,allStill} from "./physics.js?v=1";
-import {makeStars,drawScene} from "./render.js?v=1";
+import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PLANETS,PULL_DISTANCE,MAX_SHOTS,makeBodies,launch,
+  resetSun,simulateStep,allStill} from "./physics.js?v=3";
+import {makeStars,drawScene} from "./render.js?v=2";
 
 const ACCESS_KEY="miniGameAccess:planet-battle";
 function learningUrl(){
@@ -110,7 +110,10 @@ class PlanetBattle{
     this.ctx.setTransform(ratio,0,0,ratio,0,0);
     this.view={w:rect.width,h:rect.height,
       cx:rect.width/2,cy:rect.height/2,
-      scale:Math.max(.14,(Math.min(rect.width,rect.height)-28)/(2*(ARENA_RADIUS+23)))};
+      scale:Math.max(.14,Math.min(
+        (rect.width-28)/(2*(ARENA_HALF_WIDTH+77)),
+        (rect.height-28)/(2*(ARENA_HALF_HEIGHT+77))
+      ))};
   }
   eventToWorld(event){
     const rect=this.canvas.getBoundingClientRect(),v=this.view;
@@ -191,12 +194,16 @@ class PlanetBattle{
     this.sound.play(190+Math.min(440,speed*.7));
   }
   fall(b){
-    this.particlesAt(b.x,b.y,b.type==="sun"?"#ffd876":b.accent,15);
+    this.particlesAt(b.x,b.y,b.type==="sun"?"#ffd876":b.accent,19);
     if(b.type==="planet"){
       this.sound.play(690);
-      this.status(b.name+"を おとした！ "+this.knocked()+" / 8 🌟");
-    }else this.status("たいようも おちた！ つぎの ショットで もういちど！");
+      this.status("ブラックホールに "+b.name+"が はいった！ "+this.knocked()+" / 8 🌌");
+    }else this.status("たいようが ブラックホールへ！ つぎの ショットで ふっかつ！");
     this.updateHud();
+  }
+  railImpact(b,speed){
+    this.particlesAt(b.x,b.y,"#b9eaff",Math.min(6,2+Math.round(speed/95)));
+    this.sound.play(140+Math.min(190,speed*.42));
   }
   advance(dt){
     if(this.state==="moving"){
@@ -206,7 +213,9 @@ class PlanetBattle{
       let loops=0;
       while(this.accumulator>=fixed&&loops<12){
         simulateStep(this.bodies,fixed,
-          (a,b,speed)=>this.hit(a,b,speed),b=>this.fall(b));
+          (a,b,speed)=>this.hit(a,b,speed),
+          b=>this.fall(b),
+          (b,speed)=>this.railImpact(b,speed));
         this.accumulator-=fixed;
         loops++;
       }
@@ -235,7 +244,7 @@ class PlanetBattle{
     if(this.shots>=MAX_SHOTS){this.finish(false);return;}
     resetSun(this.bodies);
     this.state="aim";
-    this.status("のこり "+(MAX_SHOTS-this.shots)+"かい！ つぎは どこを ねらう？");
+    this.status("のこり "+(MAX_SHOTS-this.shots)+"かい！ かべで はねかえしても OK！");
   }
   finish(won){
     this.state="finished";

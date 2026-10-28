@@ -1,7 +1,7 @@
-import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PLANETS,PULL_DISTANCE,MAX_SHOTS,makeBodies,launch,
-  resetSun,simulateStep,allStill} from "./physics.js?v=4";
-import {makeStars,drawScene} from "./render.js?v=3";
-import {predictShot} from "./trajectory.js?v=1";
+import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,POCKET_RADIUS,PLANETS,PULL_DISTANCE,makeBodies,launch,
+  resetSun,simulateStep,allStill} from "./physics.js?v=5";
+import {makeStars,drawScene} from "./render.js?v=4";
+import {predictShot} from "./trajectory.js?v=2";
 
 const ACCESS_KEY="miniGameAccess:planet-battle";
 function learningUrl(){
@@ -133,7 +133,7 @@ class PlanetBattle{
   knocked(){return this.bodies.slice(1).filter(b=>b.fallen).length;}
   updateHud(){
     this.ui.knocked.textContent=String(this.knocked());
-    this.ui.shotsLeft.textContent=String(Math.max(0,MAX_SHOTS-this.shots));
+    this.ui.shotsLeft.textContent=String(PLANETS.length-this.knocked());
     this.ui.shotsUsed.textContent=String(this.shots);
   }
   resize(){
@@ -145,15 +145,29 @@ class PlanetBattle{
     this.ctx.setTransform(ratio,0,0,ratio,0,0);
     this.view={w:rect.width,h:rect.height,
       cx:rect.width/2,cy:rect.height/2,
-      scale:Math.max(.14,Math.min(
-        (rect.width-28)/(2*(ARENA_HALF_WIDTH+77)),
-        (rect.height-28)/(2*(ARENA_HALF_HEIGHT+77))
-      ))};
+      // In portrait, rotate the billiard table 90 degrees so that its
+      // long edge fills the vertical iPad/iPhone display.
+      rotated:rect.height>rect.width*1.05,
+      scale:this.boardScale(rect.width,rect.height)};
+  }
+  boardScale(width,height){
+    const portrait=height>width*1.05;
+    const horizontal=portrait?ARENA_HALF_HEIGHT:ARENA_HALF_WIDTH;
+    const vertical=portrait?ARENA_HALF_WIDTH:ARENA_HALF_HEIGHT;
+    // Allow the black-hole opening to remain fully visible even though
+    // the table occupies most of the screen.
+    const margin=POCKET_RADIUS+6;
+    return Math.max(.14,Math.min(
+      (width-12)/(2*(horizontal+margin)),
+      (height-12)/(2*(vertical+margin))
+    ));
   }
   eventToWorld(event){
     const rect=this.canvas.getBoundingClientRect(),v=this.view;
-    return {x:(event.clientX-rect.left-v.cx)/v.scale,
-      y:(event.clientY-rect.top-v.cy)/v.scale};
+    const sx=(event.clientX-rect.left-v.cx)/v.scale;
+    const sy=(event.clientY-rect.top-v.cy)/v.scale;
+    // Exact inverse of the rendering rotation, including on iOS touch.
+    return v.rotated?{x:sy,y:-sx}:{x:sx,y:sy};
   }
   pointerDown(event){
     if(this.state!=="aim"||this.pointerId!==null)return;
@@ -279,10 +293,15 @@ class PlanetBattle{
       if(b.fallen)b.fallTime=Math.max(b.fallTime,.71);
     }
     if(this.knocked()===PLANETS.length){this.finish(true);return;}
-    if(this.shots>=MAX_SHOTS){this.finish(false);return;}
-    resetSun(this.bodies);
+    // Genuine cue-ball scratch: replace only when the sun entered a
+    // black hole. Otherwise aim the next shot from its actual end position.
+    if(this.bodies[0].fallen){
+      resetSun(this.bodies);
+      this.status("たいようが もどったよ！ かべに あてても OK！");
+    }else{
+      this.status("たいようは そのばしょから！ つぎの ショットを ねらおう！");
+    }
     this.state="aim";
-    this.status("のこり "+(MAX_SHOTS-this.shots)+"かい！ かべで はねかえしても OK！");
   }
   finish(won){
     this.state="finished";
@@ -293,7 +312,7 @@ class PlanetBattle{
     this.ui.resultMessage.textContent=won?
       "8この わくせいを ぜんぶ おとしたよ！":
       this.knocked()+"この わくせいを おとした！ がんばったね！";
-    this.ui.resultStats.textContent="ショット "+this.shots+"かい / "+MAX_SHOTS+"かい";
+    this.ui.resultStats.textContent="ぜんぶで "+this.shots+"ショット！";
     this.ui.finish.classList.remove("hidden");
     this.status(won?"ぜんぶ おとした！ おめでとう！":"また ちょうせん しよう！");
   }

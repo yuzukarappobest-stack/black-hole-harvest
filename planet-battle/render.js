@@ -1,4 +1,4 @@
-import {ARENA_RADIUS,PULL_DISTANCE} from "./physics.js?v=1";
+import {ARENA_RADIUS,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=2";
 const TAU=Math.PI*2;
 export function makeStars(){
   let seed=78133;
@@ -32,24 +32,60 @@ export function drawScene(ctx,view,bodies,aim,stars,particles,now){
 function drawTable(c,now){
   const R=ARENA_RADIUS;
   c.shadowColor="#5983e8";c.shadowBlur=35;
-  c.fillStyle="#5078bb";c.beginPath();c.arc(0,0,R+8,0,TAU);c.fill();
+  c.fillStyle="#273959";c.beginPath();c.arc(0,0,R+8,0,TAU);c.fill();
   c.shadowBlur=0;
   const g=c.createRadialGradient(-60,-80,5,0,0,R);
   g.addColorStop(0,"#305489");g.addColorStop(.72,"#172f5d");g.addColorStop(1,"#101d38");
   c.fillStyle=g;c.beginPath();c.arc(0,0,R,0,TAU);c.fill();
-  c.lineWidth=3;c.strokeStyle="#8cc8f8";c.stroke();
+  // Six gaps in the real solid rail; match the physics pocket locations.
+  const halfGap=Math.asin(Math.min(.9,POCKET_RADIUS/R));
+  c.lineCap="round";
+  for(let i=0;i<POCKETS.length;i++){
+    const a=POCKETS[i].angle+halfGap;
+    const next=(i+1<POCKETS.length?POCKETS[i+1].angle:POCKETS[0].angle+TAU)-halfGap;
+    c.beginPath();c.arc(0,0,R+5,a,next);
+    c.strokeStyle="#6598d2";c.lineWidth=15;c.stroke();
+    c.beginPath();c.arc(0,0,R-3,a,next);
+    c.strokeStyle="#c3e5ff";c.lineWidth=3;c.stroke();
+  }
   c.setLineDash([3,12]);c.strokeStyle="#b4d6ff26";c.lineWidth=1.7;
   for(const r of [100,200]){c.beginPath();c.arc(0,0,r,0,TAU);c.stroke();}
   c.setLineDash([]);
-  c.strokeStyle="#ffffff20";c.lineWidth=1.5;
-  c.beginPath();c.arc(0,0,R-11,0,TAU);c.stroke();
+  c.strokeStyle="#ffffff1c";c.lineWidth=1.5;
+  c.beginPath();c.arc(0,0,R-15,0,TAU);c.stroke();
   for(let i=0;i<16;i++){
     const a=i*TAU/16;
+    if(POCKETS.some(p=>Math.abs(Math.atan2(Math.sin(a-p.angle),Math.cos(a-p.angle)))<halfGap+.06))continue;
     c.fillStyle=i%2?"#ffd983":"#a1d9ff";
-    c.beginPath();c.arc(Math.cos(a)*(R+8),Math.sin(a)*(R+8),3.2,0,TAU);c.fill();
+    c.beginPath();c.arc(Math.cos(a)*(R+7),Math.sin(a)*(R+7),3.2,0,TAU);c.fill();
   }
+  for(const pocket of POCKETS)drawBlackHole(c,pocket,now);
   c.save();c.rotate(now*.02);c.strokeStyle="#ecf6ff1c";c.lineWidth=5;
   c.beginPath();c.arc(0,0,145,.2,2.6);c.stroke();c.restore();
+}
+function drawBlackHole(c,p,now){
+  c.save();c.translate(p.x,p.y);
+  const r=POCKET_RADIUS;
+  const pulse=1+.055*Math.sin(now*3+p.id*1.2);
+  const glow=c.createRadialGradient(0,0,r*.3,0,0,r*1.5*pulse);
+  glow.addColorStop(0,"#000007");
+  glow.addColorStop(.47,"#150326");
+  glow.addColorStop(.68,"#39216fcb");
+  glow.addColorStop(.84,"#5536a559");
+  glow.addColorStop(1,"#5025ff00");
+  c.fillStyle=glow;c.beginPath();c.arc(0,0,r*1.5*pulse,0,TAU);c.fill();
+  // Black core: the visible billiard pocket.
+  c.fillStyle="#01020a";c.beginPath();c.arc(0,0,r*.87,0,TAU);c.fill();
+  c.save();c.rotate(now*.42*(p.id%2?-1:1)+p.id);
+  for(let i=0;i<3;i++){
+    const a=i*TAU/3;
+    c.beginPath();c.arc(0,0,r*(.69+.12*i),a,a+1.65);
+    c.strokeStyle=["#d99dff","#74c8ff","#9170fa"][i];
+    c.lineWidth=i===0?4.5:2.7;c.stroke();
+  }
+  c.restore();
+  c.fillStyle="#000008";c.beginPath();c.arc(0,0,r*.48,0,TAU);c.fill();
+  c.restore();
 }
 function drawBody(c,b,now){
   if(b.fallen&&b.fallTime>.7)return;

@@ -5,16 +5,19 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#0a1238">
   <title>惑星バトル！｜太陽系ビリヤード</title>
-  <link rel="stylesheet" href="./style.css?v=1">
+  <link rel="stylesheet" href="./style.css?v=2">
 </head>
 <body>
 <main class="app">
   <header class="topbar">
     <div class="title">
-      <span class="eyebrow">SOLAR SYSTEM BILLIARDS</span>
+      <span class="eyebrow">SOLAR SYSTEM BILLIARDS · v3</span>
       <h1>☀️ 惑星バトル！</h1>
     </div>
-    <button id="soundButton" class="sound" type="button" aria-pressed="true">🔊 おと ON</button>
+    <div class="header-controls">
+      <button id="pauseButton" class="pause hidden" type="button">⏸ とめる</button>
+      <button id="soundButton" class="sound" type="button" aria-pressed="true">🔊 おと ON</button>
+    </div>
   </header>
   <section class="hud" aria-label="ゲームの きろく">
     <div class="stat"><span>おとした わくせい</span><strong><span id="knocked">0</span><small> / 8</small></strong></div>
@@ -36,12 +39,22 @@
           <span>➡️ とばしたい ほうへ スワイプ</span>
           <span>✨ ゆびを はなすと ショット！</span>
           <span>🎱 かべで はねかえる！ ブラックホールが あな！</span>
+          <span>〰️ あおい せんが たいようの とぶ みち！</span>
         </div>
         <p class="minor">15かい までに ぜんぶ おとせるかな？</p>
         <button id="startButton" class="primary" type="button">バトル スタート！</button>
       </div>
     </section>
 
+    <section id="pausePanel" class="overlay hidden" aria-label="いちじていし">
+      <div class="dialog pause-dialog">
+        <span class="logo">⏸️ 🪐</span>
+        <h2>ちょっと きゅうけい！</h2>
+        <p>バトルは とまっているよ。</p>
+        <button id="resumeButton" class="primary" type="button">つづきから あそぶ！</button>
+        <button id="quitButton" class="secondary" type="button">がくしゅうに もどる</button>
+      </div>
+    </section>
     <section id="finishPanel" class="overlay hidden" aria-live="assertive">
       <div class="dialog">
         <span id="resultIcon" class="logo">🏆</span>
@@ -55,6 +68,6 @@
   </section>
   <footer class="bottom-note"><span>☀️ たいようは ショットのあとに まんなかへ もどるよ</span><span>🌌 6つの ブラックホールに いれよう！</span></footer>
 </main>
-<script type="module" src="./game.js?v=2"></script>
+<script type="module" src="./game.js?v=3"></script>
 </body>
 </html>

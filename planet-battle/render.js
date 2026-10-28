@@ -1,4 +1,4 @@
-import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=4";
+import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=5";
 const TAU=Math.PI*2;
 export function makeStars(){
   let seed=78133;
@@ -16,10 +16,12 @@ export function drawScene(ctx,view,bodies,aim,stars,particles,now,trajectory=nul
     ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(star.x*w,star.y*h,star.r,0,TAU);ctx.fill();
   }
   ctx.globalAlpha=1;
-  ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);
+  ctx.save();ctx.translate(cx,cy);
+  if(view.rotated)ctx.rotate(Math.PI/2);
+  ctx.scale(scale,scale);
   drawTable(ctx,now);
-  for(const b of bodies.slice(1))drawBody(ctx,b,now);
-  drawBody(ctx,bodies[0],now);
+  for(const b of bodies.slice(1))drawBody(ctx,b,now,Boolean(view.rotated));
+  drawBody(ctx,bodies[0],now,Boolean(view.rotated));
   for(const p of particles){
     const alpha=Math.max(0,1-p.age/p.life);
     ctx.globalAlpha=alpha;ctx.fillStyle=p.color;
@@ -27,7 +29,7 @@ export function drawScene(ctx,view,bodies,aim,stars,particles,now,trajectory=nul
   }
   ctx.globalAlpha=1;
   if(trajectory)drawTrajectory(ctx,trajectory);
-  if(aim)drawAim(ctx,bodies[0],aim);
+  if(aim)drawAim(ctx,bodies[0],aim,Boolean(view.rotated));
   ctx.restore();
 }
 function drawTable(c,now){
@@ -79,26 +81,27 @@ function drawBlackHole(c,p,now){
   const r=POCKET_RADIUS;
   const pulse=1+.055*Math.sin(now*3+p.id*1.2);
   const glow=c.createRadialGradient(0,0,r*.3,0,0,r*1.5*pulse);
-  glow.addColorStop(0,"#000007");
-  glow.addColorStop(.47,"#150326");
-  glow.addColorStop(.68,"#39216fcb");
-  glow.addColorStop(.84,"#5536a559");
-  glow.addColorStop(1,"#5025ff00");
+  glow.addColorStop(0,"#000000");
+  glow.addColorStop(.38,"#160900");
+  glow.addColorStop(.60,"#fe6a17b8");
+  glow.addColorStop(.78,"#ffb847a0");
+  glow.addColorStop(.90,"#ff571733");
+  glow.addColorStop(1,"#ed480000");
   c.fillStyle=glow;c.beginPath();c.arc(0,0,r*1.5*pulse,0,TAU);c.fill();
   // Black core: the visible billiard pocket.
   c.fillStyle="#01020a";c.beginPath();c.arc(0,0,r*.87,0,TAU);c.fill();
   c.save();c.rotate(now*.42*(p.id%2?-1:1)+p.id);
   for(let i=0;i<3;i++){
     const a=i*TAU/3;
-    c.beginPath();c.arc(0,0,r*(.69+.12*i),a,a+1.65);
-    c.strokeStyle=["#d99dff","#74c8ff","#9170fa"][i];
+    c.beginPath();c.arc(0,0,r*(.65+.12*i),a,a+1.85);
+    c.strokeStyle=["#ffe5a2","#ff9e28","#fd581c"][i];
     c.lineWidth=i===0?4.5:2.7;c.stroke();
   }
   c.restore();
   c.fillStyle="#000008";c.beginPath();c.arc(0,0,r*.48,0,TAU);c.fill();
   c.restore();
 }
-function drawBody(c,b,now){
+function drawBody(c,b,now,rotated=false){
   if(b.fallen&&b.fallTime>.7)return;
   const f=b.fallen?Math.max(.05,1-b.fallTime/.7):1,r=b.radius;
   c.save();c.translate(b.x,b.y);c.globalAlpha=f;c.scale(f,f);
@@ -157,10 +160,13 @@ function drawBody(c,b,now){
   c.lineWidth=b.type==="sun"?2.5:1;c.strokeStyle="#ffffff88";
   c.beginPath();c.arc(0,0,r,0,TAU);c.stroke();
   if(b.type==="planet"){
+    // Rotate labels back upright when the billiards table is portrait.
+    c.save();if(rotated)c.rotate(-Math.PI/2);
     c.font="bold 13px system-ui,-apple-system,sans-serif";
     c.textAlign="center";c.textBaseline="top";c.lineWidth=4;
     c.strokeStyle="#071228cc";c.strokeText(b.name,0,r+6);
     c.fillStyle="#ffffff";c.fillText(b.name,0,r+6);
+    c.restore();
   }
   c.restore();
 }
@@ -195,7 +201,7 @@ function drawTrajectory(c,shot){
   }
   c.restore();
 }
-function drawAim(c,sun,aim){
+function drawAim(c,sun,aim,rotated=false){
   const length=Math.hypot(aim.dx,aim.dy);
   if(length<2)return;
   const x=aim.dx/length,y=aim.dy/length;
@@ -208,9 +214,11 @@ function drawAim(c,sun,aim){
   c.fillStyle="#ffe78a";c.beginPath();c.moveTo(ex+x*12,ey+y*12);
   c.lineTo(ex-x*9-y*10,ey-y*9+x*10);
   c.lineTo(ex-x*9+y*10,ey-y*9-x*10);c.closePath();c.fill();
+  c.save();c.translate(sun.x,sun.y);
+  if(rotated)c.rotate(-Math.PI/2);
   c.font="bold 18px system-ui";c.textAlign="center";
   c.strokeStyle="#0a143d";c.lineWidth=5;
   const label=Math.round(pct*100)+" %";
-  c.strokeText(label,sun.x,sun.y-57);c.fillText(label,sun.x,sun.y-57);
-  c.restore();
+  c.strokeText(label,0,-57);c.fillText(label,0,-57);
+  c.restore();c.restore();
 }

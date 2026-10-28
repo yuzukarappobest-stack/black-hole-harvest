@@ -1,4 +1,4 @@
-import {ARENA_RADIUS,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=2";
+import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=3";
 const TAU=Math.PI*2;
 export function makeStars(){
   let seed=78133;
@@ -30,38 +30,48 @@ export function drawScene(ctx,view,bodies,aim,stars,particles,now){
   ctx.restore();
 }
 function drawTable(c,now){
-  const R=ARENA_RADIUS;
-  c.shadowColor="#5983e8";c.shadowBlur=35;
-  c.fillStyle="#273959";c.beginPath();c.arc(0,0,R+8,0,TAU);c.fill();
+  const W=ARENA_HALF_WIDTH,H=ARENA_HALF_HEIGHT;
+  // Classic six-pocket rectangular pool table, floating in outer space.
+  c.save();
+  c.shadowColor="#5579e6";c.shadowBlur=37;
+  c.fillStyle="#344d86";
+  c.fillRect(-W-10,-H-10,2*W+20,2*H+20);
   c.shadowBlur=0;
-  const g=c.createRadialGradient(-60,-80,5,0,0,R);
-  g.addColorStop(0,"#305489");g.addColorStop(.72,"#172f5d");g.addColorStop(1,"#101d38");
-  c.fillStyle=g;c.beginPath();c.arc(0,0,R,0,TAU);c.fill();
-  // Six gaps in the real solid rail; match the physics pocket locations.
-  const halfGap=Math.asin(Math.min(.9,POCKET_RADIUS/R));
-  c.lineCap="round";
-  for(let i=0;i<POCKETS.length;i++){
-    const a=POCKETS[i].angle+halfGap;
-    const next=(i+1<POCKETS.length?POCKETS[i+1].angle:POCKETS[0].angle+TAU)-halfGap;
-    c.beginPath();c.arc(0,0,R+5,a,next);
-    c.strokeStyle="#6598d2";c.lineWidth=15;c.stroke();
-    c.beginPath();c.arc(0,0,R-3,a,next);
-    c.strokeStyle="#c3e5ff";c.lineWidth=3;c.stroke();
+  const felt=c.createRadialGradient(-60,-60,12,0,0,W+50);
+  felt.addColorStop(0,"#2a4b86");
+  felt.addColorStop(.72,"#182a58");
+  felt.addColorStop(1,"#101d40");
+  c.fillStyle=felt;c.fillRect(-W,-H,2*W,2*H);
+  // Pool-ball aiming aids printed onto the velvet.
+  c.strokeStyle="#c4d8ff26";c.lineWidth=1.5;c.setLineDash([4,12]);
+  for(const r of [92,178]){
+    c.beginPath();c.arc(0,0,r,0,TAU);c.stroke();
   }
-  c.setLineDash([3,12]);c.strokeStyle="#b4d6ff26";c.lineWidth=1.7;
-  for(const r of [100,200]){c.beginPath();c.arc(0,0,r,0,TAU);c.stroke();}
   c.setLineDash([]);
-  c.strokeStyle="#ffffff1c";c.lineWidth=1.5;
-  c.beginPath();c.arc(0,0,R-15,0,TAU);c.stroke();
-  for(let i=0;i<16;i++){
-    const a=i*TAU/16;
-    if(POCKETS.some(p=>Math.abs(Math.atan2(Math.sin(a-p.angle),Math.cos(a-p.angle)))<halfGap+.06))continue;
-    c.fillStyle=i%2?"#ffd983":"#a1d9ff";
-    c.beginPath();c.arc(Math.cos(a)*(R+7),Math.sin(a)*(R+7),3.2,0,TAU);c.fill();
+  c.beginPath();c.moveTo(-W+22,0);c.lineTo(W-22,0);
+  c.strokeStyle="#d6e5ff16";c.lineWidth=2;c.stroke();
+  const gap=POCKET_RADIUS*.96;
+  function cushion(x1,y1,x2,y2){
+    c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);
+    c.strokeStyle="#79a5ee";c.lineWidth=17;c.lineCap="round";c.stroke();
+    c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);
+    c.strokeStyle="#e6f4ff";c.lineWidth=3;c.stroke();
   }
-  for(const pocket of POCKETS)drawBlackHole(c,pocket,now);
-  c.save();c.rotate(now*.02);c.strokeStyle="#ecf6ff1c";c.lineWidth=5;
-  c.beginPath();c.arc(0,0,145,.2,2.6);c.stroke();c.restore();
+  // Four corner holes plus two middle pockets on opposite long rails.
+  for(const y of [-H,H]){
+    cushion(-W+gap,y,-gap,y);
+    cushion(gap,y,W-gap,y);
+  }
+  for(const x of [-W,W])cushion(x,-H+gap,x,H-gap);
+  // Diamonds on the long rail, avoiding all six pocket openings.
+  for(const y of [-H,H]){
+    for(const x of [-195,-110,110,195]){
+      c.fillStyle="#e2f4ff";
+      c.beginPath();c.arc(x,y,3.2,0,TAU);c.fill();
+    }
+  }
+  for(const hole of POCKETS)drawBlackHole(c,hole,now);
+  c.restore();
 }
 function drawBlackHole(c,p,now){
   c.save();c.translate(p.x,p.y);

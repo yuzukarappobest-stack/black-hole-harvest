@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#0a1238">
   <title>惑星バトル！｜太陽系ビリヤード</title>
-  <link rel="stylesheet" href="./style.css?v=2">
+  <link rel="stylesheet" href="./style.css?v=3">
 </head>
 <body>
 <main class="app">
   <header class="topbar">
     <div class="title">
-      <span class="eyebrow">SOLAR SYSTEM BILLIARDS · v3</span>
+      <span class="eyebrow">SOLAR SYSTEM BILLIARDS · v4</span>
       <h1>☀️ 惑星バトル！</h1>
     </div>
     <div class="header-controls">
@@ -21,8 +21,8 @@
   </header>
   <section class="hud" aria-label="ゲームの きろく">
     <div class="stat"><span>おとした わくせい</span><strong><span id="knocked">0</span><small> / 8</small></strong></div>
-    <div class="stat accent"><span>のこり ショット</span><strong id="shotsLeft">15</strong></div>
-    <div class="stat"><span>いままでの ショット</span><strong id="shotsUsed">0</strong></div>
+    <div class="stat accent"><span>のこり わくせい</span><strong id="shotsLeft">8</strong></div>
+    <div class="stat"><span>ショット かいすう</span><strong id="shotsUsed">0</strong></div>
   </section>
   <section class="arena-shell" aria-label="惑星ビリヤードの ゲームばん">
     <canvas id="board" aria-label="たいようを はじいて クッションで はねかえし、6つの ブラックホールへ 8つの わくせいを いれる ビリヤード"></canvas>
@@ -40,8 +40,9 @@
           <span>✨ ゆびを はなすと ショット！</span>
           <span>🎱 かべで はねかえる！ ブラックホールが あな！</span>
           <span>〰️ あおい せんが たいようの とぶ みち！</span>
+          <span>☀️ たいようは とまった ばしょから つぎも うてるよ！</span>
         </div>
-        <p class="minor">15かい までに ぜんぶ おとせるかな？</p>
+        <p class="minor">なんかい うっても OK！ ぜんぶ いれて クリア！</p>
         <button id="startButton" class="primary" type="button">バトル スタート！</button>
       </div>
     </section>
@@ -66,8 +67,8 @@
       </div>
     </section>
   </section>
-  <footer class="bottom-note"><span>☀️ たいようは ショットのあとに まんなかへ もどるよ</span><span>🌌 6つの ブラックホールに いれよう！</span></footer>
+  <footer class="bottom-note"><span>☀️ とまった ばしょから つぎの ショット！</span><span>🌌 たいようが あなに はいったときだけ もどるよ</span></footer>
 </main>
-<script type="module" src="./game.js?v=3"></script>
+<script type="module" src="./game.js?v=4"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=5";
+import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=6";
 const TAU=Math.PI*2;
 export function makeStars(){
   let seed=78133;
@@ -55,7 +55,7 @@ function drawTable(c,now){
   c.strokeStyle="#d6e5ff16";c.lineWidth=2;c.stroke();
   // The black-hole opening widens gently at the cushion jaws so that
   // even large planets fit a physically small pocket.
-  const gap=POCKET_RADIUS+19;
+  const gap=POCKET_RADIUS+22;
   function cushion(x1,y1,x2,y2){
     c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);
     c.strokeStyle="#79a5ee";c.lineWidth=17;c.lineCap="round";c.stroke();
@@ -81,23 +81,24 @@ function drawTable(c,now){
 function drawBlackHole(c,p,now){
   c.save();c.translate(p.x,p.y);
   const r=POCKET_RADIUS;
-  const pulse=1+.055*Math.sin(now*3+p.id*1.2);
-  const glow=c.createRadialGradient(0,0,r*.3,0,0,r*1.5*pulse);
+  const pulse=1+.035*Math.sin(now*3+p.id*1.2);
+  // Deliberately restrained accretion disk. Visible footprint <= ~1.3r.
+  const glow=c.createRadialGradient(0,0,r*.2,0,0,r*1.27*pulse);
   glow.addColorStop(0,"#000000");
   glow.addColorStop(.38,"#160900");
   glow.addColorStop(.60,"#fe6a17b8");
   glow.addColorStop(.78,"#ffb847a0");
   glow.addColorStop(.90,"#ff571733");
   glow.addColorStop(1,"#ed480000");
-  c.fillStyle=glow;c.beginPath();c.arc(0,0,r*1.5*pulse,0,TAU);c.fill();
+  c.fillStyle=glow;c.beginPath();c.arc(0,0,r*1.27*pulse,0,TAU);c.fill();
   // Black core: the visible billiard pocket.
-  c.fillStyle="#01020a";c.beginPath();c.arc(0,0,r*.87,0,TAU);c.fill();
+  c.fillStyle="#01020a";c.beginPath();c.arc(0,0,r*.77,0,TAU);c.fill();
   c.save();c.rotate(now*.42*(p.id%2?-1:1)+p.id);
   for(let i=0;i<3;i++){
     const a=i*TAU/3;
-    c.beginPath();c.arc(0,0,r*(.65+.12*i),a,a+1.85);
+    c.beginPath();c.arc(0,0,r*(.57+.10*i),a,a+1.85);
     c.strokeStyle=["#ffe5a2","#ff9e28","#fd581c"][i];
-    c.lineWidth=i===0?4.5:2.7;c.stroke();
+    c.lineWidth=i===0?2.8:1.8;c.stroke();
   }
   c.restore();
   c.fillStyle="#000008";c.beginPath();c.arc(0,0,r*.48,0,TAU);c.fill();
@@ -206,21 +207,49 @@ function drawTrajectory(c,shot){
 function drawAim(c,sun,aim,rotated=false){
   const length=Math.hypot(aim.dx,aim.dy);
   if(length<2)return;
-  const x=aim.dx/length,y=aim.dy/length;
-  const pct=Math.min(1,length/PULL_DISTANCE),end=67;
+  // Slingshot controls: the finger is BEHIND the sun, while the sun fires
+  // in the opposite direction. The cyan forecast in drawTrajectory uses
+  // this same reversed impulse.
+  const dx=aim.dx/length,dy=aim.dy/length;
+  const fx=-dx,fy=-dy;
+  const power=Math.min(1,length/PULL_DISTANCE);
+  const tailX=sun.x+aim.dx,tailY=sun.y+aim.dy;
   c.save();
-  c.strokeStyle="#fff8b5";c.lineWidth=4;c.setLineDash([11,10]);
-  c.beginPath();c.moveTo(sun.x+x*40,sun.y+y*40);
-  c.lineTo(sun.x+x*end,sun.y+y*end);c.stroke();c.setLineDash([]);
-  const ex=sun.x+x*end,ey=sun.y+y*end;
-  c.fillStyle="#ffe78a";c.beginPath();c.moveTo(ex+x*12,ey+y*12);
-  c.lineTo(ex-x*9-y*10,ey-y*9+x*10);
-  c.lineTo(ex-x*9+y*10,ey-y*9-x*10);c.closePath();c.fill();
+
+  // Two elastic cords stretch from opposite sides of the sun to the
+  // translucent pulled-back cue ball. The real sun stays at its rest spot.
+  c.strokeStyle="#ffbd6d";
+  c.lineWidth=3.5;c.setLineDash([]);
+  c.beginPath();
+  c.moveTo(sun.x-dy*sun.radius*.6,sun.y+dx*sun.radius*.6);
+  c.lineTo(tailX,tailY);
+  c.lineTo(sun.x+dy*sun.radius*.6,sun.y-dx*sun.radius*.6);
+  c.stroke();
+  c.globalAlpha=.8;
+  c.fillStyle="#fff0a0";
+  c.beginPath();c.arc(tailX,tailY,Math.min(14,sun.radius*.56),0,TAU);c.fill();
+  c.strokeStyle="#ffae37";c.lineWidth=2;c.stroke();
+  c.globalAlpha=1;
+
+  // Small amber arrow points FORWARD, opposite the player's pull.
+  const begin=37,end=76;
+  c.strokeStyle="#ffe09b";c.lineWidth=3;c.setLineDash([7,6]);
+  c.beginPath();
+  c.moveTo(sun.x+fx*begin,sun.y+fy*begin);
+  c.lineTo(sun.x+fx*end,sun.y+fy*end);
+  c.stroke();c.setLineDash([]);
+  const ex=sun.x+fx*end,ey=sun.y+fy*end;
+  c.fillStyle="#ffe78a";c.beginPath();
+  c.moveTo(ex+fx*10,ey+fy*10);
+  c.lineTo(ex-fx*8-fy*8,ey-fy*8+fx*8);
+  c.lineTo(ex-fx*8+fy*8,ey-fy*8-fx*8);
+  c.closePath();c.fill();
+
   c.save();c.translate(sun.x,sun.y);
   if(rotated)c.rotate(-Math.PI/2);
   c.font="bold 18px system-ui";c.textAlign="center";
   c.strokeStyle="#0a143d";c.lineWidth=5;
-  const label=Math.round(pct*100)+" %";
-  c.strokeText(label,0,-57);c.fillText(label,0,-57);
+  const label=Math.round(power*100)+" %";
+  c.strokeText(label,0,-57);c.fillStyle="#fff4b6";c.fillText(label,0,-57);
   c.restore();c.restore();
 }

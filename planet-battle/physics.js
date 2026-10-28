@@ -129,6 +129,17 @@ export function simulateStep(bodies,dt,onHit,onFall,onRail){
       b.x+=b.vx*step;b.y+=b.vy*step;
     }
   }
+  // Balls that have already crossed a pocket mouth must disappear BEFORE
+  // other balls can collide with them. Otherwise an invisible potted ball can
+  // still deflect another ball during this frame.
+  for(const ball of bodies){
+    if(ball.fallen)continue;
+    const pocket=pocketAt(ball);
+    if(pocket){
+      checkFall(ball);
+      if(onFall)onFall(ball,pocket);
+    }
+  }
   // Elastic impulses exchange momentum according to simplified body mass.
   for(let i=0;i<bodies.length;i++){
     const a=bodies[i];if(a.fallen)continue;

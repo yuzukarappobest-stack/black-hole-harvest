@@ -1,11 +1,11 @@
-import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=3";
+import {ARENA_HALF_WIDTH,ARENA_HALF_HEIGHT,PULL_DISTANCE,POCKETS,POCKET_RADIUS} from "./physics.js?v=4";
 const TAU=Math.PI*2;
 export function makeStars(){
   let seed=78133;
   const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
   return Array.from({length:145},()=>({x:rand(),y:rand(),r:.35+rand()*1.15,p:rand()*TAU}));
 }
-export function drawScene(ctx,view,bodies,aim,stars,particles,now){
+export function drawScene(ctx,view,bodies,aim,stars,particles,now,trajectory=null){
   const {w,h,cx,cy,scale}=view;
   ctx.clearRect(0,0,w,h);
   const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,Math.max(w,h)*.75);
@@ -26,6 +26,7 @@ export function drawScene(ctx,view,bodies,aim,stars,particles,now){
     ctx.beginPath();ctx.arc(p.x,p.y,p.size*alpha,0,TAU);ctx.fill();
   }
   ctx.globalAlpha=1;
+  if(trajectory)drawTrajectory(ctx,trajectory);
   if(aim)drawAim(ctx,bodies[0],aim);
   ctx.restore();
 }
@@ -169,11 +170,36 @@ function ring(c,r,back){
   c.strokeStyle=back?"#ac9781":"#f7e4af";c.lineWidth=7;c.stroke();
   c.restore();
 }
+function drawTrajectory(c,shot){
+  if(!shot||!shot.dots||shot.dots.length<2)return;
+  c.save();
+  c.strokeStyle="#8ff6f3";
+  c.lineWidth=3;
+  c.lineCap="round";c.lineJoin="round";
+  c.setLineDash([8,8]);
+  c.beginPath();
+  c.moveTo(shot.dots[0].x,shot.dots[0].y);
+  for(let i=1;i<shot.dots.length;i++)c.lineTo(shot.dots[i].x,shot.dots[i].y);
+  c.stroke();
+  c.setLineDash([]);
+  // Bank points are taken from the actual cushion collision calculation.
+  for(const p of shot.banks){
+    c.strokeStyle="#fff3a5";c.lineWidth=3;
+    c.beginPath();c.arc(p.x,p.y,7,0,TAU);c.stroke();
+  }
+  const last=shot.impact||shot.pocket;
+  if(last){
+    c.fillStyle=shot.pocket?"#ad8dff":"#ffe16e";
+    c.beginPath();c.arc(last.x,last.y,8,0,TAU);c.fill();
+    c.strokeStyle="#fff";c.lineWidth=2;c.stroke();
+  }
+  c.restore();
+}
 function drawAim(c,sun,aim){
   const length=Math.hypot(aim.dx,aim.dy);
   if(length<2)return;
   const x=aim.dx/length,y=aim.dy/length;
-  const pct=Math.min(1,length/PULL_DISTANCE),end=115+205*pct;
+  const pct=Math.min(1,length/PULL_DISTANCE),end=67;
   c.save();
   c.strokeStyle="#fff8b5";c.lineWidth=4;c.setLineDash([11,10]);
   c.beginPath();c.moveTo(sun.x+x*40,sun.y+y*40);
@@ -185,6 +211,6 @@ function drawAim(c,sun,aim){
   c.font="bold 18px system-ui";c.textAlign="center";
   c.strokeStyle="#0a143d";c.lineWidth=5;
   const label=Math.round(pct*100)+" %";
-  c.strokeText(label,sun.x,sun.y-55);c.fillText(label,sun.x,sun.y-55);
+  c.strokeText(label,sun.x,sun.y-57);c.fillText(label,sun.x,sun.y-57);
   c.restore();
 }

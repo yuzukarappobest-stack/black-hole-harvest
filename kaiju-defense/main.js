@@ -1,18 +1,19 @@
 import * as T from "./vendor/three.module.js";
-import { City, Effects } from "./world.js";
-import { soldier, monster } from "./actors.js";
+import { City, Effects } from "./world.js?v=2";
+import { soldier, monster, flyingMonster } from "./actors.js?v=2";
 import { Input } from "./input.js?v=2";
 import { Sound } from "./audio.js";
-import { CONFIG, formatTime } from "./config.js";
+import { CONFIG, STAGES, STAGE_TWO_UNLOCK, formatTime } from "./config.js?v=2";
 import { consumeAccess, learningUrl } from "./access.js?v=1";
 
 const $ = id => document.getElementById(id);
 class Game {
   constructor() {
-    this.state = "ready"; this.hp = CONFIG.monsterHealth; this.elapsed = 0; this.shotClock = 0; this.attackClock = 4;
+    this.state = "ready"; this.stage = 1; this.selectedStage = 1; this.maxHealth = STAGES[1].health;
+    this.hp = this.maxHealth; this.elapsed = 0; this.shotClock = 0; this.attackClock = 4;
     this.knockTime = 0; this.knockdowns = 0; this.attack = null; this.attackNumber = 0; this.shake = 0; this.hitTime = 0;
     this.scene = new T.Scene(); this.scene.background = new T.Color(0x9cc2cb); this.scene.fog = new T.Fog(0x9cc2cb, 85, 215);
-    this.camera = new T.PerspectiveCamera(62, 1, .1, 260);
+    this.camera = new T.PerspectiveCamera(62, 1, .1, 520);
     this.renderer = new T.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     this.renderer.shadowMap.enabled = true; this.renderer.shadowMap.type = T.PCFSoftShadowMap;
@@ -20,7 +21,8 @@ class Game {
     $("game").prepend(this.renderer.domElement);
     this.scene.add(new T.HemisphereLight(0xe0f5ff, 0x7a8674, 2.7));
     const sun = new T.DirectionalLight(0xffd8ac, 3.2); sun.position.set(-38, 66, 35); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024); sun.shadow.camera.left = sun.shadow.camera.bottom = -72; sun.shadow.camera.right = sun.shadow.camera.top = 72; sun.shadow.camera.far = 180; sun.shadow.normalBias = .1; this.scene.add(sun);
-    this.city = new City(this.scene); this.fx = new Effects(this.scene); this.player = soldier(this.scene); this.kaiju = monster(this.scene);
+    this.cityGroup = new T.Group(); this.scene.add(this.cityGroup);
+    this.city = new City(this.cityGroup); this.fx = new Effects(this.scene); this.player = soldier(this.scene); this.kaiju = monster(this.scene);
     this.kaiju.root.scale.setScalar(1.6);
     this.input = new Input(this.renderer.domElement); this.audio = new Sound(); this.ray = new T.Raycaster();
     this.direction = new T.Vector3(); this.tmp = new T.Vector3(); this.muzzle = new T.Vector3(); this.camTarget = new T.Vector3();
@@ -30,7 +32,13 @@ class Game {
     this.player.root.position.set(0, 0, 42); this.kaiju.root.position.set(0, 0, -26); this.kaiju.root.rotation.y = Math.PI;
     this.resize(); this.camera.position.set(12, 11, 55); this.camera.lookAt(0, 9, -26);
     $("start").disabled = false; $("start").textContent = "出撃する"; $("loadStatus").textContent = "";
-    $("start").onclick = () => this.start();
+    $("start").onclick = () => this.start(this.selectedStage);
+    $("nextStage").onclick = () => this.start(2);
+    $("stage1Choice").onclick = () => this.selectStage(1);
+    $("stage2Choice").onclick = () => this.selectStage(2);
+    this.stageTwoUnlocked = false;
+    try { this.stageTwoUnlocked = localStorage.getItem(STAGE_TWO_UNLOCK) === "1" || Number(localStorage.getItem(CONFIG.bestKey)) > 0; } catch {}
+    this.updateStageChoices();
     $("returnLink").href = learningUrl;
     $("returnLink").onclick = event => { event.preventDefault(); window.location.replace(learningUrl); };
     $("pause").onclick = () => this.pause(); $("resume").onclick = () => this.resume();
@@ -41,13 +49,43 @@ class Game {
     this.last = performance.now(); this.loop = this.loop.bind(this); requestAnimationFrame(this.loop);
   }
   resize() { this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(innerWidth, innerHeight); }
-  start() {
-    if (this.state !== "ready") return;
+  selectStage(stage) {
+    if (this.state !== "ready" || (stage === 2 && !this.stageTwoUnlocked)) return;
+    this.selectedStage = stage; this.updateStageChoices();
+  }
+  updateStageChoices() {
+    $("stage2Choice").disabled = !this.stageTwoUnlocked;
+    $("stage2Choice").querySelector("span").textContent = this.stageTwoUnlocked ? "広域迎撃戦" : "広域迎撃戦 🔒";
+    for (const stage of [1, 2]) {
+      $("stage" + stage + "Choice").classList.toggle("selected", stage === this.selectedStage);
+      $("stage" + stage + "Choice").setAttribute("aria-pressed", String(stage === this.selectedStage));
+    }
+    $("stageUnlockHint").textContent = this.stageTwoUnlocked ? "好きなステージから出撃できるよ！" : "ステージ1を倒すとステージ2が開放！";
+    $("operationLabel").textContent = `OPERATION 0${this.selectedStage} / ${STAGES[this.selectedStage].district}`;
+    $("missionBrief").textContent = this.selectedStage === 2 ? "広い街の上空を舞う翼獣を迎え撃て。" : "街を揺らす巨獣を、撃ち倒せ。";
+  }
+  start(stage = 1) {
+    if (this.state !== "ready" && this.state !== "stageclear") return;
+    if (stage === 2 && !this.stageTwoUnlocked) return;
+    if (stage === 2 && this.stage !== 2) {
+      this.cityGroup.visible = false; this.kaiju.root.visible = false;
+      this.cityGroup = new T.Group(); this.scene.add(this.cityGroup);
+      this.city = new City(this.cityGroup, 2); this.kaiju = flyingMonster(this.scene);
+      this.kaiju.root.scale.setScalar(1.5);
+    }
+    this.stage = stage; this.selectedStage = stage; this.maxHealth = STAGES[stage].health;
+    const settings = STAGES[stage];
+    this.scene.background = new T.Color(stage === 2 ? 0x7ba8c3 : 0x9cc2cb);
+    this.scene.fog = new T.Fog(stage === 2 ? 0x7ba8c3 : 0x9cc2cb, stage === 2 ? 135 : 85, stage === 2 ? 405 : 215);
+    document.body.classList.toggle("sky-mission", stage === 2);
+    $("districtName").firstChild.textContent = settings.district + " ";
+    $("districtSub").textContent = settings.subtitle; $("bossName").textContent = settings.boss;
     this.audio.unlock(); this.city.reset(); this.fx.reset(); this.input.reset();
-    this.hp = CONFIG.monsterHealth; this.elapsed = 0; this.knockdowns = 0; this.knockTime = 0; this.attackClock = 4; this.attack = null; this.attackNumber = 0; this.shotClock = 0; this.shake = 0;
-    this.kaiju.root.position.set(0, 0, -26); this.kaiju.root.rotation.set(0, Math.PI, 0); this.player.root.position.set(0, 0, 42); this.player.body.rotation.set(0, 0, 0);
-    this.input.yaw = 0; this.input.pitch = .12; this.ring.visible = this.beam.visible = false; this.state = "running";
-    $("intro").hidden = $("finish").hidden = $("pauseScreen").hidden = true; $("hud").hidden = false;
+    this.hp = this.maxHealth; this.elapsed = 0; this.knockdowns = 0; this.knockTime = 0; this.attackClock = 4; this.attack = null; this.attackNumber = 0; this.shotClock = 0; this.shake = 0;
+    this.kaiju.root.position.set(0, settings.altitude || 0, settings.monsterZ);
+    this.kaiju.root.rotation.set(0, Math.PI, 0); this.player.root.position.set(0, 0, settings.playerZ); this.player.body.rotation.set(0, 0, 0);
+    this.input.yaw = 0; this.input.pitch = stage === 2 ? .16 : .12; this.ring.visible = this.beam.visible = false; this.state = "running";
+    $("intro").hidden = $("stageClear").hidden = $("finish").hidden = $("pauseScreen").hidden = true; $("hud").hidden = false;
     this.updateCamera(1); this.updateHUD(); this.audio.roar(); this.last = performance.now();
   }
   pause() { if (this.state !== "running") return; this.state = "paused"; this.input.reset(); $("pauseScreen").hidden = false; }
@@ -62,14 +100,15 @@ class Game {
       return;
     }
     const v = this.input.vector(), yaw = this.input.yaw;
-    const dx = (v.x * Math.cos(yaw) - v.y * Math.sin(yaw)) * CONFIG.walkSpeed * dt;
-    const dz = (v.x * Math.sin(yaw) + v.y * Math.cos(yaw)) * CONFIG.walkSpeed * dt;
-    const limit = CONFIG.mapLimit;
+    const speed = STAGES[this.stage].walkSpeed;
+    const dx = (v.x * Math.cos(yaw) - v.y * Math.sin(yaw)) * speed * dt;
+    const dz = (v.x * Math.sin(yaw) + v.y * Math.cos(yaw)) * speed * dt;
+    const limit = STAGES[this.stage].limit;
     const nextX = T.MathUtils.clamp(p.x + dx, -limit, limit), nextZ = T.MathUtils.clamp(p.z + dz, -limit, limit);
     if (!this.city.blocked(nextX, p.z)) p.x = nextX;
     if (!this.city.blocked(p.x, nextZ)) p.z = nextZ;
     const k = this.kaiju.root.position, distance = Math.hypot(p.x - k.x, p.z - k.z);
-    if (distance < 7.5) { const a = Math.atan2(p.x - k.x, p.z - k.z); p.x = k.x + Math.sin(a) * 7.5; p.z = k.z + Math.cos(a) * 7.5; }
+    if (this.stage === 1 && distance < 7.5) { const a = Math.atan2(p.x - k.x, p.z - k.z); p.x = k.x + Math.sin(a) * 7.5; p.z = k.z + Math.cos(a) * 7.5; }
     this.player.root.rotation.y = -yaw;
     const moving = Math.hypot(v.x, v.y);
     this.player.legs.forEach((leg, i) => leg.rotation.x = Math.sin(this.elapsed * 15 + i * Math.PI) * .65 * moving);
@@ -92,10 +131,10 @@ class Game {
   }
   shoot() {
     this.scene.updateMatrixWorld(true);
-    this.ray.setFromCamera(new T.Vector2(0, 0), this.camera); this.ray.far = 190;
+    this.ray.setFromCamera(new T.Vector2(0, 0), this.camera); this.ray.far = this.stage === 2 ? 345 : 190;
     const candidates = [this.kaiju.root, ...this.city.buildings.filter(b => b.alive).map(b => b.mesh)];
     const hit = this.ray.intersectObjects(candidates, true)[0];
-    const end = hit ? hit.point : this.ray.ray.at(160, new T.Vector3());
+    const end = hit ? hit.point : this.ray.ray.at(this.stage === 2 ? 290 : 160, new T.Vector3());
     this.player.muzzle.getWorldPosition(this.muzzle); this.fx.tracer(this.muzzle, end); this.audio.shot();
     if (!hit) return;
     let node = hit.object, building = null, isMonster = false;
@@ -106,6 +145,11 @@ class Game {
     $("crosshair").classList.toggle("target", isMonster);
   }
   updateMonster(dt) {
+    if (this.stage === 2) {
+      this.updateFlyingMonster(dt);
+      this.updateAttack(dt);
+      return;
+    }
     const k = this.kaiju.root, p = this.player.root.position;
     const distance = Math.hypot(p.x - k.position.x, p.z - k.position.z);
     const toward = new T.Vector3(p.x - k.position.x, 0, p.z - k.position.z).normalize();
@@ -115,10 +159,36 @@ class Game {
       k.position.y = Math.sin(this.elapsed * 2.6) * .14;
       this.kaiju.limbs.forEach((limb, i) => limb.rotation.x = Math.sin(this.elapsed * 2.6 + (i % 2) * Math.PI) * (i % 2 ? .13 : .2));
       if (this.city.crush(k.position, 8, this.fx)) this.audio.boom();
+      this.updateAttack(dt);
+      return;
+    }
+    this.updateAttack(dt);
+  }
+  updateFlyingMonster(dt) {
+    const k = this.kaiju.root, p = this.player.root.position, limit = STAGES[2].limit - 20;
+    // 広い街の上空を左右に旋回しつつ、プレイヤーの前方を横切る。
+    const tx = T.MathUtils.clamp(p.x + Math.sin(this.elapsed * .34) * 39, -limit, limit);
+    const tz = T.MathUtils.clamp(p.z - 65 + Math.cos(this.elapsed * .28) * 28, -limit, limit);
+    const follow = 1 - Math.exp(-dt * .7);
+    k.position.x += (tx - k.position.x) * follow;
+    k.position.z += (tz - k.position.z) * follow;
+    k.position.y = STAGES[2].altitude + Math.sin(this.elapsed * 1.35) * 3.5;
+    const toward = new T.Vector3(p.x - k.position.x, 0, p.z - k.position.z).normalize();
+    k.rotation.y = Math.atan2(-toward.x, -toward.z);
+    this.kaiju.wings.forEach((wing, i) => {
+      const side = i === 0 ? -1 : 1;
+      wing.rotation.z = side * (.12 + Math.sin(this.elapsed * 4.5) * .25);
+    });
+    this.kaiju.tail.rotation.y = Math.sin(this.elapsed * 2.4) * .27;
+    this.kaiju.body.rotation.z = Math.sin(this.elapsed * .9) * .065;
+  }
+  updateAttack(dt) {
+    if (!this.attack) {
       this.attackClock -= dt;
       if (this.attackClock <= 0) this.beginAttack();
       return;
     }
+    const p = this.player.root.position;
     const a = this.attack; a.time += dt;
     this.ring.material.opacity = .35 + Math.sin(a.time * 14) * .2;
     this.kaiju.head.rotation.x = -Math.sin(Math.min(a.time / 1.6, 1) * Math.PI) * .35;
@@ -127,15 +197,15 @@ class Game {
       this.fx.burst(a.target.clone().setY(.5), 0xd3bc95, 32, 12);
       this.city.crush(a.target, a.radius, this.fx);
       if (Math.hypot(p.x - a.target.x, p.z - a.target.z) < a.radius) this.knockDown(a.target);
-      if (a.type === "beam") { this.kaiju.mouth.getWorldPosition(this.muzzle); const delta = a.target.clone().sub(this.muzzle); this.beam.position.copy(this.muzzle).addScaledVector(delta, .5); this.beam.scale.y = delta.length(); this.beam.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), delta.normalize()); this.beam.visible = true; }
+      if (a.type === "beam" || a.type === "skybeam") { this.kaiju.mouth.getWorldPosition(this.muzzle); const delta = a.target.clone().sub(this.muzzle); this.beam.position.copy(this.muzzle).addScaledVector(delta, .5); this.beam.scale.y = delta.length(); this.beam.quaternion.setFromUnitVectors(new T.Vector3(0, 1, 0), delta.normalize()); this.beam.visible = true; }
     }
-    if (a.time >= 2.3) { this.attack = null; this.ring.visible = this.beam.visible = false; this.attackClock = CONFIG.attackInterval - (1 - this.hp / CONFIG.monsterHealth) * 1.5; this.kaiju.head.rotation.x = 0; }
+    if (a.time >= 2.3) { this.attack = null; this.ring.visible = this.beam.visible = false; this.attackClock = (this.stage === 2 ? 5.3 : CONFIG.attackInterval) - (1 - this.hp / this.maxHealth) * 1.5; this.kaiju.head.rotation.x = 0; }
   }
   beginAttack() {
     this.attackNumber++;
-    const stomp = this.attackNumber % 3 === 0 && this.player.root.position.distanceTo(this.kaiju.root.position) < 26;
+    const stomp = this.stage === 1 && this.attackNumber % 3 === 0 && this.player.root.position.distanceTo(this.kaiju.root.position) < 26;
     const target = (stomp ? this.kaiju.root.position : this.player.root.position).clone(); target.y = .05;
-    this.attack = { type: stomp ? "stomp" : "beam", target, radius: stomp ? 21 : 9, time: 0, fired: false };
+    this.attack = { type: stomp ? "stomp" : this.stage === 2 ? "skybeam" : "beam", target, radius: stomp ? 21 : this.stage === 2 ? 12 : 9, time: 0, fired: false };
     this.ring.position.copy(target); this.ring.scale.setScalar(this.attack.radius); this.ring.visible = true; this.audio.roar();
   }
   knockDown(origin) {
@@ -143,26 +213,42 @@ class Game {
     this.knockTime = CONFIG.knockdownSeconds; this.knockdowns++;
     const p = this.player.root.position, away = p.clone().sub(this.kaiju.root.position).setY(0).normalize();
     const next = p.clone().addScaledVector(away, 2);
-    if (!this.city.blocked(next.x, next.z)) { p.x = T.MathUtils.clamp(next.x, -CONFIG.mapLimit, CONFIG.mapLimit); p.z = T.MathUtils.clamp(next.z, -CONFIG.mapLimit, CONFIG.mapLimit); }
+    const limit = STAGES[this.stage].limit;
+    if (!this.city.blocked(next.x, next.z)) { p.x = T.MathUtils.clamp(next.x, -limit, limit); p.z = T.MathUtils.clamp(next.z, -limit, limit); }
   }
   updateHUD() {
-    $("time").textContent = formatTime(this.elapsed); $("health").style.width = `${this.hp / CONFIG.monsterHealth * 100}%`;
-    $("healthText").textContent = `${Math.ceil(this.hp / CONFIG.monsterHealth * 100)}%`;
+    $("time").textContent = formatTime(this.elapsed); $("health").style.width = `${this.hp / this.maxHealth * 100}%`;
+    $("healthText").textContent = `${Math.ceil(this.hp / this.maxHealth * 100)}%`;
     $("destroyed").textContent = this.city.count; $("knockdowns").textContent = this.knockdowns;
-    $("warning").textContent = this.knockTime > 0 ? "転倒！ すぐに復帰する" : this.attack && !this.attack.fired ? (this.attack.type === "stomp" ? "踏みつけ！ 赤い円から離れろ" : "ブレス接近！ 赤い円から離れろ") : "";
+    $("warning").textContent = this.knockTime > 0 ? "転倒！ すぐに復帰する" : this.attack && !this.attack.fired ?
+      (this.attack.type === "stomp" ? "踏みつけ！ 赤い円から離れろ" : this.attack.type === "skybeam" ? "空から光線！ 赤い円から離れろ" : "ブレス接近！ 赤い円から離れろ") : "";
     $("status").textContent = this.knockTime > 0 ? "RECOVERING" : "AUTO FIRE"; $("hit").style.opacity = this.hitTime > 0 ? "1" : "0";
   }
   win() {
     this.state = "dying"; this.deathTime = 0; this.attack = null; this.ring.visible = this.beam.visible = false; this.input.reset(); this.audio.roar();
-    this.fx.burst(this.kaiju.root.position.clone().setY(9), 0xffce86, 55, 16);
+    this.deathStartY = this.kaiju.root.position.y;
+    this.fx.burst(this.kaiju.root.position.clone().setY(this.stage === 2 ? this.deathStartY : 9), this.stage === 2 ? 0xa4e5ff : 0xffce86, 55, 16);
+  }
+  saveBest(stage) {
+    let best = 0, saved = true;
+    try { best = Number(localStorage.getItem(STAGES[stage].bestKey)) || 0; if (!best || this.elapsed < best) localStorage.setItem(STAGES[stage].bestKey, String(this.elapsed)); } catch { saved = false; }
+    return { best, saved };
+  }
+  completeStageOne() {
+    this.state = "stageclear"; this.input.reset(); this.audio.clear();
+    this.saveBest(1);
+    this.stageTwoUnlocked = true;
+    try { localStorage.setItem(STAGE_TWO_UNLOCK, "1"); } catch {}
+    $("stage1Time").textContent = formatTime(this.elapsed);
+    $("hud").hidden = true; $("stageClear").hidden = false;
   }
   finish() {
     this.state = "finished"; $("hud").hidden = true; $("finish").hidden = false;
-    let best = 0, saved = true;
-    try { best = Number(localStorage.getItem(CONFIG.bestKey)) || 0; if (!best || this.elapsed < best) localStorage.setItem(CONFIG.bestKey, String(this.elapsed)); } catch { saved = false; }
+    const { best, saved } = this.saveBest(this.stage);
+    $("finishTitle").textContent = this.stage === 2 ? "翼獣、撃破！" : "巨獣、撃破。";
     $("resultTime").textContent = formatTime(this.elapsed);
     $("best").textContent = !saved ? "このブラウザでは記録を保存できません" : !best || this.elapsed < best ? "自己ベスト更新！" : `BEST ${formatTime(best)}`;
-    $("resultStats").textContent = `街区破壊 ${this.city.count}棟 · 転倒 ${this.knockdowns}回`;
+    $("resultStats").textContent = `STAGE ${this.stage} · 街区破壊 ${this.city.count}棟 · 転倒 ${this.knockdowns}回`;
     this.audio.clear();
   }
   step(dt) {
@@ -176,9 +262,10 @@ class Game {
       }
       this.city.update(dt, this.fx); this.fx.update(dt); this.updateHUD();
     } else if (this.state === "dying") {
-      this.deathTime += dt; this.kaiju.root.rotation.z = Math.min(Math.PI / 2, this.deathTime * .65); this.kaiju.root.position.y = -Math.min(3, this.deathTime);
+      this.deathTime += dt; this.kaiju.root.rotation.z = Math.min(Math.PI / 2, this.deathTime * .65);
+      this.kaiju.root.position.y = this.stage === 2 ? Math.max(1, this.deathStartY - this.deathTime * 10) : -Math.min(3, this.deathTime);
       this.fx.update(dt); this.city.update(dt, this.fx);
-      if (this.deathTime > 2.8) this.finish();
+      if (this.deathTime > 2.8) { if (this.stage === 1) this.completeStageOne(); else this.finish(); }
     }
   }
   loop(now) {
@@ -198,3 +285,4 @@ try {
 } catch (error) {
   console.error(error); $("loadStatus").textContent = "起動できませんでした。ページを再読み込みしてください。";
 }
+

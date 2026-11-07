@@ -1,5 +1,5 @@
 import * as T from "./vendor/three.module.js";
-import { block } from "./world.js";
+import { block } from "./world.js?v=2";
 
 export function soldier(scene) {
   const root = new T.Group(), body = new T.Group(); root.add(body); scene.add(root);
@@ -58,3 +58,56 @@ export function monster(scene) {
   const mouth = new T.Object3D(); mouth.position.set(0, -.5, -3); head.add(mouth);
   return { root, torso, head, limbs, mouth };
 }
+
+// ステージ2：空に浮かぶ翼獣。翼のメッシュも当たり判定に含める。
+export function flyingMonster(scene) {
+  const root = new T.Group(); scene.add(root);
+  const body = new T.Group(); root.add(body);
+  const hide = new T.MeshStandardMaterial({ color: 0x455d80, roughness: .76, metalness: .12, flatShading: true });
+  const belly = new T.MeshStandardMaterial({ color: 0x92bfc3, roughness: .8, flatShading: true });
+  const membrane = new T.MeshStandardMaterial({ color: 0x76509e, side: T.DoubleSide, roughness: .82, flatShading: true });
+  const bone = new T.MeshStandardMaterial({ color: 0x34415f, roughness: .7 });
+  const glowing = new T.MeshBasicMaterial({ color: 0xffac5a });
+  const geo = new T.IcosahedronGeometry(1, 1);
+  function part(parent, material, x, y, z, sx, sy, sz) {
+    const mesh = new T.Mesh(geo, material);
+    mesh.position.set(x, y, z); mesh.scale.set(sx, sy, sz); mesh.castShadow = true;
+    mesh.userData.monster = true; parent.add(mesh); return mesh;
+  }
+  part(body, hide, 0, .8, 0, 2.25, 1.6, 4.1);
+  part(body, belly, 0, -.3, -.6, 1.55, .8, 3.15);
+  const head = new T.Group(); head.position.set(0, 1.3, -3.25); body.add(head);
+  part(head, hide, 0, 0, -.3, 1.4, 1.15, 1.9);
+  part(head, belly, 0, -.6, -1.2, 1, .5, 1.25);
+  for (const side of [-1, 1]) {
+    part(head, glowing, side * 1.1, .36, -1.2, .22, .25, .28);
+    const horn = new T.Mesh(new T.ConeGeometry(.34, 1.8, 5), bone);
+    horn.position.set(side * 1.05, 1.1, .45); horn.rotation.z = side * -.45; head.add(horn);
+    for (let i = 0; i < 2; i++) part(body, bone, side * (1.2 + i * .5), -1.3, 1.1 + i, .28, 1.2, .35);
+  }
+  const beak = new T.Mesh(new T.ConeGeometry(.82, 2.35, 5), belly);
+  beak.rotation.x = -Math.PI / 2; beak.position.set(0, -.38, -2.75); head.add(beak);
+  const wings = [];
+  for (const side of [-1, 1]) {
+    const pivot = new T.Group(); pivot.position.set(side * 1.7, 1, .3); body.add(pivot);
+    const coords = [
+      0, 0, 0, side * 4, .45, -2.5, side * 11, -.25, -5.1,
+      0, 0, 0, side * 11, -.25, -5.1, side * 10, -.1, 3.3,
+      0, 0, 0, side * 10, -.1, 3.3, side * 5, -.25, 6.2,
+    ];
+    const wingGeo = new T.BufferGeometry();
+    wingGeo.setAttribute("position", new T.Float32BufferAttribute(coords, 3)); wingGeo.computeVertexNormals();
+    const wing = new T.Mesh(wingGeo, membrane); wing.castShadow = true; wing.userData.monster = true; pivot.add(wing);
+    const edge = block(pivot, bone, side * 5.3, .08, -.35, 9.7, .33, .35);
+    edge.rotation.y = -side * .42;
+    part(pivot, glowing, side * 10.3, -.06, -4.45, .28, .28, .38);
+    wings.push(pivot);
+  }
+  const tail = new T.Group(); tail.position.set(0, -.35, 3.3); body.add(tail);
+  for (let i = 0; i < 5; i++) part(tail, hide, 0, -i * .1, i * 1.2, 1.05 - i * .14, .68 - i * .09, 1.4);
+  const barb = new T.Mesh(new T.ConeGeometry(.8, 2.9, 4), glowing); barb.rotation.x = Math.PI / 2;
+  barb.position.set(0, -.42, 6.1); tail.add(barb);
+  const mouth = new T.Object3D(); mouth.position.set(0, -.6, -3.6); head.add(mouth);
+  return { root, body, head, wings, tail, mouth, limbs: [] };
+}
+

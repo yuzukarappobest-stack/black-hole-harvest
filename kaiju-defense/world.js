@@ -16,39 +16,50 @@ function facade(color) {
   return new T.MeshStandardMaterial({ map: texture, roughness: .85 });
 }
 export class City {
-  constructor(scene) {
-    this.scene = scene; this.buildings = []; this.count = 0;
+  constructor(scene, stage = 1) {
+    this.scene = scene; this.stage = stage; this.buildings = []; this.count = 0;
+    const wide = stage === 2;
     this.facades = ["#a4babd", "#80979d", "#d1bcb0", "#a5aca2"].map(facade);
     this.roof = mat(0x677d83); this.rubble = mat(0x7d8988);
-    const ground = block(scene, mat(0x43555a), 0, -.3, 0, 220, .5, 220);
+    const ground = block(scene, mat(wide ? 0x394c58 : 0x43555a), 0, -.3, 0, wide ? 370 : 220, .5, wide ? 370 : 220);
     ground.receiveShadow = true;
     const pavement = mat(0x859596), line = new T.MeshBasicMaterial({ color: 0xe7d8aa });
-    for (const x of [-12, 12]) block(scene, pavement, x, 0, 0, 1, .15, 196);
-    for (let z = -100; z < 100; z += 9) block(scene, line, 0, -.025, z, .17, .04, 4);
-    for (let x = -90; x < 100; x += 4) for (const z of [-8, 8]) block(scene, line, x, .005, z, 1.9, .02, 2.5);
+    const roadExtent = wide ? 166 : 98;
+    for (const x of [-12, 12]) block(scene, pavement, x, 0, 0, 1, .15, roadExtent * 2);
+    for (let z = -roadExtent; z < roadExtent; z += 9) block(scene, line, 0, -.025, z, .17, .04, 4);
+    for (let x = -roadExtent; x < roadExtent; x += 4) for (const z of [-8, 8]) block(scene, line, x, .005, z, 1.9, .02, 2.5);
     // Keep the main avenue and crossing open; blocks flank both sides.
-    for (const side of [-1, 1]) for (let row = 0; row < 8; row++) for (let col = 0; col < 3; col++) {
-      const z = -83 + row * 24; if (Math.abs(z) < 13) continue;
-      const x = side * (22 + col * 22), height = 10 + Math.random() * 21;
+    for (const side of [-1, 1]) for (let row = 0; row < (wide ? 11 : 8); row++) for (let col = 0; col < (wide ? 4 : 3); col++) {
+      const z = wide ? -150 + row * 30 : -83 + row * 24; if (Math.abs(z) < 13) continue;
+      const x = side * (wide ? 26 + col * 33 : 22 + col * 22), height = (wide ? 13 : 10) + Math.random() * (wide ? 30 : 21);
       const mesh = block(scene, this.facades[(row + col) % 4], x, height / 2, z, 12 + Math.random() * 4, height, 13);
       mesh.castShadow = true;
       const roof = block(mesh, this.roof, 0, .51, 0, .65, .025, .65);
-      const b = { mesh, x, z, w: mesh.scale.x, d: 13, height, hp: 72, alive: true, falling: false, fall: 0 };
+      const b = { mesh, originalMaterial: mesh.material, x, z, w: mesh.scale.x, d: 13, height, hp: 72, alive: true, falling: false, fall: 0 };
       mesh.userData.building = b; this.buildings.push(b);
     }
     const trunk = mat(0x776956), leaf = mat(0x568573), lamp = mat(0x344d58);
     const crown = new T.IcosahedronGeometry(1.4, 0);
-    for (let z = -80; z <= 80; z += 16) for (const x of [-14, 14]) {
+    for (let z = wide ? -154 : -80; z <= (wide ? 154 : 80); z += wide ? 22 : 16) for (const x of [-14, 14]) {
       block(scene, trunk, x, 1.1, z, .3, 2.2, .3);
       const tree = new T.Mesh(crown, leaf); tree.position.set(x, 3, z); tree.scale.y = 1.3; scene.add(tree);
       block(scene, lamp, x * .85, 3.1, z + 6, .13, 6.2, .13);
       block(scene, mat(0xffe8b3), x * .85, 6.2, z + 6, 1.1, .15, .45);
     }
     const carColors = [mat(0xe4b660), mat(0xc6d4d6), mat(0x8ba3b9), mat(0xbc715b)];
-    for (let i = 0; i < 14; i++) {
-      const x = i % 2 ? 9 : -9, z = -78 + i * 12;
+    for (let i = 0; i < (wide ? 22 : 14); i++) {
+      const x = i % 2 ? 9 : -9, z = (wide ? -153 : -78) + i * (wide ? 14 : 12);
       block(scene, carColors[i % 4], x, .6, z, 1.7, .9, 3.6);
       block(scene, mat(0x344b58), x, 1.25, z, 1.5, .55, 1.8);
+    }
+    if (wide) {
+      const beacon = new T.MeshStandardMaterial({ color: 0x62ced7, emissive: 0x1d7686, emissiveIntensity: .55 });
+      for (const [x, z] of [[-149,-149], [149,-149], [-149,149], [149,149]]) {
+        block(scene, pavement, x, .04, z, 18, .12, 18);
+        const tower = block(scene, mat(0x395664), x, 8, z, 1.3, 16, 1.3);
+        block(scene, beacon, x, 16.5, z, 2.6, 1, 2.6);
+        tower.castShadow = true;
+      }
     }
   }
   hit(building, amount, fx) {
@@ -78,7 +89,7 @@ export class City {
   }
   reset() {
     this.count = 0;
-    this.buildings.forEach((b, i) => { b.alive = true; b.falling = false; b.fall = 0; b.hp = 72; b.mesh.position.y = b.height / 2; b.mesh.scale.y = b.height; b.mesh.rotation.set(0, 0, 0); b.mesh.material = this.facades[Math.floor(i / 3) % 4]; });
+    this.buildings.forEach(b => { b.alive = true; b.falling = false; b.fall = 0; b.hp = 72; b.mesh.position.y = b.height / 2; b.mesh.scale.y = b.height; b.mesh.rotation.set(0, 0, 0); b.mesh.material = b.originalMaterial; });
   }
 }
 
@@ -109,3 +120,4 @@ export class Effects {
   }
   reset() { for (const p of this.particles) { p.life = 0; p.mesh.visible = false; } for (const t of this.tracers) { t.life = 0; t.line.visible = false; } }
 }
+

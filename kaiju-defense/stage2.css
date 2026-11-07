@@ -1,0 +1,12 @@
+.stage-picker{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:18px 0 6px}
+.stage-choice{display:flex;flex-direction:column;align-items:flex-start;gap:5px;padding:11px 13px;border:2px solid #a7c5d091;border-radius:9px;background:#102e3cbf;text-align:left;min-height:65px;font-size:13px;font-weight:800}
+.stage-choice b{font-size:11px;letter-spacing:.08em;color:#b1d4dd}
+.stage-choice.selected{border-color:#ffd08a;background:#ffd08a24;box-shadow:0 0 14px #ffd08a20}
+.stage-choice.selected b{color:#ffe2b3}
+.stage-choice:disabled{opacity:.6;cursor:not-allowed}
+.stage-hint{font-size:11px;color:#c5dce2;margin:0 0 10px;min-height:15px}
+.secondary-link{display:block;margin:19px 0 0;color:#d1e5ec;font-size:14px;text-decoration:underline;font-weight:800}
+body.sky-mission .boss{border-left-color:#a8d9ff}
+body.sky-mission .healthTrack i{background:#a8d9ff}
+body.sky-mission #crosshair.target{border-color:#a8d9ff;box-shadow:0 0 12px #a8d9ff66}
+@media(max-height:520px){.stage-picker{margin:8px 0 4px}.stage-choice{min-height:48px;padding:6px 10px;gap:1px}.stage-hint{margin-bottom:4px}}

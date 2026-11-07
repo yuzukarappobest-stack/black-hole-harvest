@@ -18,19 +18,27 @@
     return 3;
   }
 
-  function questionFor(totalCorrect) {
-    if (!Number.isSafeInteger(totalCorrect) || totalCorrect < 0) throw new Error("Invalid progress");
-    const stage = stageFor(totalCorrect);
+  // どのステップも、子どもの理解に合わせて繰り返し練習できる。
+  function questionForStage(stage, solvedInStage) {
+    if (![1, 2, 3].includes(stage) || !Number.isSafeInteger(solvedInStage) || solvedInStage < 0) {
+      throw new Error("Invalid stage progress");
+    }
     if (stage === 1) {
-      const right = STAGE_ONE[totalCorrect];
+      const right = STAGE_ONE[solvedInStage % STAGE_ONE.length];
       return { stage, left: 10, right, answer: 10 + right, needed: 0, mode: "ten-plus" };
     }
     if (stage === 2) {
-      const left = STAGE_TWO[totalCorrect - 10];
+      const left = STAGE_TWO[solvedInStage % STAGE_TWO.length];
       return { stage, left, right: 10 - left, answer: 10 - left, needed: 10 - left, mode: "fill-ten" };
     }
-    const [left, right] = STAGE_THREE[(totalCorrect - 20) % STAGE_THREE.length];
+    const [left, right] = STAGE_THREE[solvedInStage % STAGE_THREE.length];
     return { stage, left, right, answer: left + right, needed: 10 - left, mode: "bridge-ten" };
+  }
+
+  function questionFor(totalCorrect) {
+    if (!Number.isSafeInteger(totalCorrect) || totalCorrect < 0) throw new Error("Invalid progress");
+    const stage = stageFor(totalCorrect);
+    return questionForStage(stage, totalCorrect - (stage === 1 ? 0 : stage === 2 ? 10 : 20));
   }
 
   function isReady(question, moved, entry) {
@@ -46,7 +54,7 @@
     return totalCorrect > 0 && totalCorrect % REWARD_EVERY === 0;
   }
 
-  const api = { stageFor, questionFor, isReady, isCorrect, isReward, STAGE_NAMES, REWARD_EVERY };
+  const api = { stageFor, questionFor, questionForStage, isReady, isCorrect, isReward, STAGE_NAMES, REWARD_EVERY };
   scope.MakeTenModel = api;
   if (typeof module === "object" && module.exports) module.exports = api;
 })(typeof window === "object" ? window : globalThis);

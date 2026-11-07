@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#eee8ff">
     <title>10をつくろう｜たしざん</title>
-    <link rel="stylesheet" href="make-ten.css?v=1">
+    <link rel="stylesheet" href="make-ten.css?v=2">
   </head>
   <body>
     <main class="app">
@@ -20,10 +20,11 @@
           <p id="stageTitle" class="stage-title">ステップ1　10といくつ</p>
           <span id="stageCount" class="stage-count">0 / 10</span>
         </div>
-        <div class="stage-bar" role="group" aria-label="ステップごとの進みぐあい">
-          <span id="stageDot1" class="stage-dot" aria-label="ステップ1">1</span>
-          <span id="stageDot2" class="stage-dot" aria-label="ステップ2">2</span>
-          <span id="stageDot3" class="stage-dot" aria-label="ステップ3">3</span>
+        <p class="stage-help">すきな ステップを おしてね！</p>
+        <div class="stage-bar" role="group" aria-label="練習するステップを選ぶ">
+          <button id="stageDot1" class="stage-option" type="button" aria-pressed="true"><span class="stage-number">1</span><span>10といくつ</span></button>
+          <button id="stageDot2" class="stage-option" type="button" aria-pressed="false"><span class="stage-number">2</span><span>10にする</span></button>
+          <button id="stageDot3" class="stage-option" type="button" aria-pressed="false"><span class="stage-number">3</span><span>10をつくって<br>たす</span></button>
         </div>
       </section>
 
@@ -59,11 +60,11 @@
 
       <details class="parent-settings">
         <summary>おうちのひとへ</summary>
-        <p>ステップ1・2をそれぞれ10問正解すると、次へ進みます。5問ごとにごほうびゲームへ。間違えても問題は変わりません。</p>
+        <p>ステップ1〜3は自由に切り替えられます。ステップごとの正解数と最後に選んだステップを、この端末に保存します。5問正解ごとにごほうびゲームへ。間違えても問題は変わりません。</p>
         <button id="resetProgress" type="button">このコースを最初から</button>
       </details>
     </main>
-    <script src="make-ten-model.js?v=1"></script>
-    <script src="make-ten.js?v=1"></script>
+    <script src="make-ten-model.js?v=2"></script>
+    <script src="make-ten.js?v=2"></script>
   </body>
 </html>

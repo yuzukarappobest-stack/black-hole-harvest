@@ -65,6 +65,149 @@ body {
   white-space: pre-wrap;
 }
 
+.problem-text.fraction-problem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(7px, 2.5vw, 22px);
+  white-space: normal;
+  font-size: clamp(1.8rem, 6vw, 3.15rem);
+}
+
+.mixed-fraction {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.stacked-fraction {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: stretch;
+  line-height: 1.12;
+  text-align: center;
+  font-size: 0.77em;
+}
+
+.stacked-fraction span:first-child {
+  border-bottom: 2px solid currentColor;
+  padding: 0 4px 2px;
+}
+
+.stacked-fraction span:last-child {
+  padding-top: 2px;
+}
+
+.fraction-answer-area {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
+  margin: 8px 0;
+}
+
+.fraction-input-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: min(130px, 32vw);
+}
+
+.fraction-input {
+  min-height: 54px;
+  min-width: 95px;
+  border: 2px solid #9fc6ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #071b35;
+  font-size: clamp(1.22rem, 4.5vw, 1.8rem);
+  font-weight: 900;
+}
+
+.fraction-input-stack .fraction-input {
+  min-height: 48px;
+  min-width: 0;
+  border-radius: 4px;
+}
+
+.fraction-input-stack .fraction-input:first-child {
+  border-bottom: 4px solid #1265c9;
+}
+
+.fraction-input.active,
+.blank-input.active {
+  border-color: #1265c9;
+  background: #e6f3ff;
+  box-shadow: 0 0 0 3px rgba(52, 137, 238, 0.14);
+}
+
+.fraction-hint {
+  color: #455a72;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  margin: 4px 0;
+}
+
+.blank-area {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px 2px;
+  font-size: clamp(1.03rem, 3.8vw, 1.45rem);
+  font-weight: 900;
+  line-height: 1.8;
+  margin: 8px 0;
+}
+
+.blank-area > span {
+  overflow-wrap: anywhere;
+}
+
+.blank-input {
+  min-width: 58px;
+  min-height: 46px;
+  padding: 2px 7px;
+  border: 2px solid #9fc6ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #071b35;
+  font-size: 1.25rem;
+  font-weight: 900;
+}
+
+.choice-area {
+  display: grid;
+  gap: 7px;
+  margin: 6px 0 12px;
+}
+
+.choice-area .section-title {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.choice-button {
+  min-height: 48px;
+  padding: 8px 12px;
+  border: 2px solid #9fc6ea;
+  border-radius: 8px;
+  background: #fff;
+  color: #071b35;
+  font-size: clamp(1.05rem, 3.5vw, 1.25rem);
+  font-weight: 900;
+  text-align: left;
+}
+
+.choice-button.selected {
+  background: #dcefff;
+  border-color: #1265c9;
+}
+
+.keyboard.has-decimal {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
 .formula-area {
   margin-bottom: 14px;
 }

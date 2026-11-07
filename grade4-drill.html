@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#f7fbff">
     <title>小4算数｜ドリル</title>
     <link rel="stylesheet" href="math.css?v=8">
-    <link rel="stylesheet" href="grade4-drill.css?v=2">
+    <link rel="stylesheet" href="grade4-drill.css?v=3">
   </head>
   <body>
     <main class="math-app">
@@ -20,7 +20,7 @@
         <section id="problemCard" class="problem-card" aria-live="polite">
           <div class="problem-heading">
             <p id="lessonTitle" class="section-title">がい数の計算（1）</p>
-            <span id="problemNumber" class="problem-number">1 / 44</span>
+            <span id="problemNumber" class="problem-number">1 / 274</span>
           </div>
           <p id="pageLabel" class="page-label">46ページ・ステップ1</p>
           <p id="instruction" class="instruction">それぞれの数を四捨五入して、上から1けたのがい数にしてから計算しよう。</p>
@@ -30,6 +30,7 @@
         </section>
 
         <section id="answerArea" class="answer-area">
+          <div id="choiceArea" class="choice-area hidden" aria-label="式を選ぶ"></div>
           <div id="formulaArea" class="formula-area hidden">
             <p class="section-title">しき（まるめた数を入れよう）</p>
             <div class="formula-line">
@@ -46,11 +47,21 @@
           </div>
           <div id="numericAnswer">
             <p id="answerTitle" class="section-title">こたえ（だいたいの数）</p>
-            <div class="answer-line">
+            <div id="blankArea" class="blank-area hidden" aria-label="□の数を入力"></div>
+            <div id="fractionAnswerArea" class="fraction-answer-area hidden" aria-label="分数の答えを入力">
+              <button id="fractionWhole" type="button" class="fraction-input" aria-label="整数部分">せいすう</button>
+              <div class="fraction-input-stack">
+                <button id="fractionNumerator" type="button" class="fraction-input" aria-label="分子">ぶんし</button>
+                <button id="fractionDenominator" type="button" class="fraction-input" aria-label="分母">ぶんぼ</button>
+              </div>
+              <strong id="fractionUnit" class="answer-unit"></strong>
+            </div>
+            <p id="fractionHint" class="fraction-hint hidden">分数は「ぶんし」と「ぶんぼ」を入れてね。整数だけの答えは「せいすう」に入力してね。</p>
+            <div id="numericAnswerLine" class="answer-line">
               <button id="answerDisplay" class="answer-display" type="button" aria-label="答えの入力欄">数字を入力</button>
               <strong id="answerUnit" class="answer-unit"></strong>
             </div>
-            <div class="keyboard" aria-label="数字のキーボード">
+            <div id="answerKeyboard" class="keyboard" aria-label="数字のキーボード">
               <button class="key" data-digit="1" type="button">1</button>
               <button class="key" data-digit="2" type="button">2</button>
               <button class="key" data-digit="3" type="button">3</button>
@@ -61,6 +72,7 @@
               <button class="key" data-digit="8" type="button">8</button>
               <button class="key" data-digit="9" type="button">9</button>
               <button class="key" data-digit="0" type="button">0</button>
+              <button id="decimalKey" class="key utility hidden" data-digit="." type="button" aria-label="小数点">.</button>
               <button id="backspaceButton" class="key utility" type="button">⌫</button>
               <button id="clearAnswerButton" class="key utility" type="button">C</button>
             </div>
@@ -70,8 +82,8 @@
         </section>
 
         <section id="finishedPanel" class="finished-panel hidden" aria-live="polite">
-          <h1>46〜49ページ クリア！ 🎉</h1>
-          <p>44もん ぜんぶできたよ！ 次のページも おたのしみに！</p>
+          <h1>46〜69ページ クリア！ 🎉</h1>
+          <p>274もん ぜんぶできたよ！ 次のページも おたのしみに！</p>
           <button id="restartButton" class="submit-button" type="button">はじめから やりなおす</button>
           <small>※これまでの進みぐあいをリセットします</small>
         </section>
@@ -86,6 +98,7 @@
       </section>
     </main>
     <script src="grade4-drill-data.js?v=1"></script>
-    <script src="grade4-drill.js?v=2"></script>
+    <script src="grade4-drill-stage2-data.js?v=1"></script>
+    <script src="grade4-drill.js?v=3"></script>
   </body>
 </html>

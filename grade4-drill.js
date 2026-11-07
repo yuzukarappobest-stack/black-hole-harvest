@@ -3,8 +3,9 @@
 
   const FIRST_STAGE = window.GRADE4_DRILL_QUESTIONS;
   const SECOND_STAGE = window.GRADE4_DRILL_STAGE2_QUESTIONS || [];
-  const QUESTIONS = Array.isArray(FIRST_STAGE) && Array.isArray(SECOND_STAGE)
-    ? [...FIRST_STAGE, ...SECOND_STAGE] : [];
+  const THIRD_STAGE = window.GRADE4_DRILL_STAGE3_QUESTIONS || [];
+  const QUESTIONS = Array.isArray(FIRST_STAGE) && Array.isArray(SECOND_STAGE) && Array.isArray(THIRD_STAGE)
+    ? [...FIRST_STAGE, ...SECOND_STAGE, ...THIRD_STAGE] : [];
   if (!Array.isArray(QUESTIONS) || QUESTIONS.length === 0) {
     throw new Error("小4算数の問題データを読み込めませんでした。");
   }
@@ -98,7 +99,8 @@
   function allowDecimal(question) {
     return !fractionAnswer(question) && (
       /\d\.\d/.test(question.expression || "") ||
-      (question.kind === "wordChoice" && /\d\.\d/.test(question.prompt || ""))
+      /\d\.\d/.test(question.prompt || "") ||
+      (typeof question.answer === "number" && !Number.isInteger(question.answer))
     );
   }
 
@@ -296,7 +298,8 @@
     const isExpression = Boolean(question.expression) && !isBlanks;
     ui.problem.classList.toggle("fraction-problem", question.kind === "fraction");
     toggle(ui.problem, isEstimate || question.kind === "fraction" || isExpression);
-    toggle(ui.word, !isEstimate && question.kind !== "fraction" && !isExpression && !isBlanks);
+    toggle(ui.word, !isEstimate && question.kind !== "fraction" && !isExpression &&
+      (!isBlanks || Boolean(question.prompt)));
     toggle(ui.puzzle, isOperators);
     toggle(ui.formulaArea, isStory);
     toggle(ui.numeric, !isOperators);
@@ -394,7 +397,7 @@
     question.values.slice(1).forEach((value, index) => {
       total += puzzleOperators[index] === "+" ? value : -value;
     });
-    return total === question.target;
+    return Math.abs(total - question.target) < 1e-8;
   }
 
   function matchesFraction(question) {

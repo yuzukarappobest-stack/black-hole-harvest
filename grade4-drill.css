@@ -1,0 +1,107 @@
+/* 既存の算数アプリのデザインを使い、ドリル固有の部分だけ調整する。 */
+html,
+body {
+  touch-action: auto;
+}
+
+.lesson-name {
+  color: #1265c9;
+  font-size: clamp(1.2rem, 4vw, 1.7rem);
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.problem-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+}
+
+.problem-heading .section-title {
+  margin: 0;
+  font-size: clamp(1rem, 3.5vw, 1.35rem);
+}
+
+.problem-number {
+  color: #1265c9;
+  font-size: 1rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.instruction {
+  margin: 10px 0 0;
+  color: #455a72;
+  font-size: clamp(0.95rem, 3.5vw, 1.13rem);
+  font-weight: 800;
+  line-height: 1.5;
+}
+
+.problem-text {
+  min-height: clamp(100px, 17dvh, 150px);
+  padding-top: 4px;
+  font-size: clamp(1.8rem, 6.7vw, 3.6rem);
+  white-space: nowrap;
+}
+
+.answer-display {
+  font-variant-numeric: tabular-nums;
+}
+
+.submit-button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.finished-panel {
+  padding: 24px 12px;
+  border: 2px solid #9fc6ea;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+}
+
+.finished-panel.hidden,
+#problemCard.hidden,
+#answerArea.hidden {
+  display: none;
+}
+
+.finished-panel h1 {
+  margin: 0;
+  color: #258f54;
+  font-size: clamp(1.55rem, 6vw, 2.3rem);
+}
+
+.finished-panel p {
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.finished-panel small {
+  display: block;
+  margin-top: 12px;
+  color: #6b7b8f;
+}
+
+@media (max-width: 820px) {
+  .math-app {
+    align-content: start;
+  }
+
+  .scratch-panel {
+    min-height: 300px;
+  }
+
+  .topbar {
+    gap: 5px;
+  }
+
+  .topbar a,
+  .topbar div {
+    padding-inline: 8px;
+  }
+}

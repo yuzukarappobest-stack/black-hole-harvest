@@ -1,0 +1,66 @@
+:root {
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+  color: #272443;
+  background: #f2efff;
+  -webkit-tap-highlight-color: transparent;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100dvh; background: linear-gradient(180deg, #e8e1ff 0%, #f8faff 55%); }
+button { font: inherit; touch-action: manipulation; cursor: pointer; }
+button:disabled { cursor: default; }
+.hidden { display: none !important; }
+.app { width: min(100%, 690px); margin: 0 auto; padding: 12px 14px calc(32px + env(safe-area-inset-bottom)); }
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 3px 0 14px; }
+.back-link { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 17px; background: #fff; color: #4b378d; font-size: 1.9rem; font-weight: 900; text-decoration: none; box-shadow: 0 3px 12px #49389118; }
+.app-name { font-size: clamp(1.08rem, 4.5vw, 1.48rem); font-weight: 900; letter-spacing: .02em; }
+.reward-count { white-space: nowrap; background: #fff; border-radius: 99px; padding: 10px 11px; font-size: 1.05rem; font-weight: 800; }
+.lesson-status { background: #fff9; border: 1px solid #dad0ff; padding: 12px 16px; border-radius: 22px; margin-bottom: 13px; }
+.stage-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.stage-title { margin: 0; color: #503c94; font-weight: 900; font-size: 1.02rem; }
+.stage-count { color: #625b85; font-weight: 800; font-size: .85rem; white-space: nowrap; }
+.stage-bar { display: flex; gap: 12px; margin-top: 11px; }
+.stage-dot { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #c8baff; background: #f6f2ff; color: #8a78c2; font-weight: 900; }
+.stage-dot.current { background: #7751e8; border-color: #7751e8; color: #fff; box-shadow: 0 2px 7px #7751e844; }
+.stage-dot.done { background: #22ad70; border-color: #22ad70; color: #fff; }
+.lesson-card, .answer-card { background: #fff; border-radius: 27px; box-shadow: 0 6px 24px #44387318; padding: 19px 20px; margin-bottom: 14px; }
+.instruction { min-height: 24px; margin: 0 0 10px; color: #655d88; font-size: .99rem; font-weight: 800; text-align: center; }
+.problem-text { margin: 3px 0 17px; font-size: clamp(2.15rem, 11vw, 3.4rem); font-weight: 950; letter-spacing: .01em; text-align: center; white-space: nowrap; }
+.blocks-area { padding: 15px; border: 2px solid #e4def9; background: #f9f7ff; border-radius: 21px; }
+.blocks-heading { margin: 0 0 10px; color: #504883; font-size: .9rem; font-weight: 850; }
+.ten-frame { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: clamp(5px, 2vw, 11px); width: min(100%, 430px); margin: 0 auto; }
+.ten-slot { min-width: 0; aspect-ratio: 1; display: grid; place-items: center; padding: 5px; border-radius: 13px; border: 2px solid #e4e0f0; background: #f2effa; }
+button.ten-slot { transition: transform .12s ease; border: 2px dashed #8b77da; }
+button.ten-slot:active, .extra-button:active { transform: scale(.95); }
+.ten-slot.filled { background: #def7e8; border-color: #8bd7ac; }
+.ten-slot.moved { background: #e8e2ff; border-color: #9772e6; }
+.ten-ball { display: block; width: 78%; height: 78%; aspect-ratio: 1; border-radius: 50%; background: #24af70; box-shadow: inset -3px -4px #137c5026; }
+.ten-slot.moved .ten-ball { background: #8b61e8; box-shadow: inset -3px -4px #3f24932a; }
+.empty-mark { font-size: clamp(1.4rem, 6vw, 2rem); color: #9b90b7; font-weight: 800; }
+.blocks-hint { text-align: center; margin: 13px 0 8px; color: #5a527d; font-size: 1rem; font-weight: 800; min-height: 1.5em; }
+.extras { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px; min-height: 45px; }
+.extra-button, .extra-ball { display: grid; place-items: center; width: clamp(36px, 11vw, 47px); height: clamp(36px, 11vw, 47px); border-radius: 50%; background: #ffa92e; border: 3px solid #f4c979; box-shadow: inset -3px -4px #cc7f1c26; }
+.extra-button { animation: pop .14s ease-out; }
+.extra-button:focus-visible, button.ten-slot:focus-visible { outline: 3px solid #472dad; outline-offset: 3px; }
+.undo { display: block; margin: 12px auto 0; border: 1px solid #cdbbff; background: #fff; border-radius: 13px; color: #6749bc; font-weight: 800; min-height: 40px; padding: 5px 16px; }
+.bridge-hint { min-height: 23px; color: #6b42bd; text-align: center; margin: 12px 0 0; font-weight: 900; font-size: 1.06rem; }
+.answer-card { padding-top: 15px; }
+.answer-question { margin: 0 0 6px; color: #51458b; font-weight: 900; text-align: center; }
+.answer-display { min-height: 63px; display: grid; place-items: center; margin: 0 auto 12px; max-width: 220px; background: #f1edff; border: 3px solid #bba6ff; border-radius: 17px; color: #4f319e; font-size: 2.15rem; font-weight: 900; }
+.keyboard { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.keyboard button { border: 1px solid #d7caed; background: #fff; border-radius: 14px; height: clamp(49px, 12vw, 62px); color: #2d2552; font-size: clamp(1.36rem, 5.5vw, 1.9rem); font-weight: 850; box-shadow: 0 2px 1px #d4cae6; }
+.keyboard .keyboard-tool { background: #f1edff; color: #67519d; }
+.keyboard button:active { background: #e9ddff; transform: translateY(1px); box-shadow: none; }
+.submit { display: block; width: 100%; margin: 15px 0 0; min-height: 58px; border: 0; border-radius: 18px; background: #7650e7; color: #fff; font-size: 1.25rem; font-weight: 900; box-shadow: 0 5px 0 #5634bd; }
+.submit:disabled { background: #c9c0df; box-shadow: none; }
+.submit:not(:disabled):active { transform: translateY(3px); box-shadow: 0 2px 0 #5634bd; }
+.feedback { margin: 12px 0 0; min-height: 22px; text-align: center; color: #6c6388; font-weight: 850; }
+.feedback.good { color: #14834d; }
+.feedback.bad { color: #c44959; }
+.parent-settings { margin: 21px 5px 0; color: #696283; font-size: .85rem; }
+.parent-settings summary { cursor: pointer; }
+.parent-settings p { line-height: 1.75; }
+.parent-settings button { min-height: 40px; padding: 7px 15px; border: 1px solid #ccbcee; border-radius: 10px; background: #fff; color: #5c3e9d; font-weight: 800; }
+@keyframes pop { from { transform: scale(.75); } to { transform: scale(1); } }
+@media (min-width: 640px) { .app { padding-top: 22px; } .lesson-card { padding: 24px 35px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

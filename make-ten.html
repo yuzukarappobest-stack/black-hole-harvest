@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#eee8ff">
+    <title>10をつくろう｜たしざん</title>
+    <link rel="stylesheet" href="make-ten.css?v=1">
+  </head>
+  <body>
+    <main class="app">
+      <header class="topbar">
+        <a href="learn.html" class="back-link" aria-label="学習メニューにもどる">←</a>
+        <span class="app-name">🔟 10をつくろう</span>
+        <span class="reward-count">⭐ <strong id="rewardCount">0</strong>/5</span>
+      </header>
+
+      <section class="lesson-status" aria-label="学習の進みぐあい">
+        <div class="stage-header">
+          <p id="stageTitle" class="stage-title">ステップ1　10といくつ</p>
+          <span id="stageCount" class="stage-count">0 / 10</span>
+        </div>
+        <div class="stage-bar" role="group" aria-label="ステップごとの進みぐあい">
+          <span id="stageDot1" class="stage-dot" aria-label="ステップ1">1</span>
+          <span id="stageDot2" class="stage-dot" aria-label="ステップ2">2</span>
+          <span id="stageDot3" class="stage-dot" aria-label="ステップ3">3</span>
+        </div>
+      </section>
+
+      <section class="lesson-card" aria-live="polite">
+        <p id="instruction" class="instruction">10のまとまりと、あとのかずをみてね</p>
+        <h1 id="problemText" class="problem-text">10 ＋ 3 ＝ ？</h1>
+
+        <div class="blocks-area">
+          <p class="blocks-heading">10の おへや</p>
+          <div id="tenFrame" class="ten-frame" aria-label="10このマス"></div>
+          <p id="blocksHint" class="blocks-hint">みどりが10こ。オレンジが3こ。</p>
+          <div id="extras" class="extras" aria-label="のこりのまる"></div>
+          <button id="undoMove" class="undo hidden" type="button">↶ 1こ もどす</button>
+        </div>
+        <p id="bridgeHint" class="bridge-hint" aria-live="polite"></p>
+      </section>
+
+      <section class="answer-card" aria-label="答えを入れる">
+        <p id="answerQuestion" class="answer-question">こたえは いくつ？</p>
+        <div id="answerDisplay" class="answer-display" aria-live="polite">？</div>
+        <div class="keyboard" aria-label="数字のボタン">
+          <button data-digit="1" type="button">1</button><button data-digit="2" type="button">2</button>
+          <button data-digit="3" type="button">3</button><button data-digit="4" type="button">4</button>
+          <button data-digit="5" type="button">5</button><button data-digit="6" type="button">6</button>
+          <button data-digit="7" type="button">7</button><button data-digit="8" type="button">8</button>
+          <button data-digit="9" type="button">9</button><button data-digit="0" type="button">0</button>
+          <button id="backspace" class="keyboard-tool" type="button" aria-label="1つけす">⌫</button>
+          <button id="clearAnswer" class="keyboard-tool" type="button">C</button>
+        </div>
+        <button id="submitAnswer" class="submit" type="button" disabled>こたえる！</button>
+        <p id="feedback" class="feedback" role="status" aria-live="polite"> </p>
+      </section>
+
+      <details class="parent-settings">
+        <summary>おうちのひとへ</summary>
+        <p>ステップ1・2をそれぞれ10問正解すると、次へ進みます。5問ごとにごほうびゲームへ。間違えても問題は変わりません。</p>
+        <button id="resetProgress" type="button">このコースを最初から</button>
+      </details>
+    </main>
+    <script src="make-ten-model.js?v=1"></script>
+    <script src="make-ten.js?v=1"></script>
+  </body>
+</html>

@@ -3,6 +3,7 @@ const { readFileSync } = require('node:fs');
 const vm = require('node:vm');
 const QUESTIONS = require('./grade4-drill-data.js');
 const STAGE2 = require('./grade4-drill-stage2-data.js');
+const STAGE3 = require('./grade4-drill-stage3-data.js');
 
 const EXPECTED = [
   900, 1200, 200, 100, 9000, 12000, 4000, 8000, 90000, 40000,
@@ -48,7 +49,7 @@ const elementIds = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(match => ma
 for (const [, id] of script.matchAll(/\$\("([^"]+)"\)/g)) {
   assert.ok(elementIds.has(id), `Missing HTML element: ${id}`);
 }
-assert.match(html, /grade4-drill-data\.js\?v=1[\s\S]*grade4-drill-stage2-data\.js\?v=1[\s\S]*grade4-drill\.js\?v=3/);
+assert.match(html, /grade4-drill-data\.js\?v=1[\s\S]*grade4-drill-stage2-data\.js\?v=1[\s\S]*grade4-drill-stage3-data\.js\?v=1[\s\S]*grade4-drill\.js\?v=4/);
 const local = new Map(), session = new Map();
 const storage = map => ({
   getItem(key) { return map.has(key) ? map.get(key) : null; },
@@ -56,7 +57,7 @@ const storage = map => ({
   removeItem(key) { map.delete(key); }
 });
 
-function createApp(extraQuestions = []) {
+function createApp(extraQuestions = [], thirdStageQuestions = []) {
   const nodes = new Map(), timers = [], redirects = [];
 
   function makeElement(id, dataset = {}) {
@@ -96,7 +97,8 @@ function createApp(extraQuestions = []) {
     createElement(tag) { const el = makeElement(tag); el.tagName = tag.toUpperCase(); return el; }
   };
   const win = {
-    GRADE4_DRILL_QUESTIONS: QUESTIONS, GRADE4_DRILL_STAGE2_QUESTIONS: extraQuestions, devicePixelRatio: 1,
+    GRADE4_DRILL_QUESTIONS: QUESTIONS, GRADE4_DRILL_STAGE2_QUESTIONS: extraQuestions,
+    GRADE4_DRILL_STAGE3_QUESTIONS: thirdStageQuestions, devicePixelRatio: 1,
     setTimeout(fn) { timers.push(fn); },
     location: { replace(path) { redirects.push(path); } },
     confirm() { return true; },
@@ -114,8 +116,8 @@ function createApp(extraQuestions = []) {
         const buttons = doc.getElementById('operatorPuzzle').children.filter(element => element.tagName === 'BUTTON');
         const solution = question.operators || Array.from({ length: 2 ** buttons.length }, (_, mask) =>
           question.values.slice(1).map((_, i) => (mask >> i & 1) ? '+' : '-').join(''))
-          .find(operators => question.values.slice(1).reduce((sum, value, i) =>
-            sum + (operators[i] === '+' ? value : -value), question.values[0]) === question.target);
+          .find(operators => Math.abs(question.values.slice(1).reduce((sum, value, i) =>
+            sum + (operators[i] === '+' ? value : -value), question.values[0]) - question.target) < 1e-8);
         assert.ok(solution, `No solution to ${question.id}`);
         for (const [index, op] of [...solution].entries()) {
           buttons[index].click();
@@ -211,3 +213,36 @@ app.node('restartButton').click();
 assert.equal(local.get('grade4DrillNextQuestion:v1'), '0');
 assert.match(app.node('problemText').textContent, /238.*660/);
 console.log('OK: 230 stage 2 answers, decimal/fraction/box/choice interaction, 46 rewards, resume and end-to-end reset');
+
+// 既存の274問の進捗を保持したまま、70〜89ページを順に解く。
+local.set('grade4DrillNextQuestion:v1', '274');
+session.clear();
+app = createApp(STAGE2, STAGE3);
+assert.equal(app.node('problemNumber').textContent, '275 / 447');
+assert.equal(app.node('pageLabel').textContent, '70ページ・ステップ1');
+assert.equal(app.node('correctCount').textContent, '0');
+
+let rewardCount = 0;
+for (let index = 0; index < STAGE3.length; index++) {
+  const question = STAGE3[index];
+  app.answer(question, question.answer);
+  assert.equal(local.get('grade4DrillNextQuestion:v1'), String(index + 275), question.id);
+  app.tick();
+  const reward = (index + 1) % 5 === 0 || index === STAGE3.length - 1;
+  if (reward) {
+    rewardCount++;
+    assert.deepEqual(app.redirects, ['game-menu.html'], `Missing stage 3 reward: ${question.id}`);
+    assert.ok(session.get('miniGameRewardToken'));
+    session.delete('miniGameRewardToken');
+    app = createApp(STAGE2, STAGE3);
+  } else {
+    assert.equal(app.redirects.length, 0, question.id);
+  }
+}
+assert.equal(rewardCount, 35);
+assert.equal(local.get('grade4DrillNextQuestion:v1'), '447');
+assert.equal(app.node('finishedPanel').classList.contains('hidden'), false);
+app.node('restartButton').click();
+assert.equal(local.get('grade4DrillNextQuestion:v1'), '0');
+assert.match(app.node('problemText').textContent, /238.*660/);
+console.log('OK: 173 stage 3 answers, 20 pages, quotient/remainder, decimal operators, 35 reward cycles, resume and reset');

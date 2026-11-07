@@ -4,6 +4,10 @@ body {
   touch-action: auto;
 }
 
+.hidden {
+  display: none !important;
+}
+
 .lesson-name {
   color: #1265c9;
   font-size: clamp(1.2rem, 4vw, 1.7rem);
@@ -31,6 +35,13 @@ body {
   white-space: nowrap;
 }
 
+.page-label {
+  margin: 7px 0 0;
+  color: #1265c9;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
 .instruction {
   margin: 10px 0 0;
   color: #455a72;
@@ -44,6 +55,114 @@ body {
   padding-top: 4px;
   font-size: clamp(1.8rem, 6.7vw, 3.6rem);
   white-space: nowrap;
+}
+
+.word-text {
+  margin: 14px 0 6px;
+  font-size: clamp(1.15rem, 4vw, 1.45rem);
+  font-weight: 850;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+
+.formula-area {
+  margin-bottom: 14px;
+}
+
+.formula-area .section-title {
+  font-size: clamp(1rem, 3.5vw, 1.3rem);
+}
+
+.formula-line {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+}
+
+.formula-field,
+.formula-symbol {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 54px;
+  border: 2px solid #9fc6ea;
+  border-radius: 8px;
+  background: white;
+  font-size: clamp(1.12rem, 4.5vw, 1.55rem);
+  font-weight: 950;
+}
+
+.formula-field {
+  color: #071b35;
+  font-variant-numeric: tabular-nums;
+}
+
+.formula-field.active,
+.answer-display.active {
+  border-color: #1265c9;
+  box-shadow: 0 0 0 3px rgba(52, 137, 238, 0.14);
+}
+
+.formula-symbol {
+  color: #1265c9;
+  background: #edf6ff;
+}
+
+.formula-operators {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 7px;
+}
+
+.formula-operators button,
+.operator-puzzle button {
+  min-height: 47px;
+  border: 2px solid #9fc6ea;
+  background: white;
+  color: #071b35;
+  font-size: 1.5rem;
+}
+
+.formula-operators button.selected,
+.operator-puzzle button.selected {
+  border-color: #1265c9;
+  background: #dcefff;
+  color: #1265c9;
+}
+
+.answer-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.answer-display {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.answer-unit {
+  flex: none;
+  font-size: 1.2rem;
+}
+
+.operator-puzzle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 18px 0 10px;
+  font-size: clamp(1.25rem, 4vw, 1.65rem);
+  font-weight: 950;
+}
+
+.operator-puzzle button {
+  width: 45px;
+  min-height: 48px;
 }
 
 .answer-display {

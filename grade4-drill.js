@@ -1,24 +1,33 @@
 (() => {
   "use strict";
 
-  const QUESTIONS = window.GRADE4_DRILL_QUESTIONS;
+  const FIRST_STAGE = window.GRADE4_DRILL_QUESTIONS;
+  const SECOND_STAGE = window.GRADE4_DRILL_STAGE2_QUESTIONS || [];
+  const QUESTIONS = Array.isArray(FIRST_STAGE) && Array.isArray(SECOND_STAGE)
+    ? [...FIRST_STAGE, ...SECOND_STAGE] : [];
   if (!Array.isArray(QUESTIONS) || QUESTIONS.length === 0) {
     throw new Error("小4算数の問題データを読み込めませんでした。");
   }
 
   const REWARD_TOKEN_KEY = "miniGameRewardToken";
   const PROGRESS_KEY = "grade4DrillNextQuestion:v1"; // 最初の10問と同じ保存キー
+  const SECOND_STAGE_START = Array.isArray(FIRST_STAGE) ? FIRST_STAGE.length : 0; // 第1段階の終了後は新たに5問ずつ
   const REQUIRED_CORRECT = 5;
   const NEXT_DELAY_MS = 800;
   const $ = id => document.getElementById(id);
   const ui = {
     count: $("correctCount"), number: $("problemNumber"), title: $("lessonTitle"),
     page: $("pageLabel"), instruction: $("instruction"), problem: $("problemText"),
-    word: $("wordText"), puzzle: $("operatorPuzzle"),
+    word: $("wordText"), puzzle: $("operatorPuzzle"), choice: $("choiceArea"),
     formulaArea: $("formulaArea"), formulaLeft: $("formulaLeft"),
     formulaRight: $("formulaRight"), formulaOperator: $("formulaOperatorDisplay"),
     numeric: $("numericAnswer"), answerTitle: $("answerTitle"), unit: $("answerUnit"),
-    display: $("answerDisplay"), feedback: $("feedback"), submit: $("submitButton"),
+    display: $("answerDisplay"), answerLine: $("numericAnswerLine"),
+    fractionArea: $("fractionAnswerArea"), fractionWhole: $("fractionWhole"),
+    fractionNumerator: $("fractionNumerator"), fractionDenominator: $("fractionDenominator"),
+    fractionHint: $("fractionHint"), fractionUnit: $("fractionUnit"),
+    blankArea: $("blankArea"), decimalKey: $("decimalKey"), keyboard: $("answerKeyboard"),
+    feedback: $("feedback"), submit: $("submitButton"),
     erase: $("backspaceButton"), clear: $("clearAnswerButton"),
     canvas: $("scratchCanvas"), clearCanvas: $("clearScratchButton"),
     problemCard: $("problemCard"), answerArea: $("answerArea"),
@@ -67,22 +76,57 @@
   }
 
   let nextIndex = readProgress();
-  let fields = { left: "", right: "", operator: "", answer: "" };
+  let fields = { left: "", right: "", operator: "", answer: "", whole: "", numerator: "", denominator: "" };
   let activeField = "answer";
   let puzzleOperators = [];
+  let blankFields = [];
+  let blankButtons = [];
+  let activeBlank = 0;
+  let selectedChoice = -1;
+  let choiceButtons = [];
   let locked = false;
 
   function currentQuestion() { return QUESTIONS[nextIndex]; }
 
   function toggle(element, visible) { element.classList.toggle("hidden", !visible); }
 
+  function fractionAnswer(question) {
+    return question.kind === "fraction" || question.kind === "fractionAnswer" ||
+      (question.kind === "wordChoice" && typeof question.answer === "object");
+  }
+
+  function allowDecimal(question) {
+    return !fractionAnswer(question) && (
+      /\d\.\d/.test(question.expression || "") ||
+      (question.kind === "wordChoice" && /\d\.\d/.test(question.prompt || ""))
+    );
+  }
+
+  function solvedSinceReward(index) {
+    return (index >= SECOND_STAGE_START ? index - SECOND_STAGE_START : index) % REQUIRED_CORRECT;
+  }
+
+  function isRewardPoint(index) {
+    return index === QUESTIONS.length || index === SECOND_STAGE_START ||
+      (index < SECOND_STAGE_START ? index % REQUIRED_CORRECT === 0 :
+        (index - SECOND_STAGE_START) % REQUIRED_CORRECT === 0);
+  }
+
   function isReady() {
     const question = currentQuestion();
     if (!question || locked) return false;
-    if (question.kind === "operators") return puzzleOperators.length === 4 && puzzleOperators.every(Boolean);
-    if (!fields.answer) return false;
-    if (question.kind !== "story") return true;
-    return Boolean(fields.left && fields.right && fields.operator);
+    if (question.kind === "operators") {
+      return puzzleOperators.length === question.values.length - 1 && puzzleOperators.every(Boolean);
+    }
+    if (question.kind === "blanks") return blankFields.length === question.answers.length && blankFields.every(v => v !== "");
+    if (question.kind === "wordChoice" && selectedChoice < 0) return false;
+    if (fractionAnswer(question)) {
+      const hasWhole = fields.whole !== "";
+      const hasFraction = fields.numerator !== "" && fields.denominator !== "" && Number(fields.denominator) > 0;
+      return hasFraction || (hasWhole && fields.numerator === "" && fields.denominator === "");
+    }
+    if (!fields.answer || fields.answer.endsWith(".")) return false;
+    return question.kind !== "story" || Boolean(fields.left && fields.right && fields.operator);
   }
 
   function updateInputs() {
@@ -94,6 +138,19 @@
     ui.formulaOperator.textContent = OPERATOR_SYMBOLS[fields.operator] || "？";
     ui.formulaLeft.classList.toggle("active", activeField === "left");
     ui.formulaRight.classList.toggle("active", activeField === "right");
+    ui.fractionWhole.textContent = fields.whole || "せいすう";
+    ui.fractionNumerator.textContent = fields.numerator || "ぶんし";
+    ui.fractionDenominator.textContent = fields.denominator || "ぶんぼ";
+    [["whole", ui.fractionWhole], ["numerator", ui.fractionNumerator], ["denominator", ui.fractionDenominator]]
+      .forEach(([name, button]) => button.classList.toggle("active", activeField === name));
+    blankButtons.forEach((button, index) => {
+      button.textContent = blankFields[index] || "□";
+      button.classList.toggle("active", activeBlank === index);
+    });
+    choiceButtons.forEach((button, index) => {
+      button.classList.toggle("selected", selectedChoice === index);
+      button.setAttribute("aria-pressed", String(selectedChoice === index));
+    });
     document.querySelectorAll("[data-formula-op]").forEach(button => {
       const selected = button.dataset.formulaOp === fields.operator;
       button.classList.toggle("selected", selected);
@@ -129,6 +186,83 @@
     ui.puzzle.appendChild(equal);
   }
 
+  function buildBlankQuestion(question) {
+    ui.blankArea.replaceChildren();
+    blankFields = question.answers.map(() => "");
+    blankButtons = [];
+    activeBlank = 0;
+    const parts = question.expression.split("□");
+    parts.forEach((part, index) => {
+      if (part) {
+        const text = document.createElement("span");
+        text.textContent = part;
+        ui.blankArea.appendChild(text);
+      }
+      if (index === parts.length - 1) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "blank-input";
+      button.setAttribute("aria-label", `${index + 1}こ目の□`);
+      button.addEventListener("click", () => {
+        if (!locked) { activeBlank = index; updateInputs(); }
+      });
+      blankButtons.push(button);
+      ui.blankArea.appendChild(button);
+    });
+  }
+
+  function buildChoices(question) {
+    ui.choice.replaceChildren();
+    selectedChoice = -1;
+    choiceButtons = [];
+    const label = document.createElement("p");
+    label.className = "section-title";
+    label.textContent = "あてはまる式を選ぼう";
+    ui.choice.appendChild(label);
+    question.choices.forEach((choice, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "choice-button";
+      button.textContent = `${index + 1}　${choice}`;
+      button.addEventListener("click", () => {
+        if (!locked) { selectedChoice = index; updateInputs(); }
+      });
+      choiceButtons.push(button);
+      ui.choice.appendChild(button);
+    });
+  }
+
+  function addFractionNode(parent, value) {
+    const term = document.createElement("span");
+    term.className = "mixed-fraction";
+    if (value.whole || value.numerator === 0) {
+      const whole = document.createElement("span");
+      whole.textContent = String(value.whole);
+      term.appendChild(whole);
+    }
+    if (value.numerator !== 0) {
+      const stack = document.createElement("span");
+      stack.className = "stacked-fraction";
+      const top = document.createElement("span");
+      top.textContent = String(value.numerator);
+      const bottom = document.createElement("span");
+      bottom.textContent = String(value.denominator);
+      stack.appendChild(top);
+      stack.appendChild(bottom);
+      term.appendChild(stack);
+    }
+    parent.appendChild(term);
+  }
+
+  function showFractionQuestion(question) {
+    ui.problem.replaceChildren();
+    addFractionNode(ui.problem, question.left);
+    const symbol = document.createElement("span");
+    symbol.textContent = OPERATOR_SYMBOLS[question.operator];
+    ui.problem.appendChild(symbol);
+    addFractionNode(ui.problem, question.right);
+  }
+
   function showQuestion() {
     if (nextIndex >= QUESTIONS.length) {
       toggle(ui.problemCard, false);
@@ -140,13 +274,13 @@
     }
 
     locked = false;
-    fields = { left: "", right: "", operator: "", answer: "" };
+    fields = { left: "", right: "", operator: "", answer: "", whole: "", numerator: "", denominator: "" };
     const question = currentQuestion();
-    activeField = question.kind === "story" ? "left" : "answer";
-    ui.title.textContent = question.page <= 47 ? "がい数の計算（1）" : "がい数の計算（2）";
+    activeField = question.kind === "story" ? "left" : fractionAnswer(question) ? "numerator" : "answer";
+    ui.title.textContent = question.section || (question.page <= 47 ? "がい数の計算（1）" : "がい数の計算（2）");
     ui.number.textContent = `${nextIndex + 1} / ${QUESTIONS.length}`;
     ui.page.textContent = `${question.page}ページ・${question.step === "パズル" ? "さんすうパズル" : `ステップ${question.step}`}`;
-    ui.count.textContent = String(nextIndex % REQUIRED_CORRECT);
+    ui.count.textContent = String(solvedSinceReward(nextIndex));
     ui.feedback.textContent = " ";
     ui.feedback.className = "feedback";
     toggle(ui.problemCard, true);
@@ -156,11 +290,30 @@
     const isEstimate = question.kind === "estimate";
     const isStory = question.kind === "story";
     const isOperators = question.kind === "operators";
-    toggle(ui.problem, isEstimate);
-    toggle(ui.word, !isEstimate);
+    const isFraction = fractionAnswer(question);
+    const isBlanks = question.kind === "blanks";
+    const isChoices = question.kind === "wordChoice";
+    const isExpression = Boolean(question.expression) && !isBlanks;
+    ui.problem.classList.toggle("fraction-problem", question.kind === "fraction");
+    toggle(ui.problem, isEstimate || question.kind === "fraction" || isExpression);
+    toggle(ui.word, !isEstimate && question.kind !== "fraction" && !isExpression && !isBlanks);
     toggle(ui.puzzle, isOperators);
     toggle(ui.formulaArea, isStory);
     toggle(ui.numeric, !isOperators);
+    toggle(ui.answerLine, !isFraction && !isBlanks);
+    toggle(ui.fractionArea, isFraction);
+    toggle(ui.fractionHint, isFraction);
+    toggle(ui.blankArea, isBlanks);
+    toggle(ui.choice, isChoices);
+    const decimal = allowDecimal(question);
+    toggle(ui.decimalKey, decimal);
+    ui.keyboard.classList.toggle("has-decimal", decimal);
+    ui.fractionUnit.textContent = question.unit || "";
+    ui.unit.textContent = question.unit || "";
+    blankButtons = [];
+    choiceButtons = [];
+    selectedChoice = -1;
+    blankFields = [];
 
     if (isEstimate) {
       ui.problem.textContent = `${question.left} ${OPERATOR_SYMBOLS[question.operator]} ${question.right}`;
@@ -169,41 +322,61 @@
         : `わられる数は上から${question.leftDigits}けた、わる数は上から${question.rightDigits}けたのがい数にしよう。`;
       ui.answerTitle.textContent = "こたえ（だいたいの数）";
       ui.unit.textContent = "";
+    } else if (question.kind === "fraction") {
+      showFractionQuestion(question);
+      ui.instruction.textContent = "分母が同じ分数を計算しよう。帯分数でも仮分数でもOK！";
+      ui.answerTitle.textContent = "こたえ（分数）";
     } else {
-      ui.word.textContent = question.prompt;
-      ui.instruction.textContent = isStory ? "およその式と答えを入力しよう。" : isOperators ? "？をタップして、＋か－を選ぼう。" : "考えて、答えを入力しよう。";
-      ui.answerTitle.textContent = "こたえ";
-      ui.unit.textContent = question.unit || "";
+      ui.word.textContent = question.prompt || "";
+      if (isExpression) ui.problem.textContent = question.expression;
+      ui.instruction.textContent = question.instruction || (isStory ? "およその式と答えを入力しよう。" :
+        isOperators ? "？をタップして、＋か－を選ぼう。" : "考えて、答えを入力しよう。");
+      ui.answerTitle.textContent = isBlanks ? "□に入る数" : isFraction ? "こたえ（分数）" : "こたえ";
       if (isOperators) buildOperatorPuzzle(question);
+      if (isBlanks) buildBlankQuestion(question);
+      if (isChoices) buildChoices(question);
     }
     updateInputs();
     clearScratch();
   }
 
   function selectField(field) {
-    if (locked || currentQuestion()?.kind !== "story") return;
+    if (locked) return;
+    if (currentQuestion()?.kind !== "story" && !fractionAnswer(currentQuestion())) return;
     activeField = field;
+    updateInputs();
+  }
+
+  function activeValue() {
+    return currentQuestion()?.kind === "blanks" ? blankFields[activeBlank] : fields[activeField];
+  }
+
+  function changeActiveValue(value) {
+    if (currentQuestion()?.kind === "blanks") blankFields[activeBlank] = value;
+    else fields[activeField] = value;
     updateInputs();
   }
 
   function appendDigit(digit) {
     if (locked || currentQuestion()?.kind === "operators") return;
-    const value = fields[activeField];
-    if (value.length >= 9) return;
-    fields[activeField] = value === "0" ? digit : value + digit;
-    updateInputs();
+    const value = activeValue();
+    if (value.length >= 10) return;
+    if (digit === ".") {
+      if (!allowDecimal(currentQuestion()) || activeField !== "answer" || value.includes(".")) return;
+      changeActiveValue((value || "0") + ".");
+    } else {
+      changeActiveValue(value === "0" ? digit : value + digit);
+    }
   }
 
   function eraseDigit() {
-    if (locked) return;
-    fields[activeField] = fields[activeField].slice(0, -1);
-    updateInputs();
+    if (locked || currentQuestion()?.kind === "operators") return;
+    changeActiveValue(activeValue().slice(0, -1));
   }
 
   function clearAnswer() {
-    if (locked) return;
-    fields[activeField] = "";
-    updateInputs();
+    if (locked || currentQuestion()?.kind === "operators") return;
+    changeActiveValue("");
   }
 
   function matchesFormula(question) {
@@ -224,6 +397,19 @@
     return total === question.target;
   }
 
+  function matchesFraction(question) {
+    const denominator = fields.denominator ? Number(fields.denominator) : 1;
+    const numerator = (Number(fields.whole || 0) * denominator) + Number(fields.numerator || 0);
+    const expected = question.answer;
+    return denominator > 0 && numerator * expected.denominator === expected.numerator * denominator;
+  }
+
+  function matchesNumber(question) {
+    const value = Number(fields.answer);
+    const answer = correctAnswer(question);
+    return Number.isFinite(value) && Math.abs(value - answer) < 1e-8;
+  }
+
   function submitAnswer() {
     if (!isReady()) return;
     const question = currentQuestion();
@@ -233,11 +419,19 @@
       return;
     }
 
+    if (question.kind === "wordChoice" && selectedChoice !== question.correctChoice) {
+      ui.feedback.textContent = "式をもういちど考えてみよう。";
+      ui.feedback.className = "feedback bad";
+      return;
+    }
+
     const success = question.kind === "operators"
       ? matchesPuzzle(question)
-      : Number(fields.answer) === correctAnswer(question);
+      : question.kind === "blanks"
+        ? blankFields.every((field, index) => Number(field) === question.answers[index])
+        : fractionAnswer(question) ? matchesFraction(question) : matchesNumber(question);
     if (!success) {
-      ui.feedback.textContent = question.kind === "story"
+      ui.feedback.textContent = question.kind === "story" || question.kind === "wordChoice"
         ? "式はあっているよ！ 答えをもういちど。"
         : "おしい！ もういちど考えてみよう。";
       ui.feedback.className = "feedback bad";
@@ -247,8 +441,8 @@
     locked = true;
     nextIndex += 1;
     saveProgress(nextIndex);
-    const completedSet = nextIndex % REQUIRED_CORRECT === 0 || nextIndex === QUESTIONS.length;
-    ui.count.textContent = String(completedSet ? REQUIRED_CORRECT : nextIndex % REQUIRED_CORRECT);
+    const completedSet = isRewardPoint(nextIndex);
+    ui.count.textContent = String(completedSet ? REQUIRED_CORRECT : solvedSinceReward(nextIndex));
     ui.feedback.textContent = completedSet ? "やったね！ ごほうびゲームへ！ 🎉" : "せいかい！ ⭐";
     ui.feedback.className = "feedback good";
     updateInputs();
@@ -322,6 +516,9 @@
   ui.formulaLeft.addEventListener("click", () => selectField("left"));
   ui.formulaRight.addEventListener("click", () => selectField("right"));
   ui.display.addEventListener("click", () => selectField("answer"));
+  ui.fractionWhole.addEventListener("click", () => selectField("whole"));
+  ui.fractionNumerator.addEventListener("click", () => selectField("numerator"));
+  ui.fractionDenominator.addEventListener("click", () => selectField("denominator"));
   ui.erase.addEventListener("click", eraseDigit);
   ui.clear.addEventListener("click", clearAnswer);
   ui.submit.addEventListener("click", submitAnswer);
@@ -335,13 +532,14 @@
   });
   window.addEventListener("keydown", event => {
     if (/^[0-9]$/.test(event.key)) { event.preventDefault(); appendDigit(event.key); }
+    else if (event.key === ".") { event.preventDefault(); appendDigit("."); }
     else if (event.key === "Backspace") { event.preventDefault(); eraseDigit(); }
     else if (event.key === "Enter") { event.preventDefault(); submitAnswer(); }
     else if (event.key === "Escape") { event.preventDefault(); clearAnswer(); }
   });
   window.addEventListener("resize", resizeScratch);
 
-  const atMilestone = nextIndex > 0 && (nextIndex % REQUIRED_CORRECT === 0 || nextIndex === QUESTIONS.length);
+  const atMilestone = nextIndex > 0 && isRewardPoint(nextIndex);
   if (atMilestone && sessionStorage.getItem(REWARD_TOKEN_KEY)) {
     window.location.replace("game-menu.html");
   } else {

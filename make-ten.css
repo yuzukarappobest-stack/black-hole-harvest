@@ -19,10 +19,16 @@ button:disabled { cursor: default; }
 .stage-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .stage-title { margin: 0; color: #503c94; font-weight: 900; font-size: 1.02rem; }
 .stage-count { color: #625b85; font-weight: 800; font-size: .85rem; white-space: nowrap; }
-.stage-bar { display: flex; gap: 12px; margin-top: 11px; }
-.stage-dot { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; border: 2px solid #c8baff; background: #f6f2ff; color: #8a78c2; font-weight: 900; }
-.stage-dot.current { background: #7751e8; border-color: #7751e8; color: #fff; box-shadow: 0 2px 7px #7751e844; }
-.stage-dot.done { background: #22ad70; border-color: #22ad70; color: #fff; }
+.stage-help { margin: 9px 0 0; font-size: .81rem; font-weight: 800; color: #625b85; }
+.stage-bar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.stage-option { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 78px; padding: 7px 3px; border: 2px solid #d5c9fc; border-radius: 16px; background: #fff; color: #6b579e; font-size: clamp(.76rem, 2.8vw, .93rem); font-weight: 850; line-height: 1.2; text-align: center; }
+.stage-number { display: grid; place-items: center; width: 29px; height: 29px; flex-shrink: 0; border-radius: 50%; background: #f1ebff; color: #7751bd; font-size: 1rem; }
+.stage-option.current { background: #7650e7; border-color: #7650e7; color: #fff; box-shadow: 0 3px 8px #7751e83c; }
+.stage-option.current .stage-number { background: #fff; color: #6740d0; }
+.stage-option.done:not(.current) { border-color: #77c9a0; background: #edfff4; color: #23744c; }
+.stage-option.done:not(.current) .stage-number { background: #22ad70; color: #fff; }
+.stage-option:focus-visible { outline: 3px solid #25176d; outline-offset: 2px; }
+.stage-option:disabled { opacity: .8; }
 .lesson-card, .answer-card { background: #fff; border-radius: 27px; box-shadow: 0 6px 24px #44387318; padding: 19px 20px; margin-bottom: 14px; }
 .instruction { min-height: 24px; margin: 0 0 10px; color: #655d88; font-size: .99rem; font-weight: 800; text-align: center; }
 .problem-text { margin: 3px 0 17px; font-size: clamp(2.15rem, 11vw, 3.4rem); font-weight: 950; letter-spacing: .01em; text-align: center; white-space: nowrap; }

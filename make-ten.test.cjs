@@ -7,8 +7,11 @@ const html = readFileSync('./make-ten.html', 'utf8');
 const js = readFileSync('./make-ten.js', 'utf8');
 const ids = new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1]));
 for (const [, id] of js.matchAll(/\$\("([^"]+)"\)/g)) assert.ok(ids.has(id), `Missing UI element: ${id}`);
-assert.match(html, /make-ten-model\.js\?v=1[\s\S]*make-ten\.js\?v=1/);
+assert.match(html, /make-ten-model\.js\?v=2[\s\S]*make-ten\.js\?v=2/);
 assert.match(readFileSync('./learn.html', 'utf8'), /href="make-ten\.html"/);
+for (let stage = 1; stage <= 3; stage++) {
+  assert.match(html, new RegExp(`id="stageDot${stage}"[^>]*type="button"`));
+}
 
 assert.equal(model.stageFor(0), 1);
 assert.equal(model.stageFor(9), 1);
@@ -18,6 +21,10 @@ assert.equal(model.stageFor(20), 3);
 assert.deepEqual(model.questionFor(0), { stage:1, left:10, right:3, answer:13, needed:0, mode:'ten-plus' });
 assert.deepEqual(model.questionFor(10), { stage:2, left:8, right:2, answer:2, needed:2, mode:'fill-ten' });
 assert.deepEqual(model.questionFor(20), { stage:3, left:8, right:5, answer:13, needed:2, mode:'bridge-ten' });
+assert.deepEqual(model.questionForStage(1, 10), model.questionFor(0));
+assert.deepEqual(model.questionForStage(2, 10), model.questionFor(10));
+assert.deepEqual(model.questionForStage(3, 15), model.questionFor(20));
+assert.throws(() => model.questionForStage(4, 0));
 assert.equal(model.isReady(model.questionFor(20), 1, '13'), false);
 assert.equal(model.isCorrect(model.questionFor(20), 2, '13'), true);
 assert.equal(model.isCorrect(model.questionFor(20), 2, '12'), false);
@@ -50,7 +57,8 @@ function createApp() {
         toggle(name, value) { if (value) classes.add(name); else classes.delete(name); },
         contains(name) { return classes.has(name); }
       },
-      setAttribute() {},
+      attrs: {},
+      setAttribute(name, value) { this.attrs[name] = value; },
       addEventListener(name, fn) { this.listeners[name] = fn; },
       appendChild(child) { this.children.push(child); },
       replaceChildren() { this.children = []; },
@@ -99,28 +107,50 @@ function createApp() {
 let app = createApp();
 app.digit('12');
 app.node('submitAnswer').click();
-assert.equal(local.get('makeTenSolved:v1'), undefined, 'Incorrect answer advanced progress');
+assert.equal(local.get('makeTenProgress:v2'), undefined, 'Incorrect answer advanced progress');
 assert.match(app.node('feedback').textContent, /もういちど/);
 
+const counts = [0, 0, 0];
 for (let index = 0; index < 60; index++) {
-  const q = model.questionFor(index);
-  // 誤答の直後でも、同じ問題を正解するまで続けられる。
+  // 順番を固定せず、毎回好きなステップへ移動して問題を解く。
+  const stage = [1, 3, 2, 1, 3, 2][index % 6];
+  app.node(`stageDot${stage}`).click();
+  assert.match(app.node('stageTitle').textContent, new RegExp(`ステップ${stage}`));
+  assert.equal(app.node(`stageDot${stage}`).attrs['aria-pressed'], 'true');
+  const q = model.questionForStage(stage, counts[stage - 1]);
+  assert.equal(app.node('problemText').textContent,
+    stage === 2 ? `${q.left} ＋ ？ ＝ 10` : `${q.left} ＋ ${q.right} ＝ ？`);
   app.solve(q);
-  assert.equal(local.get('makeTenSolved:v1'), String(index + 1));
+  counts[stage - 1]++;
+  assert.deepEqual(JSON.parse(local.get('makeTenProgress:v2')), {stage, counts});
+  assert.equal(app.node(`stageDot${stage}`).disabled, true, 'Cannot switch while checking an answer');
   app.tick();
   if ((index + 1) % 5 === 0) {
     assert.deepEqual(app.redirects, ['game-menu.html']);
     assert.ok(session.get('miniGameRewardToken'));
     session.delete('miniGameRewardToken');
     app = createApp();
-    const next = model.questionFor(index + 1);
+    const next = model.questionForStage(stage, counts[stage - 1]);
+    assert.match(app.node('stageTitle').textContent, new RegExp(`ステップ${stage}`), 'Selected step persists');
     assert.match(app.node('problemText').textContent, new RegExp(String(next.left)));
   } else assert.equal(app.redirects.length, 0);
 }
 
-assert.equal(local.get('makeTenSolved:v1'), '60');
+assert.deepEqual(counts, [20, 20, 20]);
+assert.equal(app.node('stageDot1').classList.contains('done'), true);
+assert.equal(app.node('stageDot2').classList.contains('done'), true);
+// 旧バージョンからの進捗は自動で3ステップの記録に分割して引き継ぐ。
+local.delete('makeTenProgress:v2');
+local.set('makeTenSolved:v1', '17');
+app = createApp();
+assert.match(app.node('stageTitle').textContent, /ステップ2/);
+assert.equal(app.node('stageCount').textContent, '7 / 10');
+app.node('stageDot3').click();
+assert.deepEqual(JSON.parse(local.get('makeTenProgress:v2')), {stage: 3, counts: [10, 7, 0]});
+app = createApp();
 assert.match(app.node('stageTitle').textContent, /ステップ3/);
 app.node('resetProgress').click();
-assert.equal(local.get('makeTenSolved:v1'), '0');
+assert.deepEqual(JSON.parse(local.get('makeTenProgress:v2')), {stage: 1, counts: [0, 0, 0]});
+assert.equal(local.has('makeTenSolved:v1'), false);
 assert.match(app.node('stageTitle').textContent, /ステップ1/);
-console.log('OK: 60 exercises, 3 stages, ten-frame interaction, wrong-answer retry, 5-answer rewards, persisted resume and reset');
+console.log('OK: 60 mixed-stage exercises, manual switching, looping, migrated progress, rewards, saved resume and reset');

@@ -3,7 +3,8 @@
   const model = window.MakeTenModel;
   if (!model) throw new Error("10をつくろうの問題データを読み込めませんでした。");
 
-  const PROGRESS_KEY = "makeTenSolved:v1";
+  const PROGRESS_KEY = "makeTenProgress:v2";
+  const OLD_PROGRESS_KEY = "makeTenSolved:v1";
   const REWARD_TOKEN_KEY = "miniGameRewardToken";
   const NEXT_DELAY_MS = 850;
   const $ = id => document.getElementById(id);
@@ -16,19 +17,35 @@
     backspace: $("backspace"), clear: $("clearAnswer")
   };
 
+  function validCount(value) {
+    return Number.isSafeInteger(value) && value >= 0 && value <= 1000000;
+  }
   function readProgress() {
     try {
-      const saved = Number(localStorage.getItem(PROGRESS_KEY));
-      if (Number.isSafeInteger(saved) && saved >= 0 && saved <= 1000000) return saved;
+      const saved = JSON.parse(localStorage.getItem(PROGRESS_KEY));
+      if (saved && [1, 2, 3].includes(saved.stage) &&
+          Array.isArray(saved.counts) && saved.counts.length === 3 && saved.counts.every(validCount)) {
+        return { stage: saved.stage, counts: saved.counts };
+      }
+      // 旧バージョンの進みぐあいを引き継ぐ（途中まで解いた問題も保持）。
+      const oldValue = localStorage.getItem(OLD_PROGRESS_KEY);
+      const old = oldValue === null ? NaN : Number(oldValue);
+      if (validCount(old)) {
+        return {
+          stage: model.stageFor(old),
+          counts: [Math.min(old, 10), Math.min(Math.max(old - 10, 0), 10), Math.max(old - 20, 0)]
+        };
+      }
     } catch (_error) { /* 保存が無効でも使える */ }
-    return 0;
+    return { stage: 1, counts: [0, 0, 0] };
   }
-  function saveProgress(value) {
-    try { localStorage.setItem(PROGRESS_KEY, String(value)); } catch (_error) {}
+  function saveProgress() {
+    try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress)); } catch (_error) {}
   }
 
-  let totalCorrect = readProgress();
-  let problem = model.questionFor(totalCorrect);
+  let progress = readProgress();
+  function totalCorrect() { return progress.counts.reduce((sum, value) => sum + value, 0); }
+  let problem = model.questionForStage(progress.stage, progress.counts[progress.stage - 1]);
   let entry = "";
   let moved = 0;
   let filledSlots = new Set();
@@ -128,17 +145,19 @@
     entry = "";
     moved = 0;
     filledSlots = new Set();
-    problem = model.questionFor(totalCorrect);
+    problem = model.questionForStage(progress.stage, progress.counts[progress.stage - 1]);
     const stage = problem.stage;
-    ui.reward.textContent = String(totalCorrect % model.REWARD_EVERY);
+    const solved = progress.counts[stage - 1];
+    ui.reward.textContent = String(totalCorrect() % model.REWARD_EVERY);
     ui.stageTitle.textContent = `ステップ${stage}　${model.STAGE_NAMES[stage - 1]}`;
-    ui.stageCount.textContent = stage === 3 ? `${totalCorrect - 19}もんめ` :
-      `${stage === 1 ? totalCorrect : totalCorrect - 10} / 10`;
+    ui.stageCount.textContent = stage === 3 ? `${solved + 1}もんめ` :
+      solved >= 10 ? `${solved}もん せいかい` : `${solved} / 10`;
     for (let i = 1; i <= 3; i++) {
-      const dot = $(`stageDot${i}`);
-      dot.classList.toggle("current", i === stage);
-      dot.classList.toggle("done", i < stage);
-      dot.textContent = i < stage ? "✓" : String(i);
+      const option = $(`stageDot${i}`);
+      option.classList.toggle("current", i === stage);
+      option.classList.toggle("done", i < 3 && progress.counts[i - 1] >= 10);
+      option.setAttribute("aria-pressed", String(i === stage));
+      option.disabled = false;
     }
     ui.instruction.textContent = stage === 1 ? "10と いくつ あるかな？" :
       stage === 2 ? "10に なるように マスを おそう！" : "まず 10を つくろう！";
@@ -166,12 +185,13 @@
       return;
     }
     locked = true;
-    totalCorrect++;
-    saveProgress(totalCorrect);
-    const reward = model.isReward(totalCorrect);
-    ui.reward.textContent = String(reward ? model.REWARD_EVERY : totalCorrect % model.REWARD_EVERY);
+    progress.counts[progress.stage - 1]++;
+    saveProgress();
+    const reward = model.isReward(totalCorrect());
+    ui.reward.textContent = String(reward ? model.REWARD_EVERY : totalCorrect() % model.REWARD_EVERY);
     ui.feedback.textContent = reward ? "やったー！ ごほうびゲームへ！ 🎉" : "せいかい！ すごいね！ ⭐";
     ui.feedback.className = "feedback good";
+    for (let i = 1; i <= 3; i++) $(`stageDot${i}`).disabled = true;
     updateEntry();
     if (reward) {
       try { sessionStorage.setItem(REWARD_TOKEN_KEY, `${Date.now()}-${Math.random()}`); } catch (_error) {}
@@ -187,13 +207,22 @@
   ui.backspace.addEventListener("click", () => { if (!locked) { entry = entry.slice(0, -1); updateEntry(); } });
   ui.clear.addEventListener("click", () => { if (!locked) { entry = ""; updateEntry(); } });
   ui.submit.addEventListener("click", submitAnswer);
+  for (let i = 1; i <= 3; i++) {
+    $(`stageDot${i}`).addEventListener("click", () => {
+      if (locked || progress.stage === i) return;
+      progress.stage = i;
+      saveProgress();
+      renderQuestion();
+    });
+  }
   ui.undo.addEventListener("click", () => {
     if (!locked && moved > 0) { moved--; renderVisual(); }
   });
   ui.reset.addEventListener("click", () => {
     if (!window.confirm("このコースの すすみぐあいを さいしょからに しますか？")) return;
-    totalCorrect = 0;
-    saveProgress(totalCorrect);
+    progress = { stage: 1, counts: [0, 0, 0] };
+    saveProgress();
+    try { localStorage.removeItem(OLD_PROGRESS_KEY); } catch (_error) {}
     renderQuestion();
   });
   document.addEventListener("keydown", event => {

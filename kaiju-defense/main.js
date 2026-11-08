@@ -33,7 +33,6 @@ class Game {
     this.resize(); this.camera.position.set(12, 11, 55); this.camera.lookAt(0, 9, -26);
     $("start").disabled = false; $("start").textContent = "出撃する"; $("loadStatus").textContent = "";
     $("start").onclick = () => this.start(this.selectedStage);
-    $("nextStage").onclick = () => this.start(2);
     $("stage1Choice").onclick = () => this.selectStage(1);
     $("stage2Choice").onclick = () => this.selectStage(2);
     this.stageTwoUnlocked = false;
@@ -65,7 +64,7 @@ class Game {
     $("missionBrief").textContent = this.selectedStage === 2 ? "広い街の上空を舞う翼獣を迎え撃て。" : "街を揺らす巨獣を、撃ち倒せ。";
   }
   start(stage = 1) {
-    if (this.state !== "ready" && this.state !== "stageclear") return;
+    if (this.state !== "ready") return;
     if (stage === 2 && !this.stageTwoUnlocked) return;
     if (stage === 2 && this.stage !== 2) {
       this.cityGroup.visible = false; this.kaiju.root.visible = false;
@@ -85,7 +84,7 @@ class Game {
     this.kaiju.root.position.set(0, settings.altitude || 0, settings.monsterZ);
     this.kaiju.root.rotation.set(0, Math.PI, 0); this.player.root.position.set(0, 0, settings.playerZ); this.player.body.rotation.set(0, 0, 0);
     this.input.yaw = 0; this.input.pitch = stage === 2 ? .16 : .12; this.ring.visible = this.beam.visible = false; this.state = "running";
-    $("intro").hidden = $("stageClear").hidden = $("finish").hidden = $("pauseScreen").hidden = true; $("hud").hidden = false;
+    $("intro").hidden = $("finish").hidden = $("pauseScreen").hidden = true; $("hud").hidden = false;
     this.updateCamera(1); this.updateHUD(); this.audio.roar(); this.last = performance.now();
   }
   pause() { if (this.state !== "running") return; this.state = "paused"; this.input.reset(); $("pauseScreen").hidden = false; }
@@ -234,21 +233,19 @@ class Game {
     try { best = Number(localStorage.getItem(STAGES[stage].bestKey)) || 0; if (!best || this.elapsed < best) localStorage.setItem(STAGES[stage].bestKey, String(this.elapsed)); } catch { saved = false; }
     return { best, saved };
   }
-  completeStageOne() {
-    this.state = "stageclear"; this.input.reset(); this.audio.clear();
-    this.saveBest(1);
-    this.stageTwoUnlocked = true;
-    try { localStorage.setItem(STAGE_TWO_UNLOCK, "1"); } catch {}
-    $("stage1Time").textContent = formatTime(this.elapsed);
-    $("hud").hidden = true; $("stageClear").hidden = false;
-  }
   finish() {
+    // One reward play always ends with the stage chosen at the start.
+    // Defeating Volga only unlocks Arca for the next reward play.
+    if (this.stage === 1) {
+      this.stageTwoUnlocked = true;
+      try { localStorage.setItem(STAGE_TWO_UNLOCK, "1"); } catch {}
+    }
     this.state = "finished"; $("hud").hidden = true; $("finish").hidden = false;
     const { best, saved } = this.saveBest(this.stage);
     $("finishTitle").textContent = this.stage === 2 ? "翼獣、撃破！" : "巨獣、撃破。";
     $("resultTime").textContent = formatTime(this.elapsed);
     $("best").textContent = !saved ? "このブラウザでは記録を保存できません" : !best || this.elapsed < best ? "自己ベスト更新！" : `BEST ${formatTime(best)}`;
-    $("resultStats").textContent = `STAGE ${this.stage} · 街区破壊 ${this.city.count}棟 · 転倒 ${this.knockdowns}回`;
+    $("resultStats").textContent = `STAGE ${this.stage} · 街区破壊 ${this.city.count}棟 · 転倒 ${this.knockdowns}回` + (this.stage === 1 ? " · ステージ2開放！" : "");
     this.audio.clear();
   }
   step(dt) {
@@ -265,7 +262,7 @@ class Game {
       this.deathTime += dt; this.kaiju.root.rotation.z = Math.min(Math.PI / 2, this.deathTime * .65);
       this.kaiju.root.position.y = this.stage === 2 ? Math.max(1, this.deathStartY - this.deathTime * 10) : -Math.min(3, this.deathTime);
       this.fx.update(dt); this.city.update(dt, this.fx);
-      if (this.deathTime > 2.8) { if (this.stage === 1) this.completeStageOne(); else this.finish(); }
+      if (this.deathTime > 2.8) this.finish();
     }
   }
   loop(now) {

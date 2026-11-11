@@ -129,6 +129,14 @@
 
   function instance(cardId,owner=null) { return Engine.createCardInstance(uidCounter++,cardId,owner); }
   function def(inst) { return cards[inst.cardId]; }
+  // 「〜バチ科」の判定。タランチュラホークはクモバチ科だが名前に「バチ」がない。
+  function isWaspFamilyInsect(card){
+    return card?.type==='insect'&&(/バチ/.test(card.name||'')||card.name==='タランチュラホーク');
+  }
+  function canQueenOvipositionSummon(inst){
+    const card=def(inst);
+    return isWaspFamilyInsect(card)&&Number(card.cost||0)<=5;
+  }
   function fieldDef(fc) { return Engine.currentCardDefinition(def(fc.inst),fc); }
   function rawFieldPassive(fc){ return fieldDef(fc)?.passive||null; }
   function silenceActive(){
@@ -3980,7 +3988,7 @@
     }
 
     if(attack.effect==='queenOviposition'&&sideObj(side).field.includes(fc)){
-      const choices=faceUpBait(side).filter(x=>def(x).type==='insect'&&Number(def(x).cost||0)<=5&&/バチ/.test(def(x).name));
+      const choices=faceUpBait(side).filter(canQueenOvipositionSummon);
       if(choices.length){
         let use=side==='cpu'?true:await confirmYesNo('「神の産卵」でエサ場の〜バチ科の虫を裏向きで場に出しますか？','神の産卵');
         if(use){
@@ -4876,7 +4884,7 @@
     }else if(arch==='colorCounter'){
       // 色彩対策CPU：ハチの高速展開＋威嚇の面＋1000火力。
       if(c.name==='オオスズメバチ（女王）')b+=12;
-      if(/バチ/.test(c.name||'')&&c.type==='insect')b+=2.5;
+      if(isWaspFamilyInsect(c))b+=2.5;
       if(c.passive?.type==='spellTaunt'){
         const protectedAce=fieldActive('cpu').some(fc=>['オオスズメバチ（女王）','オオスズメバチ','タランチュラホーク'].includes(fieldDef(fc)?.name));
         b+=protectedAce?10:5;
@@ -5008,7 +5016,7 @@
         p+=20+cpuCardKeepValue(ace);
         if(arch==='sumatra'&&def(ace).name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?18:-5;
         if((arch==='bee'||arch==='colorCounter')&&def(ace).name==='オオスズメバチ（女王）'){
-          const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+          const bees=faceUpBait('cpu').filter(canQueenOvipositionSummon).length;
           p+=bees*7;
         }
       }
@@ -5018,7 +5026,7 @@
       p+=16+links*10;
     }
     if(arch==='bee'&&c.name==='オオスズメバチ（女王）'){
-      const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+      const bees=faceUpBait('cpu').filter(canQueenOvipositionSummon).length;
       p+=20+bees*8;
     }
     if(arch==='sumatra'&&c.name==='スマトラオオヒラタクワガタ')p+=baitHasRGB('cpu')?26:4;
@@ -5575,7 +5583,7 @@
       }
       if(c.effect==='worshipGreatSword'&&!visibleDiscard('cpu').some(x=>def(x).type==='enhance'))b-=12;
     }else if(arch==='bee'){
-      const beeBait=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&def(x).name!=='オオスズメバチ（女王）'&&Number(def(x).cost||0)<=5).length;
+      const beeBait=faceUpBait('cpu').filter(x=>canQueenOvipositionSummon(x)&&def(x).name!=='オオスズメバチ（女王）').length;
       if(c.name==='オオスズメバチ（女王）')b+=beeBait?22+beeBait*3:-14;
       if(c.effect==='handTempSummon'){
         const t=cpuHandTempSummonTarget(inst.uid);
@@ -5666,7 +5674,7 @@
     }
     if(mode==='veryStrong'&&arch==='bee'){
       const queen=usable.find(x=>def(x).name==='オオスズメバチ（女王）');
-      const beeBait=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&def(x).name!=='オオスズメバチ（女王）'&&Number(def(x).cost||0)<=5).length;
+      const beeBait=faceUpBait('cpu').filter(x=>canQueenOvipositionSummon(x)&&def(x).name!=='オオスズメバチ（女王）').length;
       if(queen&&beeBait)return queen;
       const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuShouldUseHandTempSummon(x));
       if(tama&&beeBait){
@@ -5773,7 +5781,7 @@
 
     if(arch==='bee'&&mode!=='veryStrong'){
       const queen=usable.find(x=>def(x).name==='オオスズメバチ（女王）');
-      const beeBait=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+      const beeBait=faceUpBait('cpu').filter(canQueenOvipositionSummon).length;
       if(queen&&beeBait)return queen;
       const tama=usable.find(x=>def(x).effect==='handTempSummon'&&cpuShouldUseHandTempSummon(x));
       if(tama&&beeBait)return tama;
@@ -5831,7 +5839,7 @@
         if(c.effect==='bloodPact')score+=12;
       }
       if(wantsBeeBait&&c.type==='insect'&&/バチ/.test(c.name)&&c.name!=='オオスズメバチ（女王）'&&Number(c.cost||0)<=5){
-        const beeBait=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&def(x).name!=='オオスズメバチ（女王）'&&Number(def(x).cost||0)<=5).length;
+        const beeBait=faceUpBait('cpu').filter(x=>canQueenOvipositionSummon(x)&&def(x).name!=='オオスズメバチ（女王）').length;
         score-=beeBait<2?cpuPolicyValue('engineBaitPriority',8):3.2;
       }
       if(cpuDeckArchetype()==='bee'&&c.name==='オオスズメバチ（女王）')score+=18;
@@ -5923,7 +5931,7 @@
         if(c.name==='ゲンジボタル'&&downUseful)score+=6;
       }
       if(c.name==='オオスズメバチ（女王）'){
-        const bees=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length;
+        const bees=faceUpBait('cpu').filter(canQueenOvipositionSummon).length;
         score+=bees*4+(bees?8:-2);
       }
       if(p?.type==='altSacrifice2'&&cost>s.cost){
@@ -6380,7 +6388,7 @@
       if(['red','blue','green'].includes(c.color)&&!colors.has(c.color))desirability+=22;
       if(c.passive?.type==='colorBlessing')desirability-=7;
     }
-    if(c?.type==='insect'&&/バチ/.test(c.name||'')){
+    if(isWaspFamilyInsect(c)){
       const queenExists=[...ss.hand,...ss.deck,...ss.field.map(fc=>fc.inst)].some(x=>def(x)?.name==='オオスズメバチ（女王）');
       if(queenExists&&c.name!=='オオスズメバチ（女王）')desirability+=7;
       if(c.name==='オオスズメバチ（女王）')desirability-=18;
@@ -6697,7 +6705,7 @@
     };
     score+=effectBonus[attack.effect]||0;
     if(attack.effect==='queenOviposition'){
-      score+=faceUpBait('cpu').filter(x=>def(x).type==='insect'&&/バチ/.test(def(x).name)&&Number(def(x).cost||0)<=5).length*5;
+      score+=faceUpBait('cpu').filter(canQueenOvipositionSummon).length*5;
     }
     if(attack.effect==='bounceOnce'&&targets.length)score+=Math.max(...targets.map(t=>cpuFieldThreat(t,'player')))*0.5;
     if(attack.effect==='cannibal'){

@@ -21,6 +21,8 @@ const LESSON_CONFIG = {
   nextDelayMs: 650,
 };
 
+const levelTabs = [...document.querySelectorAll(".mode-button")];
+const additionExercise = document.getElementById("additionExercise");
 const problemText = document.getElementById("problemText");
 const answerDisplay = document.getElementById("answerDisplay");
 const correctCount = document.getElementById("correctCount");
@@ -56,6 +58,8 @@ playKabutoSumoButton.addEventListener("click", () => {
 });
 const againButton = document.getElementById("againButton");
 
+let activeLevel = 1;
+let advanceTimer = null;
 let correct = 0;
 let answer = "";
 let currentProblem = null;
@@ -76,6 +80,8 @@ function resetLesson() {
 }
 
 function nextProblem() {
+  window.clearTimeout(advanceTimer);
+  advanceTimer = null;
   answer = "";
   currentProblem = createProblem();
   problemText.textContent = currentProblem.text;
@@ -90,8 +96,13 @@ function createProblem() {
   let right = 1;
   let key = "";
   do {
-    left = randomInt(1, 8);
-    right = randomInt(1, 9 - left);
+    if (activeLevel === 1) {
+      left = randomInt(1, 8);
+      right = randomInt(1, 9 - left);
+    } else {
+      left = activeLevel === 2 ? 5 : randomInt(1, 9);
+      right = randomInt(10 - left, 9);
+    }
     key = `${left}+${right}`;
   } while (key === lastProblemKey);
   lastProblemKey = key;
@@ -99,6 +110,19 @@ function createProblem() {
     text: `${left} + ${right}`,
     answer: left + right,
   };
+}
+
+function selectLevel(index) {
+  if (activeLevel === index + 1 || correct >= LESSON_CONFIG.requiredCorrect) return;
+
+  activeLevel = index + 1;
+  levelTabs.forEach((tab, tabIndex) => {
+    tab.setAttribute("aria-selected", String(tabIndex === index));
+    tab.tabIndex = tabIndex === index ? 0 : -1;
+  });
+  additionExercise.setAttribute("aria-labelledby", levelTabs[index].id);
+  lastProblemKey = "";
+  nextProblem();
 }
 
 function appendDigit(digit) {
@@ -113,22 +137,19 @@ function updateAnswerDisplay() {
 }
 
 function submitAnswer() {
-  if (!answer || !currentProblem) return;
+  if (!answer || !currentProblem || advanceTimer !== null) return;
   const isCorrect = Number(answer) === currentProblem.answer;
   if (isCorrect) {
     correct += 1;
     correctCount.textContent = correct;
     feedback.textContent = "せいかい！";
     feedback.className = "feedback good";
-    if (correct >= LESSON_CONFIG.requiredCorrect) {
-      window.setTimeout(showComplete, LESSON_CONFIG.nextDelayMs);
-      return;
-    }
   } else {
     feedback.textContent = `ざんねん！ こたえは ${currentProblem.answer}`;
     feedback.className = "feedback bad";
   }
-  window.setTimeout(nextProblem, LESSON_CONFIG.nextDelayMs);
+  const advance = correct >= LESSON_CONFIG.requiredCorrect ? showComplete : nextProblem;
+  advanceTimer = window.setTimeout(advance, LESSON_CONFIG.nextDelayMs);
 }
 
 function showComplete() {
@@ -219,6 +240,32 @@ function stopDrawing(event) {
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
+
+levelTabs.forEach((tab, index) => {
+  bindAppButton(tab, () => selectLevel(index));
+  tab.addEventListener("keydown", (event) => {
+    let nextIndex;
+    switch (event.key) {
+      case "ArrowLeft":
+        nextIndex = (index + levelTabs.length - 1) % levelTabs.length;
+        break;
+      case "ArrowRight":
+        nextIndex = (index + 1) % levelTabs.length;
+        break;
+      case "Home":
+        nextIndex = 0;
+        break;
+      case "End":
+        nextIndex = levelTabs.length - 1;
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    selectLevel(nextIndex);
+    levelTabs[activeLevel - 1].focus();
+  });
+});
 
 document.querySelectorAll(".key[data-key]").forEach((button) => {
   bindAppButton(button, () => appendDigit(button.dataset.key));

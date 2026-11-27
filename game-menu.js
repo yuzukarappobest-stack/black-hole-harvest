@@ -23,7 +23,7 @@
     { id: "kart-race-2", label: "カートレース 3D・サンセット", sub: "あたらしいSじコース！ はやいCPUが1だい", icon: "🏁", href: "kart-race/?course=2&v=21", soft: "#ffe3d4" },
     { id: "kart-race-3", label: "カートレース 3D・クリスタル", sub: "エース42・キング46！ ダッシュで かて！", icon: "💎", href: "kart-race/?course=3&v=21", soft: "#daf6ff" },
     { id: "kart-race-4", label: "カートレース 3D・スカイマウンテン", sub: "みじかく なったよ！ おちたら 3びょうで ふっき", icon: "⛰️", href: "kart-race/?course=4&v=21", soft: "#e1f2df" },
-    { id: "space-exploration", label: "宇宙探検", sub: "ロケットで 1分間の うちゅうの旅！", icon: "🚀", href: "space-exploration/", soft: "#dfeaff" },
+    { id: "space-exploration", label: "宇宙探検", sub: "ロケットで 2分間の うちゅうの旅！", icon: "🚀", href: "space-exploration/", soft: "#dfeaff" },
     { id: "space-blaster", label: "スペースブラスター", sub: "うちゅうバトル！", icon: "🚀", href: "space-blaster/", soft: "#e9edff" },
     { id: "kabuto-sumo", label: "カブトムシ相撲", sub: "連打で押し出せ！", icon: "🪲", href: "kabuto-sumo/", soft: "#f5eadb" },
     { id: "mushijingi-reward", label: "蟲神器", sub: "スターターデッキでCPU対戦", icon: "🃏", href: "mushijingi-reward/", soft: "#edf3df" },

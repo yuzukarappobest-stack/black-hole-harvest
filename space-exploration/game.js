@@ -1,4 +1,4 @@
-import { BODIES, FLIGHT_SECONDS, GROUPS, HOME, crossedBody, discoveryScore, readFlight, saveFlight } from "./universe.js?v=1";
+import { BODIES, FLIGHT_SECONDS, GROUPS, HOME, crossedBody, discoveryScore, readFlight, saveFlight } from "./universe.js?v=2";
 import { createTiltControls } from "./tilt.js?v=1";
 
 const ACCESS_KEY = "miniGameAccess:space-exploration";
@@ -18,7 +18,7 @@ if (sessionStorage.getItem(ACCESS_KEY) !== "1") {
 }
 
 async function initialize() {
-  const { createScene } = await import("./scene.js?v=1");
+  const { createScene } = await import("./scene.js?v=2");
   const ui = Object.fromEntries([...document.querySelectorAll("[id]")].map(node => [node.id, node]));
   ui.intro.querySelector("a").href = learningUrl;
   const view = createScene(ui.viewport);
@@ -67,6 +67,7 @@ async function initialize() {
   });
   for (const button of tiltButtons) button.addEventListener("click", tilt.toggle);
   ui.score.textContent = points;
+  updateTime(FLIGHT_SECONDS);
   ui.launch.disabled = false;
 
   function record() {
@@ -260,20 +261,22 @@ async function initialize() {
         newlyFound = true;
       }
       if (target === body) {
-        // Swing around the scanned body so the ship flies past it.
         target = null;
         toggleWarp(false);
         speed = Math.min(speed, 14);
-        direction.copy(position).sub(body.center).normalize();
-        right.crossVectors(up, direction).normalize();
-        direction.addScaledVector(right, 2.6).normalize();
-        if (direction.lengthSq() > 0) {
-          yaw = Math.atan2(direction.x, -direction.z);
-          pitch = Math.asin(clamp(direction.y, .98));
+        // Swing around planets and stars. Keep the approach heading at nebulae and clusters.
+        if (body.solid) {
+          direction.copy(position).sub(body.center).normalize();
+          right.crossVectors(up, direction).normalize();
+          direction.addScaledVector(right, 2.6).normalize();
+          if (direction.lengthSq() > 0) {
+            yaw = Math.atan2(direction.x, -direction.z);
+            pitch = Math.asin(clamp(direction.y, .98));
+          }
         }
         if (!isNew && !newlyFound) showNotice(body.name + "に到着", now);
       }
-      if (body.kind !== "nebula" && body.kind !== "center" && position.distanceTo(body.center) < body.radius + 1.6) {
+      if (body.solid && position.distanceTo(body.center) < body.radius + 1.6) {
         direction.copy(position).sub(body.center);
         if (direction.lengthSq() === 0) direction.copy(forward).negate();
         direction.normalize();

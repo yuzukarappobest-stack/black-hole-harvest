@@ -1,5 +1,5 @@
 import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js";
-import { BODIES, skyDirection } from "./universe.js?v=1";
+import { BODIES, skyDirection } from "./universe.js?v=2";
 
 const TAU = Math.PI * 2;
 const Z = new THREE.Vector3(0, 0, -1);
@@ -81,8 +81,117 @@ function sprite(map, color, width, height, opacity) {
   return object;
 }
 
+function nebulaTexture(item) {
+  const random = randomSource(item.tint);
+  return canvasTexture(320, 320, (ctx, size) => {
+    const brushCache = new Map();
+    function stamp(x, y, radius, color, opacity) {
+      let brush = brushCache.get(color);
+      if (!brush) {
+        brush = document.createElement("canvas");
+        brush.width = brush.height = 64;
+        const paint = brush.getContext("2d");
+        const edge = paint.createRadialGradient(32, 32, 0, 32, 32, 32);
+        edge.addColorStop(0, color);
+        edge.addColorStop(.45, color + "65");
+        edge.addColorStop(1, color + "00");
+        paint.fillStyle = edge;
+        paint.fillRect(0, 0, 64, 64);
+        brushCache.set(color, brush);
+      }
+      ctx.globalAlpha = opacity;
+      ctx.drawImage(brush, size * (x - radius), size * (y - radius), size * radius * 2, size * radius * 2);
+    }
+
+    function filament(count, curve, colors, spread, width) {
+      for (let i = 0; i < count; i++) {
+        const [x, y] = curve(i / count);
+        const grainX = (random() - .5) * spread;
+        const grainY = (random() - .5) * spread;
+        stamp(x + grainX, y + grainY, width * (.28 + random()), colors[i % colors.length], .09 + random() * .35);
+      }
+    }
+
+    ctx.globalCompositeOperation = "lighter";
+    if (item.appearance === "horsehead") {
+      filament(220, t => [.17 + .62 * t, .4 + .16 * t + .055 * Math.sin(t * 11)],
+        ["#8d273e", "#d75272", "#ffc1a9"], .21, .095);
+      filament(160, t => [.27 + .45 * t, .62 + .045 * Math.cos(t * 6)],
+        ["#6e2637", "#ab4358"], .13, .08);
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.globalAlpha = 1;
+      ctx.save();
+      ctx.scale(size, size);
+      // The dark dust column cuts into the emission behind it.
+      const silhouette = new Path2D("M .38 .86 C .41 .68 .47 .58 .52 .51 C .54 .46 .51 .40 .48 .39 C .45 .40 .40 .37 .39 .34 L .38 .31 L .41 .30 L .47 .30 L .50 .28 L .55 .29 L .58 .25 L .59 .32 C .61 .37 .63 .45 .62 .52 C .61 .65 .67 .74 .73 .88 Z");
+      ctx.fill(silhouette);
+      ctx.restore();
+      return;
+    }
+    if (item.appearance === "heart") {
+      filament(410, t => {
+        const phase = t * TAU;
+        return [.5 + .019 * Math.sin(phase) ** 3 * 16,
+          .48 - .018 * (13 * Math.cos(phase) - 5 * Math.cos(2 * phase) - 2 * Math.cos(3 * phase) - Math.cos(4 * phase))];
+      }, ["#8e294b", "#db4967", "#ffc0b4", "#eb6c85"], .13, .063);
+      stamp(.50, .49, .14, "#b3558a", .33);
+      stamp(.49, .47, .027, "#e4dafa", .77);
+      return;
+    }
+    if (item.appearance === "veil") {
+      for (const side of [-1, 1]) {
+        for (let strand = 0; strand < 4; strand++) {
+          filament(95, t => {
+            const bend = .14 * Math.sin(Math.PI * t) + .017 * Math.sin(15 * t + strand);
+            return [.5 + side * (.17 + bend + strand * .014) + .12 * (t - .5), .17 + .64 * t];
+          }, ["#2788af", "#63bbc8", "#c64f71", "#9bcde0"], .039 + strand * .005, .023);
+        }
+      }
+      return;
+    }
+
+    const ring = item.appearance === "ring";
+    for (let strand = 0; strand < 3; strand++) {
+      const radius = .17 + strand * (ring ? .035 : .056);
+      filament(180, t => {
+        const phase = t * TAU;
+        const petal = radius + (ring ? .008 : .028) * Math.sin(6 * phase + strand) + .011 * Math.cos(13 * phase);
+        return [.5 + petal * Math.cos(phase), .5 + petal * Math.sin(phase) * (ring ? .68 : .86)];
+      }, ring ? ["#728ade", "#44abcd", "#7ee4d3", "#d7855a"] : ["#902642", "#c64764", "#ffad9a"],
+      ring ? .043 : .098, ring ? .045 : .072);
+    }
+    stamp(.50, .49, .13, ring ? "#5287be" : "#5579a3", .42);
+    stamp(.50, .49, .016, "#d5eaff", .84);
+  });
+}
+
+function starCluster(item, glow) {
+  const group = new THREE.Group();
+  const stars = [[-.56, .07, .21], [-.37, -.34, -.12], [-.24, .34, .18],
+    [.02, .13, 0], [.18, -.3, -.19], [.39, .13, .15], [.51, .18, .04]];
+  for (const [index, star] of stars.entries()) {
+    const scale = index === 3 ? .69 : .42;
+    const light = sprite(glow, item.tint, item.radius * scale, item.radius * scale, .97);
+    const core = sprite(glow, 0xedf4ff, item.radius * .16, item.radius * .16, 1);
+    light.position.fromArray(star).multiplyScalar(item.radius);
+    core.position.copy(light.position);
+    group.add(light, core);
+  }
+  group.add(sprite(glow, 0x6d9de2, item.radius * 2.7, item.radius * 1.25, .23));
+  return group;
+}
+
 function nebula(item, glow) {
   const group = new THREE.Group();
+  if (item.appearance) {
+    const radius = item.radius;
+    const art = sprite(nebulaTexture(item), 0xffffff, radius * 3.6, radius * 3.6, 1);
+    group.add(art);
+    if (item.appearance !== "horsehead") {
+      group.add(sprite(glow, item.tint, radius * 3.5, radius * 2.7, .15));
+    }
+    return group;
+  }
   const random = randomSource(item.tint);
   const halo = sprite(glow, item.tint, item.radius * 3.7, item.radius * 2.4, .24);
   group.add(halo);
@@ -120,6 +229,8 @@ function addBody(scene, item, glow) {
       object.add(sprite(glow, 0xffd7b1, item.radius * 3, item.radius * 1.15, .62));
       object.add(sprite(glow, 0xffeeee, item.radius * .65, item.radius * .5, .85));
     }
+  } else if (item.kind === "cluster") {
+    object = starCluster(item, glow);
   } else {
     object = new THREE.Group();
     const map = planetTexture(item);

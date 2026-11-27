@@ -1,14 +1,20 @@
 const TAU = Math.PI * 2;
 const RAD = Math.PI / 180;
-export const FLIGHT_SECONDS = 60;
+export const FLIGHT_SECONDS = 120;
 export const SAVE_KEY = "spaceExploration:v1";
 
-export const GROUPS = ["太陽系", "近くの恒星", "銀河系の星雲と中心"];
-const points = { planet: 10, moon: 10, star: 20, nebula: 35, center: 50 };
+export const GROUPS = ["太陽系", "近くの恒星", "星雲・星団・銀河中心"];
+const points = { planet: 10, moon: 10, star: 20, nebula: 35, cluster: 35, center: 50 };
 
-function body(id, name, kind, region, position, radius, tint) {
-  const scanRadius = kind === "nebula" || kind === "center" ? radius * 1.35 : radius + Math.max(7, radius * .55);
-  return { id, name, kind, region, position, radius, tint, scanRadius, points: id === "earth" ? 0 : points[kind] };
+function body(id, name, kind, region, position, radius, tint, options = {}) {
+  const solid = kind === "planet" || kind === "moon" || kind === "star";
+  const defaultScan = solid ? radius + Math.max(7, radius * .55) : radius * 1.35;
+  return {
+    id, name, kind, region, position, radius, tint, solid,
+    scanRadius: options.scanRadius ?? defaultScan,
+    appearance: options.appearance,
+    points: id === "earth" ? 0 : points[kind]
+  };
 }
 
 function orbit(au, phase) {
@@ -52,7 +58,16 @@ export const BODIES = [
   body("sirius", "シリウス", "star", 1, sky(6.752, -16.72, 8.6), 15, 0xb2d8ff),
   body("vega", "ベガ", "star", 1, sky(18.616, 38.78, 25), 16, 0xd0e5ff),
   body("betelgeuse", "ベテルギウス", "star", 1, sky(5.919, 7.41, 550), 34, 0xff7854),
-  body("orion", "オリオン大星雲", "nebula", 2, sky(5.588, -5.39, 1500), 68, 0xf19ae0),
+  body("orion", "オリオン大星雲", "nebula", 2, sky(5.588, -5.39, 1500), 68, 0xf19ae0, { scanRadius: 55 }),
+  body("horsehead", "馬頭星雲", "nebula", 2, sky(5.683, -2.458, 1600), 29, 0xf08796,
+    { appearance: "horsehead", scanRadius: 25 }),
+  body("heart", "ハート星雲", "nebula", 2, sky(2.556, 61.44, 7500), 71, 0xff8198, { appearance: "heart" }),
+  body("veil", "網状星雲", "nebula", 2, sky(20.76, 30.73, 2100), 80, 0x8bdcff, { appearance: "veil" }),
+  body("rosette", "バラ星雲", "nebula", 2, sky(6.541, 4.794, 5200), 70, 0xff969a, { appearance: "rosette" }),
+  body("north-america", "北アメリカ星雲", "nebula", 2, sky(20.988, 44.529, 2590), 77, 0xf77e86),
+  body("ring", "環状星雲（M57）", "nebula", 2, sky(18.893, 33.03, 2000), 29, 0x80e2de, { appearance: "ring" }),
+  body("lagoon", "干潟星雲（M8）", "nebula", 2, sky(18.063, -24.383, 5200), 63, 0xe895b3),
+  body("pleiades", "すばる（プレアデス星団）", "cluster", 2, sky(3.773, 24.12, 445), 52, 0x92c7ff),
   body("crab", "かに星雲", "nebula", 2, sky(5.575, 22.01, 6500), 56, 0x8fb8ff),
   body("eagle", "わし星雲", "nebula", 2, sky(18.314, -13.79, 7000), 75, 0xe0a078),
   body("galactic-core", "天の川銀河の中心", "center", 2, sky(17.761, -29.01, 26000), 100, 0xffd1a0)

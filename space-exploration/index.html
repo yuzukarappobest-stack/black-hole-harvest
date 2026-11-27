@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#060a17">
+  <title>宇宙探検</title>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <main id="flight" class="flight">
+    <div id="viewport" class="viewport" aria-label="3D 宇宙空間"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <header class="hud" aria-label="飛行状況">
+      <div class="region">
+        <span class="brand">宇宙探検</span>
+        <strong id="region">地球の近く</strong>
+      </div>
+      <div class="meters">
+        <div><span>のこり</span><strong id="clock">1:00</strong></div>
+        <div><span>発見ポイント</span><strong id="score">0</strong></div>
+      </div>
+      <div class="time-track" aria-hidden="true"><i id="timeBar"></i></div>
+    </header>
+
+    <div id="reticle" class="reticle" aria-hidden="true" hidden></div>
+    <div id="beacon" class="beacon" hidden><span id="bearing" aria-hidden="true">▲</span><span id="beaconName"></span></div>
+    <div id="discovery" class="discovery" role="status" hidden></div>
+
+    <div id="controls" class="controls" hidden>
+      <div id="stick" class="stick" aria-hidden="true"><i></i></div>
+      <div class="actions">
+        <button id="home" class="quiet" type="button">地球に戻る</button>
+        <button id="mapButton" class="quiet" type="button" aria-expanded="false" aria-controls="map">星図</button>
+        <button id="warp" class="warp" type="button" aria-pressed="false">ワープ</button>
+      </div>
+    </div>
+
+    <section id="map" class="map" aria-labelledby="mapTitle" hidden>
+      <div class="map-head">
+        <div><h2 id="mapTitle">星図</h2><p>行き先をえらぶと、自動で向かうよ。</p></div>
+        <button id="closeMap" class="quiet" type="button">閉じる</button>
+      </div>
+      <div id="destinations" class="destinations"></div>
+    </section>
+
+    <section id="intro" class="overlay" aria-labelledby="title">
+      <div class="panel">
+        <p class="eyebrow">1分間のフライト</p>
+        <h1 id="title">宇宙探検</h1>
+        <p id="introText">地球から飛び立って、まだ知らない星を見つけよう。</p>
+        <div class="instructions">
+          <span><b>操縦</b> 画面をスライド / 矢印キー</span>
+          <span><b>発見</b> 天体の近くを飛ぶとポイント</span>
+        </div>
+        <button id="launch" class="primary" type="button" disabled>発進する</button>
+        <a class="exit" href="../learn.html">学習メニューに戻る</a>
+      </div>
+    </section>
+
+    <section id="finish" class="overlay" aria-labelledby="summaryTitle" hidden>
+      <div class="panel">
+        <p class="eyebrow">フライト終了</p>
+        <h2 id="summaryTitle">探検を記録したよ</h2>
+        <p id="summary"></p>
+        <p class="saved">次のごほうびで、ここから出発できるよ。</p>
+        <button id="back" class="primary" type="button">学習メニューへ</button>
+      </div>
+    </section>
+  </main>
+  <script type="module" src="game.js?v=1"></script>
+</body>
+</html>

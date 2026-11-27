@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#060a17">
   <title>宇宙探検</title>
-  <link rel="stylesheet" href="style.css?v=1">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <main id="flight" class="flight">
@@ -32,6 +32,7 @@
       <div class="actions">
         <button id="home" class="quiet" type="button">地球に戻る</button>
         <button id="mapButton" class="quiet" type="button" aria-expanded="false" aria-controls="map">星図</button>
+        <button id="flightTilt" class="quiet tilt" type="button" aria-pressed="false">傾き操作</button>
         <button id="warp" class="warp" type="button" aria-pressed="false">ワープ</button>
       </div>
     </div>
@@ -54,6 +55,8 @@
           <span><b>発見</b> 天体の近くを飛ぶとポイント</span>
         </div>
         <button id="launch" class="primary" type="button" disabled>発進する</button>
+        <button id="introTilt" class="quiet tilt" type="button" aria-pressed="false">傾き操作</button>
+        <p id="tiltStatus" class="tilt-status" role="status"></p>
         <a class="exit" href="../learn.html">学習メニューに戻る</a>
       </div>
     </section>
@@ -68,6 +71,6 @@
       </div>
     </section>
   </main>
-  <script type="module" src="game.js?v=2"></script>
+  <script type="module" src="game.js?v=3"></script>
 </body>
 </html>

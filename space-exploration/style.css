@@ -105,3 +105,10 @@ button:focus-visible, a:focus-visible { outline: 3px solid #fff4a0; outline-offs
 }
 .destination:hover, .destination:focus-visible { background: #253854; }
 .destination small { color: var(--muted); font-size: .68rem; }
+
+.tilt[aria-pressed="true"] { border-color: #b9e9ff; background: #b9e9ff; color: #071424; }
+.tilt:disabled { opacity: .55; }
+.panel .tilt { display: block; width: 100%; margin-top: 8px; }
+.panel .tilt-status { margin: 6px 0 0; color: var(--muted); font-size: .76rem; }
+.panel .tilt-status:empty { margin: 0; }
+@media (max-width: 400px) { .actions button { padding-inline: 8px; font-size: .84rem; } }

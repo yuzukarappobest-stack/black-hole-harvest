@@ -1,4 +1,5 @@
 import { BODIES, FLIGHT_SECONDS, GROUPS, HOME, crossedBody, discoveryScore, readFlight, saveFlight } from "./universe.js?v=1";
+import { createTiltControls } from "./tilt.js?v=1";
 
 const ACCESS_KEY = "miniGameAccess:space-exploration";
 const learningPath = sessionStorage.getItem("miniGameReturnUrl") || "learn.html";
@@ -52,6 +53,19 @@ async function initialize() {
     ui.introText.textContent = "前のフライトのつづきから、星を見つけよう。";
     ui.launch.textContent = "つづきから発進";
   }
+  const tiltButtons = [ui.introTilt, ui.flightTilt];
+  const tilt = createTiltControls((mode, message) => {
+    for (const button of tiltButtons) {
+      button.setAttribute("aria-pressed", String(mode === "on" || mode === "waiting"));
+      button.disabled = mode === "requesting";
+    }
+    if (state === "ready") {
+      ui.tiltStatus.textContent = message;
+    } else if (state === "flying" && message) {
+      showNotice(message, performance.now());
+    }
+  });
+  for (const button of tiltButtons) button.addEventListener("click", tilt.toggle);
   ui.score.textContent = points;
   ui.launch.disabled = false;
 
@@ -107,6 +121,7 @@ async function initialize() {
     ({ yaw, pitch } = HOME);
     target = null;
     speed = 0;
+    tilt.recenter();
     toggleWarp(false);
     setMap(false);
     showNotice("地球に戻ったよ", performance.now());
@@ -193,6 +208,11 @@ async function initialize() {
     if (steering && target) {
       target = null;
       showNotice("手動操縦", performance.now());
+    }
+    const sensor = tilt.read(delta);
+    if (state === "flying" && !target && !drag && keys.size === 0 && ui.map.hidden) {
+      x = sensor.x;
+      y = sensor.y;
     }
     if (target) {
       direction.copy(target.center).sub(position).normalize();
@@ -314,6 +334,7 @@ async function initialize() {
 
   function finish() {
     state = "done";
+    tilt.dispose();
     const stored = record();
     clearDrag();
     setMap(false);
@@ -355,6 +376,7 @@ async function initialize() {
     deadline = launchTime + FLIGHT_SECONDS * 1000;
     initialPoints = points;
     initialCount = discovered.size;
+    tilt.recenter();
     ui.intro.hidden = true;
     ui.controls.hidden = ui.reticle.hidden = false;
     ui.mapButton.focus({ preventScroll: true });

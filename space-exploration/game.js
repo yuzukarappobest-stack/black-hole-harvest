@@ -331,9 +331,13 @@ async function initialize() {
   function frame(now) {
     if (state === "flying") {
       const remaining = Math.max(0, (deadline - now) / 1000);
-      const delta = Math.max(0, Math.min(.06, (Math.min(now, deadline) - lastFrame) / 1000));
-      updateHeading(delta);
-      updatePosition(delta, now);
+      // Advance in small steps even when a mobile browser renders fewer frames.
+      const delta = Math.max(0, Math.min(.24, (Math.min(now, deadline) - lastFrame) / 1000));
+      const steps = Math.max(1, Math.ceil(delta / .05));
+      for (let step = 0; step < steps; step++) {
+        updateHeading(delta / steps);
+        updatePosition(delta / steps, now);
+      }
       updateTime(remaining);
       if (now >= noticeEnd) ui.discovery.hidden = true;
       if (remaining === 0) finish();

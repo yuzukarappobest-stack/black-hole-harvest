@@ -17,7 +17,7 @@ const SPACE_BLASTER_GAME_ID = "space-blaster";
 const KAIJU_DEFENSE_GAME_ID = "kaiju-defense";
 const KABUTO_SUMO_GAME_ID = "kabuto-sumo";
 const LESSON_CONFIG = {
-  requiredCorrect: 5,
+  carryGoal: 5,
   nextDelayMs: 650,
 };
 
@@ -60,7 +60,9 @@ const againButton = document.getElementById("againButton");
 
 let activeLevel = 1;
 let advanceTimer = null;
-let correct = 0;
+let noCarryProblems = [];
+let noCarryCorrect = 0;
+let carryCorrect = 0;
 let answer = "";
 let currentProblem = null;
 let lastProblemKey = "";
@@ -68,11 +70,25 @@ let drawing = false;
 let dpr = 1;
 let lastTouchEnd = 0;
 
-goalCount.textContent = `/${LESSON_CONFIG.requiredCorrect}`;
+function currentProgress() {
+  return activeLevel === 1 ? noCarryCorrect : carryCorrect;
+}
+
+function currentGoal() {
+  return activeLevel === 1 ? noCarryProblems.length : LESSON_CONFIG.carryGoal;
+}
+
+function updateProgress() {
+  correctCount.textContent = currentProgress();
+  goalCount.textContent = `/${currentGoal()}`;
+}
 
 function resetLesson() {
-  correct = 0;
-  correctCount.textContent = correct;
+  noCarryProblems = shuffledNoCarryProblems();
+  noCarryCorrect = 0;
+  carryCorrect = 0;
+  lastProblemKey = "";
+  updateProgress();
   completePanel.classList.add("hidden");
   clearRewardToken();
   clearScratch();
@@ -92,17 +108,14 @@ function nextProblem() {
 }
 
 function createProblem() {
+  if (activeLevel === 1) return noCarryProblems[noCarryCorrect];
+
   let left = 1;
   let right = 1;
   let key = "";
   do {
-    if (activeLevel === 1) {
-      left = randomInt(1, 8);
-      right = randomInt(1, 9 - left);
-    } else {
-      left = activeLevel === 2 ? 5 : randomInt(1, 9);
-      right = randomInt(10 - left, 9);
-    }
+    left = activeLevel === 2 ? 5 : randomInt(1, 9);
+    right = randomInt(10 - left, 9);
     key = `${left}+${right}`;
   } while (key === lastProblemKey);
   lastProblemKey = key;
@@ -112,8 +125,22 @@ function createProblem() {
   };
 }
 
+function shuffledNoCarryProblems() {
+  const problems = [];
+  for (let left = 1; left <= 8; left += 1) {
+    for (let right = 1; left + right <= 9; right += 1) {
+      problems.push({ text: `${left} + ${right}`, answer: left + right });
+    }
+  }
+  for (let index = problems.length - 1; index > 0; index -= 1) {
+    const other = randomInt(0, index);
+    [problems[index], problems[other]] = [problems[other], problems[index]];
+  }
+  return problems;
+}
+
 function selectLevel(index) {
-  if (activeLevel === index + 1 || correct >= LESSON_CONFIG.requiredCorrect) return;
+  if (activeLevel === index + 1 || currentProgress() >= currentGoal()) return;
 
   activeLevel = index + 1;
   levelTabs.forEach((tab, tabIndex) => {
@@ -122,6 +149,7 @@ function selectLevel(index) {
   });
   additionExercise.setAttribute("aria-labelledby", levelTabs[index].id);
   lastProblemKey = "";
+  updateProgress();
   nextProblem();
 }
 
@@ -139,17 +167,26 @@ function updateAnswerDisplay() {
 function submitAnswer() {
   if (!answer || !currentProblem || advanceTimer !== null) return;
   const isCorrect = Number(answer) === currentProblem.answer;
+  let advance = nextProblem;
   if (isCorrect) {
-    correct += 1;
-    correctCount.textContent = correct;
+    if (activeLevel === 1) noCarryCorrect += 1;
+    else carryCorrect += 1;
+    updateProgress();
     feedback.textContent = "せいかい！";
     feedback.className = "feedback good";
+    if (currentProgress() === currentGoal()) advance = showComplete;
   } else {
     feedback.textContent = `ざんねん！ こたえは ${currentProblem.answer}`;
     feedback.className = "feedback bad";
+    if (activeLevel === 1) advance = retryProblem;
   }
-  const advance = correct >= LESSON_CONFIG.requiredCorrect ? showComplete : nextProblem;
   advanceTimer = window.setTimeout(advance, LESSON_CONFIG.nextDelayMs);
+}
+
+function retryProblem() {
+  advanceTimer = null;
+  answer = "";
+  updateAnswerDisplay();
 }
 
 function showComplete() {
